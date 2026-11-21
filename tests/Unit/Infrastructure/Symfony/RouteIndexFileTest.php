@@ -85,6 +85,14 @@ final class RouteIndexFileTest extends TestCase
         yield 'controller of an unknown route' => ["<?php return ['version' => 1, 'routes' => [], 'controllers' => ['A::b' => ['a']], 'points' => []];"];
         yield 'invalid point' => ["<?php return ['version' => 1, 'routes' => [], 'controllers' => [], 'points' => ['a' => ['nope']]];"];
         yield 'point list not a list' => ["<?php return ['version' => 1, 'routes' => [], 'controllers' => [], 'points' => ['a' => 'http_route:A::b']];"];
+        yield 'routes not an array' => ["<?php return ['version' => 1, 'routes' => 'a', 'controllers' => [], 'points' => []];"];
+        yield 'controllers not an array' => ["<?php return ['version' => 1, 'routes' => [], 'controllers' => 'a', 'points' => []];"];
+        yield 'points not an array' => ["<?php return ['version' => 1, 'routes' => [], 'controllers' => [], 'points' => 'a'];"];
+        yield 'route not an array' => ["<?php return ['version' => 1, 'routes' => ['a' => '/a'], 'controllers' => [], 'points' => []];"];
+        yield 'methods not a list' => ["<?php return ['version' => 1, 'routes' => ['a' => ['path' => '/a', 'methods' => ['x' => 'GET'], 'controller' => null]], 'controllers' => [], 'points' => []];"];
+        yield 'empty controller key' => ["<?php return ['version' => 1, 'routes' => ['a' => ['path' => '/a', 'methods' => [], 'controller' => null]], 'controllers' => ['' => ['a']], 'points' => []];"];
+        yield 'empty route list' => ["<?php return ['version' => 1, 'routes' => [], 'controllers' => [], 'points' => ['a' => []]];"];
+        yield 'empty route name in a list' => ["<?php return ['version' => 1, 'routes' => ['a' => ['path' => '/a', 'methods' => [], 'controller' => 'A::b']], 'controllers' => ['A::b' => ['a', '']], 'points' => []];"];
         yield 'throws' => ["<?php throw new \\RuntimeException('broken');"];
     }
 

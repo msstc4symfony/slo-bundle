@@ -110,6 +110,7 @@ final class SloCacheWarmerTest extends TestCase
         self::assertSame([], $this->warmer($routes, $logger)->warmUp($this->dir));
         self::assertCount(1, $logger->records);
         self::assertSame('SLO catalog validation failed during cache warm-up.', $logger->records[0][1]);
+        self::assertInstanceOf(RuntimeException::class, $logger->contexts[0]['exception']);
     }
 
     public function testNeverThrowsWhenTheIndexCannotBeWritten(): void
@@ -121,6 +122,7 @@ final class SloCacheWarmerTest extends TestCase
 
         self::assertSame([], $this->warmer(new InMemoryRouteCatalog(), $logger, $router)->warmUp($this->dir));
         self::assertSame('SLO route index could not be written during cache warm-up, routes are read on first use.', $logger->records[2][1]);
+        self::assertInstanceOf(RuntimeException::class, $logger->contexts[2]['exception']);
     }
 
     public function testNeverThrowsWhenTheLoggerFails(): void
