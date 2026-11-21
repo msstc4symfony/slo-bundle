@@ -11,6 +11,7 @@ use Msstc4Symfony\SloBundle\Application\Discovery\DefinitionFactory;
 use Msstc4Symfony\SloBundle\Application\Discovery\DiscoveryErrors;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CatalogDump;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
+use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MetricsBundleSeriesCatalog;
 
 final class CatalogFixture
 {
@@ -24,6 +25,6 @@ final class CatalogFixture
         $errors = new DiscoveryErrors();
         $contents = $assembler->assemble(new DefinitionFactory('30d', ['5xx'], [], true, false), $errors, $extras ?? new CatalogExtras());
 
-        return new CompiledSloCatalog(CatalogDump::toArray($contents));
+        return new CompiledSloCatalog(CatalogDump::toArray($contents, new MetricsBundleSeriesCatalog()));
     }
 }

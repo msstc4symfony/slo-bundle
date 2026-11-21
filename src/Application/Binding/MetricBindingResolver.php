@@ -193,11 +193,13 @@ final readonly class MetricBindingResolver
     {
         $own = [];
         foreach ($definition->points() as $point) {
-            $own[$point->id] = $this->series->messageLabel($point->id);
+            $own[$point->id] = true;
         }
-        foreach ($this->diagnostics->handledMessageClasses() as $messageClass) {
-            if (!isset($own[$messageClass]) && \in_array($this->series->messageLabel($messageClass), $own, true)) {
-                return true;
+        foreach ($definition->points() as $point) {
+            foreach ($this->diagnostics->handledMessageClassesLabelled($this->series->messageLabel($point->id)) as $messageClass) {
+                if (!isset($own[$messageClass])) {
+                    return true;
+                }
             }
         }
 

@@ -10,6 +10,7 @@ use Msstc4Symfony\SloBundle\Application\Discovery\CatalogExtras;
 use Msstc4Symfony\SloBundle\Application\Discovery\HandlerInfo;
 use Msstc4Symfony\SloBundle\Application\Discovery\SloDeclaration;
 use Msstc4Symfony\SloBundle\Application\Discovery\TaggedPoint;
+use Msstc4Symfony\SloBundle\Application\Port\SeriesCatalogInterface;
 use Msstc4Symfony\SloBundle\Domain\Entity\SloDefinition;
 use Msstc4Symfony\SloBundle\Domain\Enum\ObjectiveKind;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
@@ -25,6 +26,8 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\Window;
 
 /**
  * Plain-array form of the compiled catalog: the container dumps it as a service argument, so it holds scalars only.
+ * point_index, conflicted_points, metric_labels and message_classes_by_label are lookup indexes for the request path
+ * (derived from the other sections, never hydrated).
  *
  * @phpstan-type ObjectiveShape array{kind: value-of<ObjectiveKind>, target: float, threshold_ms: positive-int|null, include_errors: bool}
  * @phpstan-type DefinitionShape array{
@@ -61,6 +64,8 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\Window;
  *     extras: ExtrasShape,
  *     point_index: array<non-empty-string, non-empty-list<non-negative-int>>,
  *     conflicted_points: array<non-empty-string, non-empty-list<non-empty-string>>,
+ *     metric_labels: array<non-empty-string, non-empty-string>,
+ *     message_classes_by_label: array<non-empty-string, non-empty-list<non-empty-string>>,
  * }
  *
  * @internal
@@ -68,12 +73,14 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\Window;
 final class CatalogDump
 {
     /** Bumped whenever CatalogShape changes, so a dump left in a stale cache is detected instead of misread. */
-    public const FORMAT = 2;
+    public const FORMAT = 3;
 
     /**
+     * @param SeriesCatalogInterface $series names the `message` label value of each handled message class
+     *
      * @return CatalogShape
      */
-    public static function toArray(CatalogContents $contents): array
+    public static function toArray(CatalogContents $contents, SeriesCatalogInterface $series): array
     {
         $extras = $contents->extras;
 
@@ -123,6 +130,8 @@ final class CatalogDump
             ],
             'point_index' => $pointIndex,
             'conflicted_points' => array_map(array_values(...), $conflictedPoints),
+            'metric_labels' => self::metricLabels($extras),
+            'message_classes_by_label' => self::messageClassesByLabel($extras, $series),
         ];
     }
 
@@ -227,6 +236,40 @@ final class CatalogDump
             'count_attempts' => $classification->countAttempts,
             'strategy' => $definition->strategyPreference()->value,
         ];
+    }
+
+    /**
+     * @return array<non-empty-string, non-empty-string> tagged point => its `metric_label`
+     */
+    private static function metricLabels(CatalogExtras $extras): array
+    {
+        $labels = [];
+        foreach ($extras->taggedPoints as $tagged) {
+            if ($tagged->metricLabel !== null) {
+                $labels[$tagged->point->toString()] = $tagged->metricLabel;
+            }
+        }
+        ksort($labels, SORT_STRING);
+
+        return $labels;
+    }
+
+    /**
+     * @return array<non-empty-string, non-empty-list<non-empty-string>> `message` label value => handled message classes, sorted
+     */
+    private static function messageClassesByLabel(CatalogExtras $extras, SeriesCatalogInterface $series): array
+    {
+        $classes = [];
+        foreach ($extras->handlers as $handler) {
+            $classes[$series->messageLabel($handler->messageClass)][$handler->messageClass] = $handler->messageClass;
+        }
+        ksort($classes, SORT_STRING);
+
+        return array_map(static function (array $byClass): array {
+            ksort($byClass, SORT_STRING);
+
+            return array_values($byClass);
+        }, $classes);
     }
 
     /**

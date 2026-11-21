@@ -11,12 +11,15 @@ use Msstc4Symfony\SloBundle\Application\Discovery\CatalogAssembler;
 use Msstc4Symfony\SloBundle\Application\Discovery\CatalogExtras;
 use Msstc4Symfony\SloBundle\Application\Discovery\DefinitionFactory;
 use Msstc4Symfony\SloBundle\Application\Discovery\DiscoveryErrors;
+use Msstc4Symfony\SloBundle\Application\Discovery\HandlerInfo;
+use Msstc4Symfony\SloBundle\Application\Discovery\TaggedPoint;
 use Msstc4Symfony\SloBundle\Domain\Entity\SloDefinition;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\SloName;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CatalogDump;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
+use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MetricsBundleSeriesCatalog;
 use Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Symfony\RecordingLogger;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -101,10 +104,18 @@ final class CompiledSloCatalogTest extends TestCase
 
     public function testCheapRuntimeReadsUseTheRawDump(): void
     {
-        $dump = $this->dump();
-        $dump['extras']['metric_buckets'] = ['logic_action_duration_histogram_seconds' => [0.1, 1.0]];
-        $dump['extras']['tagged_points'] = [['point' => 'logic_action:refund', 'metric_label' => 'refund_label'], ['point' => 'logic_action:other', 'metric_label' => null]];
-        $dump['extras']['handlers'] = [['handler_class' => self::class, 'message_class' => self::PAY, 'async' => true, 'from_transport' => null, 'method' => '__invoke']];
+        $dump = $this->dump(new CatalogExtras(
+            handlers: [
+                new HandlerInfo(self::class, self::PAY, true, null, '__invoke'),
+                new HandlerInfo(self::class, 'Legacy\\Pay', true, null, '__invoke'),
+                new HandlerInfo(self::class, 'App\\Message\\Refund', true, null, '__invoke'),
+            ],
+            taggedPoints: [
+                new TaggedPoint(PointId::of(PointType::LogicAction, 'refund'), 'refund_label'),
+                new TaggedPoint(PointId::of(PointType::LogicAction, 'other'), null),
+            ],
+            metricBuckets: ['logic_action_duration_histogram_seconds' => [0.1, 1.0]],
+        ));
         $catalog = new CompiledSloCatalog($dump, new RecordingLogger());
 
         self::assertSame([0.1, 1.0], $catalog->metricBuckets('logic_action_duration_histogram_seconds'));
@@ -112,14 +123,16 @@ final class CompiledSloCatalogTest extends TestCase
         self::assertSame('refund_label', $catalog->metricLabelOf(PointId::of(PointType::LogicAction, 'refund')));
         self::assertNull($catalog->metricLabelOf(PointId::of(PointType::LogicAction, 'other')));
         self::assertNull($catalog->metricLabelOf(PointId::of(PointType::LogicAction, 'unknown')));
-        self::assertSame([self::PAY], $catalog->handledMessageClasses());
+        self::assertSame([self::PAY, 'Legacy\\Pay'], $catalog->handledMessageClassesLabelled('Pay'));
+        self::assertSame(['App\\Message\\Refund'], $catalog->handledMessageClassesLabelled('Refund'));
+        self::assertSame([], $catalog->handledMessageClassesLabelled('Unknown'));
 
         $stale = $dump;
-        $stale['format'] = 1;
+        $stale['format'] = 2;
         $staleCatalog = new CompiledSloCatalog($stale, new RecordingLogger());
         self::assertNull($staleCatalog->metricBuckets('logic_action_duration_histogram_seconds'));
         self::assertNull($staleCatalog->metricLabelOf(PointId::of(PointType::LogicAction, 'refund')));
-        self::assertSame([], $staleCatalog->handledMessageClasses());
+        self::assertSame([], $staleCatalog->handledMessageClassesLabelled('Pay'));
     }
 
     public function testUndeclaredPointsReadAsEmptyWithoutAWarning(): void
@@ -153,7 +166,7 @@ final class CompiledSloCatalogTest extends TestCase
         $assembler->declare($this->create(), new Slo('payment.health', [new Availability(99)]));
 
         $errors = new DiscoveryErrors();
-        $dump = CatalogDump::toArray($assembler->assemble(new DefinitionFactory('30d', ['5xx'], [], true, false), $errors, new CatalogExtras()));
+        $dump = CatalogDump::toArray($assembler->assemble(new DefinitionFactory('30d', ['5xx'], [], true, false), $errors, new CatalogExtras()), new MetricsBundleSeriesCatalog());
         $dump['definitions'] = array_map(static fn (array $d): array => $d['name'] === 'payment.create' ? ['window' => '5m'] + $d : $d, $dump['definitions']);
         $logger = new RecordingLogger();
         $catalog = new CompiledSloCatalog($dump, $logger);
@@ -227,7 +240,7 @@ final class CompiledSloCatalogTest extends TestCase
     /**
      * @return CatalogShape
      */
-    private function dump(): array
+    private function dump(?CatalogExtras $extras = null): array
     {
         $assembler = new CatalogAssembler();
         $assembler->declare($this->create(), new Slo('payment.create', [new Availability(99.9)]));
@@ -236,10 +249,10 @@ final class CompiledSloCatalogTest extends TestCase
         $assembler->declare($this->pay(), new Slo('payment.process', [new Availability(99)]));
 
         $errors = new DiscoveryErrors();
-        $extras = new CatalogExtras(failureTransports: ['failed'], hasHttpPoints: true);
+        $extras ??= new CatalogExtras(failureTransports: ['failed'], hasHttpPoints: true);
         $contents = $assembler->assemble(new DefinitionFactory('30d', ['5xx'], [], true, false), $errors, $extras);
         self::assertTrue($errors->isEmpty(), $errors->summary());
 
-        return CatalogDump::toArray($contents);
+        return CatalogDump::toArray($contents, new MetricsBundleSeriesCatalog());
     }
 }

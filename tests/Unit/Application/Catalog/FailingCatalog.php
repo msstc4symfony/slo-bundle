@@ -130,11 +130,11 @@ final readonly class FailingCatalog implements SloCatalogInterface, CatalogDiagn
     }
 
     #[Override]
-    public function handledMessageClasses(): array
+    public function handledMessageClassesLabelled(string $label): array
     {
         $this->fail(__FUNCTION__);
 
-        return $this->inner->handledMessageClasses();
+        return $this->inner->handledMessageClassesLabelled($label);
     }
 
     private function fail(string $method): void

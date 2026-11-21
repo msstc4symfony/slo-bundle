@@ -17,6 +17,7 @@ use Msstc4Symfony\SloBundle\DependencyInjection\CompilerPass\Discovery\Operation
 use Msstc4Symfony\SloBundle\DependencyInjection\CompilerPass\Discovery\TaggedPointReader;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CatalogDump;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
+use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MetricsBundleSeriesCatalog;
 use Override;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
@@ -68,7 +69,7 @@ final class CollectSloDefinitionsPass implements CompilerPassInterface
             throw new InvalidConfigurationException($errors->summary());
         }
 
-        $container->getDefinition(CompiledSloCatalog::class)->setArgument('$catalog', self::escape(CatalogDump::toArray($contents)));
+        $container->getDefinition(CompiledSloCatalog::class)->setArgument('$catalog', self::escape(CatalogDump::toArray($contents, new MetricsBundleSeriesCatalog())));
     }
 
     /**

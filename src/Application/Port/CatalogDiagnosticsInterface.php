@@ -54,7 +54,7 @@ interface CatalogDiagnosticsInterface
     public function metricBuckets(string $metric): ?array;
 
     /**
-     * Cheap runtime read of CatalogExtras::$taggedPoints: the `metric_label` of a tagged point.
+     * Cheap runtime read of an index over CatalogExtras::$taggedPoints: the `metric_label` of a tagged point.
      *
      * @return non-empty-string|null
      */
@@ -71,9 +71,12 @@ interface CatalogDiagnosticsInterface
     public function controllerServiceOf(string $serviceId): ?string;
 
     /**
-     * Cheap runtime read of CatalogExtras::$handlers: every handled message class.
+     * Cheap runtime read of an index over CatalogExtras::$handlers: the handled message classes metrics-bundle writes
+     * into the `message` label as $label (SeriesCatalogInterface::messageLabel() at compile time).
      *
-     * @return list<non-empty-string>
+     * @param non-empty-string $label
+     *
+     * @return list<non-empty-string> sorted
      */
-    public function handledMessageClasses(): array;
+    public function handledMessageClassesLabelled(string $label): array;
 }

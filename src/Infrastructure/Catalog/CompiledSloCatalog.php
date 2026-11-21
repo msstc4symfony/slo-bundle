@@ -176,17 +176,7 @@ final class CompiledSloCatalog implements SloCatalogInterface, CatalogDiagnostic
     #[Override]
     public function metricLabelOf(PointId $point): ?string
     {
-        if (!$this->ensureCurrentFormat()) {
-            return null;
-        }
-        $key = $point->toString();
-        foreach ($this->catalog['extras']['tagged_points'] as $tagged) {
-            if ($tagged['point'] === $key) {
-                return $tagged['metric_label'];
-            }
-        }
-
-        return null;
+        return $this->ensureCurrentFormat() ? $this->catalog['metric_labels'][$point->toString()] ?? null : null;
     }
 
     #[Override]
@@ -196,9 +186,9 @@ final class CompiledSloCatalog implements SloCatalogInterface, CatalogDiagnostic
     }
 
     #[Override]
-    public function handledMessageClasses(): array
+    public function handledMessageClassesLabelled(string $label): array
     {
-        return $this->ensureCurrentFormat() ? array_column($this->catalog['extras']['handlers'], 'message_class') : [];
+        return $this->ensureCurrentFormat() ? $this->catalog['message_classes_by_label'][$label] ?? [] : [];
     }
 
     /**

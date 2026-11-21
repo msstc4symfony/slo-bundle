@@ -20,6 +20,7 @@ use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
 use Msstc4Symfony\SloBundle\Domain\Enum\StrategyPreference;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CatalogDump;
+use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MetricsBundleSeriesCatalog;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use stdClass;
@@ -52,11 +53,11 @@ final class CatalogDumpTest extends TestCase
         $contents = $assembler->assemble(new DefinitionFactory('30d', ['5xx'], [], true, false), $errors, $extras);
         self::assertTrue($errors->isEmpty(), $errors->summary());
 
-        $dump = CatalogDump::toArray($contents);
+        $dump = CatalogDump::toArray($contents, new MetricsBundleSeriesCatalog());
         $restored = CatalogDump::fromArray($dump);
 
         self::assertEquals($contents, $restored);
-        self::assertSame($dump, CatalogDump::toArray($restored));
+        self::assertSame($dump, CatalogDump::toArray($restored, new MetricsBundleSeriesCatalog()));
         self::assertSame(['payment.create', 'payment.process'], array_column($dump['definitions'], 'name'));
         self::assertSame(['App\Controller::create', 'App\Controller::update'], array_map(static fn (PointId $p): string => $p->id, $restored->definitions[0]->points()));
         self::assertSame(['payment.conflict'], array_keys($restored->conflicts));
@@ -99,7 +100,7 @@ final class CatalogDumpTest extends TestCase
         $contents = $assembler->assemble(new DefinitionFactory('30d', ['5xx'], [], true, false), new DiscoveryErrors(), new CatalogExtras(hasHttpPoints: !$expected));
 
         self::assertSame($expected, $contents->extras->hasHttpPoints);
-        self::assertSame($expected, CatalogDump::toArray($contents)['extras']['has_http_points']);
+        self::assertSame($expected, CatalogDump::toArray($contents, new MetricsBundleSeriesCatalog())['extras']['has_http_points']);
     }
 
     public function testPointIdMayContainColons(): void
@@ -116,7 +117,7 @@ final class CatalogDumpTest extends TestCase
         $contents = $assembler->assemble(new DefinitionFactory('30d', ['5xx'], [], true, false), $errors, new CatalogExtras());
         self::assertTrue($errors->isEmpty(), $errors->summary());
 
-        self::assertEquals($contents, CatalogDump::fromArray(CatalogDump::toArray($contents)));
+        self::assertEquals($contents, CatalogDump::fromArray(CatalogDump::toArray($contents, new MetricsBundleSeriesCatalog())));
     }
 
     public function testInvalidPointIsRejected(): void
