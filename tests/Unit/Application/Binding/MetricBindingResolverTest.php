@@ -21,6 +21,7 @@ use Msstc4Symfony\SloBundle\Application\Discovery\CatalogExtras;
 use Msstc4Symfony\SloBundle\Application\Discovery\HandlerInfo;
 use Msstc4Symfony\SloBundle\Application\Discovery\TaggedPoint;
 use Msstc4Symfony\SloBundle\Application\Port\RouteInfo;
+use Msstc4Symfony\SloBundle\Application\Port\SeriesCatalogInterface;
 use Msstc4Symfony\SloBundle\Domain\Entity\SloDefinition;
 use Msstc4Symfony\SloBundle\Domain\Enum\ObjectiveKind;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
@@ -85,6 +86,14 @@ final class MetricBindingResolverTest extends TestCase
         self::assertSame($expected, $binding->strategy);
         self::assertSame($expected === Strategy::ExistingSeries, $binding->series instanceof SeriesBinding);
         self::assertSame($expected === Strategy::Dedicated, $resolver->isDedicated($definition, $kind));
+    }
+
+    #[DataProvider('provideRows')]
+    public function testIsDedicatedDecidesWithoutBuildingTheSeries(PointType $type, Slo $slo, ObjectiveKind $kind, Strategy $expected): void
+    {
+        $definition = $this->define($type, $slo);
+
+        self::assertSame($expected === Strategy::Dedicated, $this->resolver($definition, $this->extras(), new DecisionOnlySeriesCatalog())->isDedicated($definition, $kind));
     }
 
     public function testLogicWithoutBucketDefinitionIsDedicated(): void
@@ -317,7 +326,7 @@ final class MetricBindingResolverTest extends TestCase
         );
     }
 
-    private function resolver(SloDefinition $definition, CatalogExtras $extras): MetricBindingResolver
+    private function resolver(SloDefinition $definition, CatalogExtras $extras, SeriesCatalogInterface $series = new MetricsBundleSeriesCatalog()): MetricBindingResolver
     {
         $routes = [];
         foreach ($definition->points() as $point) {
@@ -326,7 +335,7 @@ final class MetricBindingResolverTest extends TestCase
         }
 
         // extras() hydrates CLI-only data: the request path must resolve without it.
-        return new MetricBindingResolver(new InMemoryRouteCatalog($routes), new FailingCatalog(CatalogFixture::build(static fn (): null => null, $extras), ['extras']), new MetricsBundleSeriesCatalog());
+        return new MetricBindingResolver(new InMemoryRouteCatalog($routes), new FailingCatalog(CatalogFixture::build(static fn (): null => null, $extras), ['extras']), $series);
     }
 
     private function series(Binding $binding): SeriesBinding

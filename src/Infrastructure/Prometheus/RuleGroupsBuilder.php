@@ -178,6 +178,7 @@ final readonly class RuleGroupsBuilder implements RuleFileBuilderInterface
     /**
      * @param non-empty-string $name
      * @param non-empty-string $application
+     *
      * @return RuleShape
      */
     private function alert(string $name, string $expr, BoundObjective $objective, string $application, BurnRateSeverity $severity, string $what): array

@@ -208,7 +208,7 @@ final class SloCacheWarmerTest extends TestCase
             $assembler->declare(PointId::of(PointType::HttpRoute, 'A::create'), new Slo('payment.create', [new Availability(99.9)]));
             $assembler->declare(PointId::of(PointType::MessengerMessage, 'App\Message\Pay'), new Slo('payment.process', [new Availability(99)]));
         });
-        $diagnostics = new FailingCatalog($catalog, ['failureTransports']);
+        $diagnostics = new FailingCatalog($catalog, ['handledMessageClasses']);
         $collection = new RouteCollection();
         $collection->add('create', new Route('/create', ['_controller' => 'A::create']));
 

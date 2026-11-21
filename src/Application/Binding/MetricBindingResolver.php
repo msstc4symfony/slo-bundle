@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Application\Binding;
 
+use Closure;
 use InvalidArgumentException;
 use Msstc4Symfony\SloBundle\Application\Port\CatalogDiagnosticsInterface;
 use Msstc4Symfony\SloBundle\Application\Port\RouteCatalogInterface;
@@ -33,20 +34,14 @@ final readonly class MetricBindingResolver
 
     public function resolve(SloDefinition $definition, Objective $objective): Binding
     {
-        if ($definition->strategyPreference() === StrategyPreference::Dedicated || $objective->kind === ObjectiveKind::Combined) {
-            return Binding::dedicated();
-        }
+        $build = $this->existingSeries($definition, $objective);
 
-        $series = match ($definition->pointType()) {
-            PointType::HttpRoute => $this->http($definition, $objective),
-            PointType::MessengerMessage => $this->messenger($definition, $objective),
-            PointType::LogicAction => $this->logic($definition, $objective),
-            PointType::Operation => null,
-        };
-
-        return $series instanceof SeriesBinding ? Binding::existingSeries($series) : Binding::dedicated();
+        return $build instanceof Closure ? Binding::existingSeries($build()) : Binding::dedicated();
     }
 
+    /**
+     * Decides without building the series binding (matchers, patterns): the request path only needs the strategy.
+     */
     public function isDedicated(SloDefinition $definition, ObjectiveKind $kind): bool
     {
         $objective = $definition->objective($kind);
@@ -54,7 +49,7 @@ final readonly class MetricBindingResolver
             throw new InvalidArgumentException(\sprintf('SLO "%s" has no "%s" objective.', $definition->name()->value, $kind->value));
         }
 
-        return $this->resolve($definition, $objective)->strategy === Strategy::Dedicated;
+        return !$this->existingSeries($definition, $objective) instanceof Closure;
     }
 
     /**
@@ -75,7 +70,27 @@ final readonly class MetricBindingResolver
         return $this->series->histogramFor($type);
     }
 
-    private function http(SloDefinition $definition, Objective $objective): ?SeriesBinding
+    /**
+     * @return (Closure(): SeriesBinding)|null builds the existing series that express the objective, null when it needs dedicated counters
+     */
+    private function existingSeries(SloDefinition $definition, Objective $objective): ?Closure
+    {
+        if ($definition->strategyPreference() === StrategyPreference::Dedicated || $objective->kind === ObjectiveKind::Combined) {
+            return null;
+        }
+
+        return match ($definition->pointType()) {
+            PointType::HttpRoute => $this->http($definition, $objective),
+            PointType::MessengerMessage => $this->messenger($definition, $objective),
+            PointType::LogicAction => $this->logic($definition, $objective),
+            PointType::Operation => null,
+        };
+    }
+
+    /**
+     * @return (Closure(): SeriesBinding)|null
+     */
+    private function http(SloDefinition $definition, Objective $objective): ?Closure
     {
         $routeNames = $this->routeNames($definition);
         if ($routeNames === []) {
@@ -84,7 +99,7 @@ final readonly class MetricBindingResolver
         $classification = $definition->classification();
 
         if ($objective->kind === ObjectiveKind::Availability) {
-            return $this->series->httpAvailability($routeNames, $classification->badStatuses, $classification->ineligibleStatuses);
+            return fn (): SeriesBinding => $this->series->httpAvailability($routeNames, $classification->badStatuses, $classification->ineligibleStatuses);
         }
 
         // The histogram has no status label: only "every eligible event" can be read from it.
@@ -93,10 +108,13 @@ final readonly class MetricBindingResolver
         }
         $bucket = $this->bucket(PointType::HttpRoute, $objective);
 
-        return $bucket === null ? null : $this->series->httpLatency($routeNames, $bucket);
+        return $bucket === null ? null : fn (): SeriesBinding => $this->series->httpLatency($routeNames, $bucket);
     }
 
-    private function messenger(SloDefinition $definition, Objective $objective): ?SeriesBinding
+    /**
+     * @return (Closure(): SeriesBinding)|null
+     */
+    private function messenger(SloDefinition $definition, Objective $objective): ?Closure
     {
         if ($definition->classification()->countAttempts || $this->sharesMessageLabel($definition)) {
             return null;
@@ -104,15 +122,18 @@ final readonly class MetricBindingResolver
         $messages = array_map(static fn (PointId $point): string => $point->id, $definition->points());
 
         if ($objective->kind === ObjectiveKind::Availability) {
-            return $this->series->messengerAvailability($messages, $this->diagnostics->failureTransports());
+            return fn (): SeriesBinding => $this->series->messengerAvailability($messages, $this->diagnostics->failureTransports());
         }
 
         $bucket = $this->bucket(PointType::MessengerMessage, $objective);
 
-        return $bucket === null ? null : $this->series->messengerLatency($messages, $this->diagnostics->failureTransports(), $bucket);
+        return $bucket === null ? null : fn (): SeriesBinding => $this->series->messengerLatency($messages, $this->diagnostics->failureTransports(), $bucket);
     }
 
-    private function logic(SloDefinition $definition, Objective $objective): ?SeriesBinding
+    /**
+     * @return (Closure(): SeriesBinding)|null
+     */
+    private function logic(SloDefinition $definition, Objective $objective): ?Closure
     {
         if (DurationBuckets::of($this->series, $this->diagnostics, PointType::LogicAction) === null) {
             return null;
@@ -129,11 +150,11 @@ final readonly class MetricBindingResolver
 
         if ($objective->kind === ObjectiveKind::Availability) {
             // The series counts expected failures as good: it cannot express expectedFailureIsGood: false.
-            return $definition->classification()->expectedFailureIsGood ? $this->series->logicAvailability($labels) : null;
+            return $definition->classification()->expectedFailureIsGood ? fn (): SeriesBinding => $this->series->logicAvailability($labels) : null;
         }
         $bucket = $this->bucket(PointType::LogicAction, $objective);
 
-        return $bucket === null ? null : $this->series->logicLatency($labels, $bucket);
+        return $bucket === null ? null : fn (): SeriesBinding => $this->series->logicLatency($labels, $bucket);
     }
 
     /**
