@@ -77,8 +77,10 @@ final class Action implements EventRecorderInterface, ResetInterface
     #[Override]
     public function reset(): void
     {
-        $this->resolved = array_diff_key($this->resolved, $this->failedResolutions);
-        $this->failedResolutions = [];
+        if ($this->failedResolutions !== []) {
+            $this->resolved = array_diff_key($this->resolved, $this->failedResolutions);
+            $this->failedResolutions = [];
+        }
         $this->warnedConflicts = [];
         $this->failureWarnings->reset();
     }
