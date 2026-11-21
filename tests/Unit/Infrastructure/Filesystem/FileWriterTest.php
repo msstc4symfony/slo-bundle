@@ -39,6 +39,20 @@ final class FileWriterTest extends TestCase
         self::assertSame([], glob($this->root . '/prometheus/.*.tmp*'));
     }
 
+    public function testAPlantedLinkAtAGuessableTemporaryNameIsNotFollowed(): void
+    {
+        $victim = \dirname($this->root) . '/victim';
+        (new Filesystem())->dumpFile($victim, "precious\n");
+        (new Filesystem())->mkdir($this->root . '/prometheus');
+        symlink($victim, $this->root . '/prometheus/.a.yml.tmp' . getmypid());
+
+        (new FileWriter())->write($this->root, new GeneratedFile('prometheus/a.yml', "generated\n"));
+
+        self::assertSame("precious\n", file_get_contents($victim));
+        self::assertSame("generated\n", file_get_contents($this->root . '/prometheus/a.yml'));
+        self::assertFalse(is_link($this->root . '/prometheus/a.yml'));
+    }
+
     public function testListsOnlyTheFilesDirectlyInTheDirectorySorted(): void
     {
         $writer = new FileWriter();
