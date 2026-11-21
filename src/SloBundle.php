@@ -7,6 +7,8 @@ namespace Msstc4Symfony\SloBundle;
 use Msstc4Symfony\SloBundle\DependencyInjection\CompilerPass\CollectSloDefinitionsPass;
 use Msstc4Symfony\SloBundle\DependencyInjection\CompilerPass\RegisterSloMetricPass;
 use Override;
+use Symfony\Component\Config\Definition\Builder\ArrayNodeDefinition;
+use Symfony\Component\Config\Definition\Builder\IntegerNodeDefinition;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
 use Symfony\Component\DependencyInjection\Compiler\PassConfig;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -44,6 +46,12 @@ final class SloBundle extends AbstractBundle
 {
     private const LABEL_VALUE = '/^[A-Za-z0-9_.:-]{1,128}$/D';
 
+    private const PARAMETER_PREFIX = 'msstc4symfony_slo.';
+
+    private const OPERATIONS = 'operations';
+
+    private const DEFAULT_REQUIRED_PERCENT = 95;
+
     protected string $extensionAlias = 'msstc4symfony_slo';
 
     #[Override]
@@ -59,166 +67,197 @@ final class SloBundle extends AbstractBundle
     {
         $definition->rootNode()
             ->addDefaultsIfNotSet()
+            ->append($this->defaultsNode())
+            ->append($this->coverageNode())
+            ->append($this->operationsNode())
+            ->append($this->generationNode())
+        ;
+    }
+
+    /**
+     * @param array<mixed> $config the SloConfig tree, flattened into parameters as is
+     */
+    #[Override]
+    public function loadExtension(array $config, ContainerConfigurator $container, ContainerBuilder $builder): void
+    {
+        foreach (self::flatten($config) as $path => $value) {
+            $builder->setParameter(self::PARAMETER_PREFIX . $path, $value);
+        }
+
+        $container->import(__DIR__ . '/Resources/config/services.php');
+    }
+
+    /**
+     * One parameter per leaf: nested maps become dotted paths, lists and the operations map stay whole.
+     *
+     * @param array<mixed> $config
+     *
+     * @return array<string, array<mixed>|bool|float|int|string|null>
+     */
+    private static function flatten(array $config, string $prefix = ''): array
+    {
+        $parameters = [];
+        foreach ($config as $key => $value) {
+            $path = $prefix . $key;
+            if (\is_array($value) && !array_is_list($value) && $path !== self::OPERATIONS) {
+                $parameters += self::flatten($value, $path . '.');
+            } elseif (\is_array($value) || \is_scalar($value) || $value === null) {
+                $parameters[$path] = $value;
+            }
+        }
+
+        return $parameters;
+    }
+
+    private function defaultsNode(): ArrayNodeDefinition
+    {
+        return $this->node('defaults')
+            ->addDefaultsIfNotSet()
             ->children()
-                ->arrayNode('defaults')
+                ->scalarNode('window')->cannotBeEmpty()->defaultValue(CollectSloDefinitionsPass::DEFAULT_WINDOW)->end()
+                ->arrayNode('http')
                     ->addDefaultsIfNotSet()
                     ->children()
-                        ->scalarNode('window')->cannotBeEmpty()->defaultValue('30d')->end()
-                        ->arrayNode('http')
-                            ->addDefaultsIfNotSet()
-                            ->children()
-                                ->arrayNode('bad_statuses')->scalarPrototype()->end()->defaultValue(['5xx'])->end()
-                                ->arrayNode('ineligible_statuses')->scalarPrototype()->end()->defaultValue([])->end()
-                            ->end()
-                        ->end()
-                        ->arrayNode('logic')
-                            ->addDefaultsIfNotSet()
-                            ->children()
-                                ->booleanNode('expected_failure_is_good')->defaultTrue()->end()
-                            ->end()
-                        ->end()
-                        ->arrayNode('messenger')
-                            ->addDefaultsIfNotSet()
-                            ->children()
-                                ->booleanNode('count_attempts')->defaultFalse()->end()
-                                ->variableNode('failure_transports')
-                                    ->defaultNull()
-                                    ->validate()
-                                        ->ifTrue(static fn (mixed $v): bool => $v !== null && (!\is_array($v) || !array_is_list($v) || array_filter($v, static fn (mixed $n): bool => !\is_string($n) || $n === '') !== []))
-                                        ->thenInvalid('failure_transports must be null or a list of non-empty transport names.')
-                                    ->end()
-                                ->end()
-                            ->end()
-                        ->end()
+                        ->arrayNode('bad_statuses')->scalarPrototype()->end()->defaultValue(['5xx'])->end()
+                        ->arrayNode('ineligible_statuses')->scalarPrototype()->end()->defaultValue([])->end()
                     ->end()
                 ->end()
-                ->arrayNode('coverage')
+                ->arrayNode('logic')
                     ->addDefaultsIfNotSet()
                     ->children()
-                        ->arrayNode('http_routes')
-                            ->addDefaultsIfNotSet()
-                            ->children()
-                                ->integerNode('required_percent')->min(0)->max(100)->defaultValue(95)->end()
-                                ->arrayNode('ignored_routes')->scalarPrototype()->end()->defaultValue([])->end()
-                            ->end()
-                        ->end()
-                        ->arrayNode('messenger_handlers')
-                            ->addDefaultsIfNotSet()
-                            ->children()
-                                ->integerNode('required_percent')->min(0)->max(100)->defaultValue(95)->end()
-                            ->end()
-                        ->end()
-                        ->arrayNode('logic_actions')
-                            ->addDefaultsIfNotSet()
-                            ->children()
-                                ->integerNode('required_percent')->min(0)->max(100)->defaultValue(0)->end()
-                            ->end()
-                        ->end()
+                        ->booleanNode('expected_failure_is_good')->defaultTrue()->end()
                     ->end()
                 ->end()
-                ->arrayNode('operations')
-                    ->useAttributeAsKey('name')
-                    ->normalizeKeys(false)
-                    ->defaultValue([])
-                    ->arrayPrototype()
-                        ->children()
-                            ->arrayNode('objectives')
-                                ->isRequired()
-                                ->requiresAtLeastOneElement()
-                                ->arrayPrototype()
-                                    ->children()
-                                        ->enumNode('type')->isRequired()->values(['availability', 'latency', 'combined'])->end()
-                                        ->floatNode('target')->isRequired()->end()
-                                        ->scalarNode('threshold')->cannotBeEmpty()->end()
-                                        ->booleanNode('include_errors')->end()
-                                    ->end()
-                                ->end()
-                            ->end()
-                            ->scalarNode('window')->cannotBeEmpty()->end()
-                            ->booleanNode('expected_failure_is_good')->end()
-                        ->end()
-                    ->end()
-                ->end()
-                ->arrayNode('generation')
+                ->arrayNode('messenger')
                     ->addDefaultsIfNotSet()
                     ->children()
-                        ->arrayNode('selector')
-                            ->addDefaultsIfNotSet()
-                            ->children()
-                                ->scalarNode('application')
-                                    ->defaultNull()
-                                    ->validate()
-                                        ->ifTrue(static fn (mixed $v): bool => $v !== null && !self::isLabelValue($v))
-                                        ->thenInvalid('application must match ' . self::LABEL_VALUE . ': it becomes a label value in the generated PromQL.')
-                                    ->end()
-                                ->end()
-                                ->arrayNode('components')
-                                    ->scalarPrototype()
-                                        ->validate()
-                                            ->ifTrue(static fn (mixed $v): bool => !self::isLabelValue($v))
-                                            ->thenInvalid('every component must match ' . self::LABEL_VALUE . ': it becomes a label value in the generated PromQL.')
-                                        ->end()
-                                    ->end()
-                                    ->defaultValue([])
-                                ->end()
+                        ->booleanNode('count_attempts')->defaultFalse()->end()
+                        ->variableNode('failure_transports')
+                            ->defaultNull()
+                            ->validate()
+                                ->ifTrue(static fn (mixed $v): bool => $v !== null && (!\is_array($v) || !array_is_list($v) || array_filter($v, static fn (mixed $n): bool => !\is_string($n) || $n === '') !== []))
+                                ->thenInvalid('failure_transports must be null or a list of non-empty transport names.')
                             ->end()
                         ->end()
-                        ->scalarNode('output_dir')->cannotBeEmpty()->defaultValue('%kernel.project_dir%/infrastructure/observability')->end()
-                        ->arrayNode('grafana')
-                            ->addDefaultsIfNotSet()
-                            ->children()
-                                ->scalarNode('datasource_uid')->cannotBeEmpty()->defaultValue('prometheus')->end()
-                                ->scalarNode('folder')->cannotBeEmpty()->defaultValue('SLO')->end()
-                            ->end()
-                        ->end()
-                        ->arrayNode('prometheus')
-                            ->addDefaultsIfNotSet()
-                            ->children()
-                                ->booleanNode('rules')->defaultTrue()->end()
-                                ->booleanNode('alerts')->defaultTrue()->end()
-                                ->integerNode('no_events_alert_hours')->defaultNull()->min(1)->end()
-                            ->end()
-                        ->end()
-                        ->booleanNode('sloth')->defaultFalse()->end()
                     ->end()
                 ->end()
             ->end()
         ;
     }
 
-    /**
-     * @param SloConfig $config
-     */
-    #[Override] // @phpstan-ignore method.childParameterType, method.childParameterType
-    public function loadExtension(array $config, ContainerConfigurator $container, ContainerBuilder $builder): void
+    private function coverageNode(): ArrayNodeDefinition
     {
-        $parameters = [
-            'defaults.window' => $config['defaults']['window'],
-            'defaults.http.bad_statuses' => $config['defaults']['http']['bad_statuses'],
-            'defaults.http.ineligible_statuses' => $config['defaults']['http']['ineligible_statuses'],
-            'defaults.logic.expected_failure_is_good' => $config['defaults']['logic']['expected_failure_is_good'],
-            'defaults.messenger.count_attempts' => $config['defaults']['messenger']['count_attempts'],
-            'defaults.messenger.failure_transports' => $config['defaults']['messenger']['failure_transports'],
-            'coverage.http_routes.required_percent' => $config['coverage']['http_routes']['required_percent'],
-            'coverage.http_routes.ignored_routes' => $config['coverage']['http_routes']['ignored_routes'],
-            'coverage.messenger_handlers.required_percent' => $config['coverage']['messenger_handlers']['required_percent'],
-            'coverage.logic_actions.required_percent' => $config['coverage']['logic_actions']['required_percent'],
-            'operations' => $config['operations'],
-            'generation.selector.application' => $config['generation']['selector']['application'],
-            'generation.selector.components' => $config['generation']['selector']['components'],
-            'generation.output_dir' => $config['generation']['output_dir'],
-            'generation.grafana.datasource_uid' => $config['generation']['grafana']['datasource_uid'],
-            'generation.grafana.folder' => $config['generation']['grafana']['folder'],
-            'generation.prometheus.rules' => $config['generation']['prometheus']['rules'],
-            'generation.prometheus.alerts' => $config['generation']['prometheus']['alerts'],
-            'generation.prometheus.no_events_alert_hours' => $config['generation']['prometheus']['no_events_alert_hours'],
-            'generation.sloth' => $config['generation']['sloth'],
-        ];
-        foreach ($parameters as $path => $value) {
-            $builder->setParameter('msstc4symfony_slo.' . $path, $value);
-        }
+        return $this->node('coverage')
+            ->addDefaultsIfNotSet()
+            ->children()
+                ->arrayNode('http_routes')
+                    ->addDefaultsIfNotSet()
+                    ->children()
+                        ->append($this->requiredPercentNode(self::DEFAULT_REQUIRED_PERCENT))
+                        ->arrayNode('ignored_routes')->scalarPrototype()->end()->defaultValue([])->end()
+                    ->end()
+                ->end()
+                ->arrayNode('messenger_handlers')
+                    ->addDefaultsIfNotSet()
+                    ->children()
+                        ->append($this->requiredPercentNode(self::DEFAULT_REQUIRED_PERCENT))
+                    ->end()
+                ->end()
+                ->arrayNode('logic_actions')
+                    ->addDefaultsIfNotSet()
+                    ->children()
+                        ->append($this->requiredPercentNode(0))
+                    ->end()
+                ->end()
+            ->end()
+        ;
+    }
 
-        $container->import(__DIR__ . '/Resources/config/services.php');
+    private function requiredPercentNode(int $default): IntegerNodeDefinition
+    {
+        return (new IntegerNodeDefinition('required_percent'))->min(0)->max(100)->defaultValue($default);
+    }
+
+    private function operationsNode(): ArrayNodeDefinition
+    {
+        return $this->node(self::OPERATIONS)
+            ->useAttributeAsKey('name')
+            ->normalizeKeys(false)
+            ->defaultValue([])
+            ->arrayPrototype()
+                ->children()
+                    ->arrayNode('objectives')
+                        ->isRequired()
+                        ->requiresAtLeastOneElement()
+                        ->arrayPrototype()
+                            ->children()
+                                ->enumNode('type')->isRequired()->values(['availability', 'latency', 'combined'])->end()
+                                ->floatNode('target')->isRequired()->end()
+                                ->scalarNode('threshold')->cannotBeEmpty()->end()
+                                ->booleanNode('include_errors')->end()
+                            ->end()
+                        ->end()
+                    ->end()
+                    ->scalarNode('window')->cannotBeEmpty()->end()
+                    ->booleanNode('expected_failure_is_good')->end()
+                ->end()
+            ->end()
+        ;
+    }
+
+    private function generationNode(): ArrayNodeDefinition
+    {
+        return $this->node('generation')
+            ->addDefaultsIfNotSet()
+            ->children()
+                ->arrayNode('selector')
+                    ->addDefaultsIfNotSet()
+                    ->children()
+                        ->scalarNode('application')
+                            ->defaultNull()
+                            ->validate()
+                                ->ifTrue(static fn (mixed $v): bool => $v !== null && !self::isLabelValue($v))
+                                ->thenInvalid('application must match ' . self::LABEL_VALUE . ': it becomes a label value in the generated PromQL.')
+                            ->end()
+                        ->end()
+                        ->arrayNode('components')
+                            ->scalarPrototype()
+                                ->validate()
+                                    ->ifTrue(static fn (mixed $v): bool => !self::isLabelValue($v))
+                                    ->thenInvalid('every component must match ' . self::LABEL_VALUE . ': it becomes a label value in the generated PromQL.')
+                                ->end()
+                            ->end()
+                            ->defaultValue([])
+                        ->end()
+                    ->end()
+                ->end()
+                ->scalarNode('output_dir')->cannotBeEmpty()->defaultValue('%kernel.project_dir%/infrastructure/observability')->end()
+                ->arrayNode('grafana')
+                    ->addDefaultsIfNotSet()
+                    ->children()
+                        ->scalarNode('datasource_uid')->cannotBeEmpty()->defaultValue('prometheus')->end()
+                        ->scalarNode('folder')->cannotBeEmpty()->defaultValue('SLO')->end()
+                    ->end()
+                ->end()
+                ->arrayNode('prometheus')
+                    ->addDefaultsIfNotSet()
+                    ->children()
+                        ->booleanNode('rules')->defaultTrue()->end()
+                        ->booleanNode('alerts')->defaultTrue()->end()
+                        ->integerNode('no_events_alert_hours')->defaultNull()->min(1)->end()
+                    ->end()
+                ->end()
+                ->booleanNode('sloth')->defaultFalse()->end()
+            ->end()
+        ;
+    }
+
+    /**
+     * @param non-empty-string $name
+     */
+    private function node(string $name): ArrayNodeDefinition
+    {
+        return new ArrayNodeDefinition($name);
     }
 
     private static function isLabelValue(mixed $value): bool

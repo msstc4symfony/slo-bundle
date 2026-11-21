@@ -30,6 +30,8 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
  */
 final class CollectSloDefinitionsPass implements CompilerPassInterface
 {
+    public const DEFAULT_WINDOW = '30d';
+
     private const PARAMETER_PREFIX = 'msstc4symfony_slo.';
 
     #[Override]
@@ -94,7 +96,7 @@ final class CollectSloDefinitionsPass implements CompilerPassInterface
         $countAttempts = $this->parameter($container, 'defaults.messenger.count_attempts');
 
         return new DefinitionFactory(
-            \is_string($window) ? $window : '30d',
+            \is_string($window) ? $window : self::DEFAULT_WINDOW,
             $this->statuses($this->parameter($container, 'defaults.http.bad_statuses')),
             $this->statuses($this->parameter($container, 'defaults.http.ineligible_statuses')),
             $expectedFailureIsGood !== false,
