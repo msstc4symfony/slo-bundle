@@ -31,7 +31,9 @@ final class ActionTest extends TestCase
         foreach ($output->files->files as $file) {
             self::assertStringEqualsFile(self::GOLDEN . $file->relativePath, $file->contents, $file->relativePath);
         }
-        self::assertSame([], $output->warnings);
+        self::assertCount(1, $output->warnings);
+        self::assertStringContainsString('3d, 30d', $output->warnings[0]);
+        self::assertStringContainsString('--default-slo-period', $output->warnings[0]);
     }
 
     public function testSpecsFollowTheSlothSchema(): void
@@ -82,7 +84,7 @@ final class ActionTest extends TestCase
         self::assertCount(2, $output->files->files);
         self::assertSame(
             ['SLO checkout.pay availability is not expressible as a Sloth ratio SLI and is skipped', 'SLO checkout.pay latency is not expressible as a Sloth ratio SLI and is skipped'],
-            $output->warnings,
+            \array_slice($output->warnings, 0, 2),
         );
     }
 }

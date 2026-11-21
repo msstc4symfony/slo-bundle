@@ -207,3 +207,5 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
   `supports()` сейчас всегда true; false → warning в stderr `slo:generate` и цель пропускается (хук §5.6).
 - Имена полей spec сверены по примеру sloth.dev (name/labels/annotations/page_alert/ticket_alert); остальные (`version`, `service`, `slos`,
   `sli.events.error_query/total_query`, `objective`, `description`) взяты по схеме `prometheus/v1` из памяти — не проверены `sloth validate`.
+- Sloth: у Sloth нет окна на уровне SLO; при разных окнах среди выданных SLO `slo:generate` печатает один WARNING (окна по возрастанию),
+  `--default-slo-period` должен соответствовать. Spec проверяется `sloth validate -i` из образа `ghcr.io/slok/sloth:v0.16.0` в группе promtool.

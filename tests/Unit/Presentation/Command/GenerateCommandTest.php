@@ -102,6 +102,18 @@ final class GenerateCommandTest extends TestCase
         self::assertSame(Command::SUCCESS, (new CommandTester($this->command($on, sloth: true)))->execute(['--check' => true]));
     }
 
+    public function testMixedSlothWindowsWarnOnStandardError(): void
+    {
+        $tester = new CommandTester($this->command(new InMemoryFileWriter(), sloth: true));
+
+        self::assertSame(Command::SUCCESS, $tester->execute([], ['capture_stderr_separately' => true]));
+        self::assertStringContainsString('WARNING Sloth has no per-SLO window but the SLOs use 3d, 30d', $tester->getErrorOutput());
+
+        $off = new CommandTester($this->command(new InMemoryFileWriter()));
+        $off->execute([], ['capture_stderr_separately' => true]);
+        self::assertStringNotContainsString('Sloth', $off->getErrorOutput());
+    }
+
     public function testCommandIsRegisteredWithTheGenerationParameters(): void
     {
         $container = TestContainer::compile();

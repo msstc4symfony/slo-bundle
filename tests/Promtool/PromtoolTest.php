@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Msstc4Symfony\SloBundle\Test\Promtool;
 
 use Msstc4Symfony\SloBundle\Application\Generation\GeneratedFile;
+use Msstc4Symfony\SloBundle\Application\Generation\GenerateSloth\Input as SlothInput;
+use Msstc4Symfony\SloBundle\Application\Generation\Selector;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Generation\GenerationFixture;
 use Override;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -19,6 +21,8 @@ use Symfony\Component\Filesystem\Filesystem;
 final class PromtoolTest extends TestCase
 {
     private const IMAGE = 'prom/prometheus:v3.15.0';
+
+    private const SLOTH_IMAGE = 'ghcr.io/slok/sloth:v0.16.0';
 
     private const FIXTURES = __DIR__ . '/../Fixtures';
 
@@ -56,6 +60,21 @@ final class PromtoolTest extends TestCase
         chmod($this->scratch . '/prometheus', 0o755);
 
         $this->promtool($this->scratch, ['check', 'rules', ...$paths]);
+    }
+
+    public function testGeneratedSlothSpecsPassSlothValidate(): void
+    {
+        $output = GenerationFixture::slothAction(GenerationFixture::catalog())(new SlothInput(new Selector('shop', ['worker', 'web'])));
+        foreach ($output->files->files as $file) {
+            $path = $this->scratch . '/' . $file->relativePath;
+            (new Filesystem())->dumpFile($path, $file->contents);
+            chmod($path, 0o644);
+        }
+        chmod($this->scratch, 0o755);
+        chmod($this->scratch . '/sloth', 0o755);
+
+        [$exit, $log] = $this->execute(['docker', 'run', '--rm', '-v', $this->scratch . '/sloth:/specs:ro', self::SLOTH_IMAGE, 'validate', '-i', '/specs']);
+        self::assertSame(0, $exit, \sprintf("sloth validate failed (exit %d):\n%s", $exit, $log));
     }
 
     /**

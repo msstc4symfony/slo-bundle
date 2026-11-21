@@ -85,16 +85,12 @@ final class GenerateCommand extends Command
             $this->prometheusAlerts,
             $this->noEventsAlertHours,
         ));
-        foreach ($generated->warnings as $warning) {
-            $errors->writeln('WARNING ' . OutputFormatter::escape($warning));
-        }
+        $this->warn($errors, $generated->warnings);
 
         $dashboards = ($this->dashboards)(new DashboardsInput($selector, $this->datasourceUid, $this->folder, $this->ignoredRoutes));
 
         $sloth = ($this->sloth)(new SlothInput($selector, $this->slothEnabled));
-        foreach ($sloth->warnings as $warning) {
-            $errors->writeln('WARNING ' . OutputFormatter::escape($warning));
-        }
+        $this->warn($errors, $sloth->warnings);
 
         $result = ($this->sync)(new SyncInput($generated->files->merge($dashboards->files)->merge($sloth->files), $root, $check));
 
@@ -123,5 +119,15 @@ final class GenerateCommand extends Command
         $output->writeln(\sprintf('%d file(s) written, %d deleted in %s', \count($result->missing) + \count($result->stale), \count($result->extra), OutputFormatter::escape($root)));
 
         return Command::SUCCESS;
+    }
+
+    /**
+     * @param list<non-empty-string> $warnings
+     */
+    private function warn(OutputInterface $errors, array $warnings): void
+    {
+        foreach ($warnings as $warning) {
+            $errors->writeln('WARNING ' . OutputFormatter::escape($warning));
+        }
     }
 }

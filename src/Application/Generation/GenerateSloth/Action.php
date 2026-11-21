@@ -37,6 +37,19 @@ final readonly class Action
             $bySlo[$name][] = $bound;
         }
 
+        $windows = [];
+        foreach ($bySlo as $objectives) {
+            $window = $objectives[0]->definition->window();
+            $windows[$window->seconds()] = $window->toString();
+        }
+        ksort($windows);
+        if (\count($windows) > 1) {
+            $warnings[] = \sprintf(
+                'Sloth has no per-SLO window but the SLOs use %s: sloth must run with --default-slo-period matching each SLO, otherwise SLOs with another window get wrong burn-rate thresholds',
+                implode(', ', $windows),
+            );
+        }
+
         $files = [];
         foreach ($bySlo as $name => $objectives) {
             /** @var non-empty-list<BoundObjective> $objectives */
