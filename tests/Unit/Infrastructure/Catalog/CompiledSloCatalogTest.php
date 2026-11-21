@@ -17,6 +17,7 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
 use Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Symfony\RecordingLogger;
 use PHPUnit\Framework\TestCase;
+use ReflectionProperty;
 use RuntimeException;
 
 /**
@@ -78,6 +79,19 @@ final class CompiledSloCatalogTest extends TestCase
         $this->expectExceptionMessage('The compiled SLO catalog cannot be read; clear the cache');
 
         $catalog->all();
+    }
+
+    public function testUndeclaredPointsAreNotMemoised(): void
+    {
+        $catalog = new CompiledSloCatalog($this->dump(), new RecordingLogger());
+        $memo = new ReflectionProperty(CompiledSloCatalog::class, 'byPoint');
+
+        for ($i = 0; $i < 3; $i++) {
+            self::assertSame([], $catalog->forPoint(PointId::of(PointType::Operation, 'dynamic.' . $i)));
+        }
+        $catalog->forPoint($this->pay());
+
+        self::assertSame(['messenger_message:' . self::PAY], array_keys((array) $memo->getValue($catalog)));
     }
 
     public function testHydratesTheSameDefinitionOnceForEveryPoint(): void

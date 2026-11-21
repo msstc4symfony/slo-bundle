@@ -33,7 +33,7 @@ final class CompiledSloCatalog implements SloCatalogInterface, CatalogDiagnostic
     /** @var array<non-negative-int, SloDefinition> */
     private array $hydrated = [];
 
-    /** @var array<string, list<SloDefinition>> */
+    /** @var array<string, list<SloDefinition>> declared points only */
     private array $byPoint = [];
 
     private ?CatalogContents $contents = null;
@@ -83,13 +83,14 @@ final class CompiledSloCatalog implements SloCatalogInterface, CatalogDiagnostic
         if (isset($this->byPoint[$key])) {
             return $this->byPoint[$key];
         }
+        // Only declared points are memoised: callers also ask for arbitrary undeclared ones (operation names, messages).
+        if (!$this->isCurrentFormat() || !isset($this->catalog['point_index'][$key])) {
+            return [];
+        }
 
         $definitions = [];
         try {
-            if (!$this->isCurrentFormat()) {
-                return $this->byPoint[$key] = [];
-            }
-            foreach ($this->catalog['point_index'][$key] ?? [] as $index) {
+            foreach ($this->catalog['point_index'][$key] as $index) {
                 $definitions[] = $this->hydrated[$index] ??= CatalogDump::definition($this->catalog['definitions'][$index]);
             }
         } catch (Throwable $e) {
