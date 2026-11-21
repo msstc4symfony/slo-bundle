@@ -13,3 +13,9 @@
 - Равенство VO — явные `equals()` (PHPStan запрещает `==`); пустые списки в `SloDefinition` проверяет
   `assertNotEmpty()`, а не inline-условие: Rector удаляет такую проверку для `non-empty-list`.
 - `SloCatalogInterface` включает `conflictedNamesFor(PointId)` (R1, реализация — Task 5).
+
+## Классификация и ревизия (DomainService, Task 3)
+
+- `RevisionCalculator::revision(SloDefinition, ObjectiveKind)`: sha256 (первые 8 hex) от канонического JSON (`JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES`, ключи отсортированы): `bad_statuses`, `count_attempts`, `expected_failure_is_good`, `include_errors`, `ineligible_statuses`, `kind`, `point_type`, `threshold_ms`. Цель, окно, имя, точки, стратегия в ревизию не входят. Закреплённый эталон: latency 200ms, http_route, дефолты = `bd652502`. Объявленный, но отсутствующий objective kind -> `InvalidArgumentException`.
+- `EventClassifier::classify(...)`: `null` = событие не учитывается. Latency: eligible, если availability-eligible и не bad (кроме `includeErrors`). Combined: bad -> bad, иначе по порогу. Delivery с `null` duration для latency и для не-bad combined даёт `null`.
+- `StatusSet::canonical()` семантический: элементы, целиком входящие в другой элемент, отбрасываются (`['5xx','500']` -> `['5xx']`); пересекающиеся диапазоны не склеиваются. Поэтому избыточные декларации дают одну ревизию и `Classification::equals`.

@@ -44,4 +44,25 @@ final class ObjectiveTest extends TestCase
         self::assertNotNull($objective->threshold);
         self::assertFalse($objective->includeErrors);
     }
+
+    public function testEqualsIgnoresInstanceIdentity(): void
+    {
+        $a = Objective::latency(LatencyThreshold::fromString('300ms'), Target::fromPercent(95.0), true);
+        $b = Objective::latency(LatencyThreshold::fromString('0.3s'), Target::fromPercent(95.0), true);
+
+        self::assertTrue($a->equals($b));
+        self::assertTrue(Objective::availability(Target::fromPercent(99.0))->equals(Objective::availability(Target::fromPercent(99.0))));
+    }
+
+    public function testEqualsDetectsDifferences(): void
+    {
+        $base = Objective::latency(LatencyThreshold::fromString('300ms'), Target::fromPercent(95.0));
+
+        self::assertFalse($base->equals(Objective::latency(LatencyThreshold::fromString('400ms'), Target::fromPercent(95.0))));
+        self::assertFalse($base->equals(Objective::latency(LatencyThreshold::fromString('300ms'), Target::fromPercent(99.0))));
+        self::assertFalse($base->equals(Objective::latency(LatencyThreshold::fromString('300ms'), Target::fromPercent(95.0), true)));
+        self::assertFalse($base->equals(Objective::combined(LatencyThreshold::fromString('300ms'), Target::fromPercent(95.0))));
+        self::assertFalse($base->equals(Objective::availability(Target::fromPercent(95.0))));
+        self::assertFalse(Objective::availability(Target::fromPercent(95.0))->equals($base));
+    }
 }

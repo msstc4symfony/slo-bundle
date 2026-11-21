@@ -13,7 +13,7 @@ final readonly class StatusSet
     private const MAX_CODE = 599;
 
     /**
-     * @param list<string> $canonical sorted, deduplicated items: "429", "5xx", "500-503"
+     * @param list<string> $canonical sorted items without duplicates or items contained in another item: "429", "5xx", "500-503"
      */
     private function __construct(private array $canonical)
     {
@@ -30,6 +30,10 @@ final readonly class StatusSet
         }
 
         $keys = array_map(strval(...), array_keys($canonical));
+        $keys = array_values(array_filter(
+            $keys,
+            static fn (string $item): bool => !self::isCoveredByAnother($item, $keys),
+        ));
         sort($keys, SORT_STRING);
 
         return new self($keys);
@@ -38,7 +42,7 @@ final readonly class StatusSet
     public function contains(int $status): bool
     {
         foreach ($this->canonical as $item) {
-            [$from, $to] = $this->bounds($item);
+            [$from, $to] = self::bounds($item);
             if ($status >= $from && $status <= $to) {
                 return true;
             }
@@ -50,7 +54,7 @@ final readonly class StatusSet
     public function intersects(self $other): bool
     {
         foreach ($this->canonical as $item) {
-            [$from, $to] = $this->bounds($item);
+            [$from, $to] = self::bounds($item);
             for ($code = $from; $code <= $to; $code++) {
                 if ($other->contains($code)) {
                     return true;
@@ -82,7 +86,7 @@ final readonly class StatusSet
                 $parts[] = $item[0] . '..';
                 continue;
             }
-            [$from, $to] = $this->bounds($item);
+            [$from, $to] = self::bounds($item);
             for ($code = $from; $code <= $to; $code++) {
                 $parts[] = (string) $code;
             }
@@ -120,9 +124,28 @@ final readonly class StatusSet
     }
 
     /**
+     * @param list<string> $items distinct normalised items
+     */
+    private static function isCoveredByAnother(string $item, array $items): bool
+    {
+        [$from, $to] = self::bounds($item);
+        foreach ($items as $other) {
+            if ($other === $item) {
+                continue;
+            }
+            [$otherFrom, $otherTo] = self::bounds($other);
+            if ($otherFrom <= $from && $to <= $otherTo) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * @return array{int, int}
      */
-    private function bounds(string $item): array
+    private static function bounds(string $item): array
     {
         if (str_ends_with($item, 'xx')) {
             $base = (int) $item[0] * 100;

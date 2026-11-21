@@ -33,6 +33,12 @@ final class StatusSetTest extends TestCase
         yield 'uppercase class' => [['5XX'], ['5xx'], '5..'];
         yield 'single range' => [['404-404'], ['404'], '404'];
         yield 'empty' => [[], [], ''];
+        yield 'code inside class' => [['5xx', '500'], ['5xx'], '5..'];
+        yield 'code inside range' => [['500-504', 502], ['500-504'], '500|501|502|503|504'];
+        yield 'range inside class' => [['5xx', '500-503'], ['5xx'], '5..'];
+        yield 'range inside wider range' => [['500-510', '502-505'], ['500-510'], '500|501|502|503|504|505|506|507|508|509|510'];
+        yield 'overlapping ranges kept' => [['500-503', '502-505'], ['500-503', '502-505'], '500|501|502|503|502|503|504|505'];
+        yield 'other class kept' => [['5xx', 404], ['404', '5xx'], '404|5..'];
     }
 
     /**
@@ -84,5 +90,10 @@ final class StatusSetTest extends TestCase
         self::assertTrue(StatusSet::fromList(['5xx'])->intersects(StatusSet::fromList(['500-501'])));
         self::assertFalse(StatusSet::fromList(['5xx'])->intersects(StatusSet::fromList([429])));
         self::assertFalse(StatusSet::fromList(['5xx'])->intersects(StatusSet::fromList([])));
+    }
+
+    public function testRedundantDeclarationsAreEqual(): void
+    {
+        self::assertSame(StatusSet::fromList(['5xx'])->canonical(), StatusSet::fromList([500, '5xx', '501-503'])->canonical());
     }
 }

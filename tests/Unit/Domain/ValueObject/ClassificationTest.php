@@ -35,4 +35,25 @@ final class ClassificationTest extends TestCase
         self::assertFalse($classification->expectedFailureIsGood);
         self::assertTrue($classification->countAttempts);
     }
+
+    public function testEqualsIgnoresRedundantDeclarations(): void
+    {
+        $a = new Classification(StatusSet::fromList(['5xx', 500]), StatusSet::fromList([429]), true, false);
+        $b = new Classification(StatusSet::fromList(['5xx']), StatusSet::fromList([429]), true, false);
+
+        self::assertTrue($a->equals($b));
+        self::assertTrue(Classification::defaults()->equals(Classification::defaults()));
+    }
+
+    public function testEqualsDetectsDifferences(): void
+    {
+        $base = Classification::defaults();
+        $bad = StatusSet::fromList(['5xx']);
+        $none = StatusSet::fromList([]);
+
+        self::assertFalse($base->equals(new Classification(StatusSet::fromList(['500']), $none, true, false)));
+        self::assertFalse($base->equals(new Classification($bad, StatusSet::fromList([429]), true, false)));
+        self::assertFalse($base->equals(new Classification($bad, $none, false, false)));
+        self::assertFalse($base->equals(new Classification($bad, $none, true, true)));
+    }
 }
