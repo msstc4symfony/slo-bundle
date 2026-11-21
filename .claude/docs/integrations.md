@@ -32,9 +32,9 @@
   `OperationHandle`/`NoopOperationHandle` там же. Это реализация driving-порта с двумя методами и состоянием
   (`warned`), поэтому не слайс `Action/Input/Output`. Часы `Infrastructure/Clock/HrtimeClock` (`hrtime(true)`,
   наносекунды); в тестах `FakeClock`. Классификация исключений `measure()` — порт
-  `ExpectedFailureClassifierInterface`: `Infrastructure/LogicBundle/LogicBundleExpectedFailureClassifier`
-  (`ActionOutcome::of()` или `ExpectedFailureInterface`), если logic-bundle установлен (выбор в `services.php` при
-  сборке контейнера), иначе `NullExpectedFailureClassifier` (всё — error).
+  `ExpectedFailureClassifierInterface`: `ActionOutcomeClassifier` (`ActionOutcome::of()`), для logic-bundle до
+  `ActionOutcome` — `ExpectedFailureInterfaceClassifier`, без logic-bundle — `NullExpectedFailureClassifier` (всё — error);
+  выбирает `ExpectedFailureClassifierSelector` при сборке контейнера.
 - Публичный driving-порт для мостов — `Application/Port/EventRecorderInterface::record(RecordEvent\Input)` (публичный
   алиас на `RecordEvent\Action`, который `@internal`).
 - Имя операции проверяется в `start()`/`measure()`: нет SLO и нет конфликта для `PointId::of(Operation, $name)` либо имя

@@ -20,7 +20,6 @@ use Msstc4Symfony\SloBundle\Application\Operation\OperationMonitor;
 use Msstc4Symfony\SloBundle\Application\Port\CatalogDiagnosticsInterface;
 use Msstc4Symfony\SloBundle\Application\Port\EventRecorderInterface;
 use Msstc4Symfony\SloBundle\Application\Port\EventWriterInterface;
-use Msstc4Symfony\SloBundle\Application\Port\ExpectedFailureClassifierInterface;
 use Msstc4Symfony\SloBundle\Application\Port\FileWriterInterface;
 use Msstc4Symfony\SloBundle\Application\Port\GrafanaFileBuilderInterface;
 use Msstc4Symfony\SloBundle\Application\Port\MonotonicClockInterface;
@@ -40,8 +39,6 @@ use Msstc4Symfony\SloBundle\Infrastructure\Filesystem\FileWriter;
 use Msstc4Symfony\SloBundle\Infrastructure\Filesystem\RouteIndexFile;
 use Msstc4Symfony\SloBundle\Infrastructure\Grafana\GrafanaFileBuilder;
 use Msstc4Symfony\SloBundle\Infrastructure\Logging\FailSafeLogger;
-use Msstc4Symfony\SloBundle\Infrastructure\LogicBundle\LogicBundleExpectedFailureClassifier;
-use Msstc4Symfony\SloBundle\Infrastructure\LogicBundle\NullExpectedFailureClassifier;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\DeliveryStatusMapper;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\DeliveryStatusMapperInterface;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\HttpSloObserver;
@@ -124,9 +121,6 @@ return static function (ContainerConfigurator $container): void {
     $services->set(HrtimeClock::class);
     $services->alias(MonotonicClockInterface::class, HrtimeClock::class);
 
-    $classifier = LogicBundleExpectedFailureClassifier::isAvailable() ? LogicBundleExpectedFailureClassifier::class : NullExpectedFailureClassifier::class;
-    $services->set($classifier);
-    $services->alias(ExpectedFailureClassifierInterface::class, $classifier);
     $services->set(OperationMonitor::class)
         ->arg('$logger', service(FailSafeLogger::class))
         ->tag('kernel.reset', ['method' => 'reset'])

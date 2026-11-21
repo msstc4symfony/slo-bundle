@@ -270,8 +270,9 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
 - Операции: `Application/Operation/{OperationMonitor,OperationHandle,NoopOperationHandle}` — реализация driving-порта
   `OperationMonitorInterface` с двумя методами и состоянием, поэтому не слайс `Action/Input/Output` (осознанное отклонение
   от предложения CR-025 «Monitor/Action»). Классификация исключений — порт `ExpectedFailureClassifierInterface`, адаптеры
-  `Infrastructure/LogicBundle/{LogicBundleExpectedFailureClassifier,NullExpectedFailureClassifier}`, выбор в `services.php`
-  по `LogicBundleExpectedFailureClassifier::isAvailable()`. Часы — `Application/Port/MonotonicClockInterface`, адаптер
+  `Infrastructure/LogicBundle/{ActionOutcomeClassifier,ExpectedFailureInterfaceClassifier,NullExpectedFailureClassifier}`;
+  выбор в `SloBundle::loadExtension()` через `DependencyInjection/ExpectedFailureClassifierSelector::select($builder, ?probe)`
+  (+ `ClassExistenceResource`, чтобы контейнер пересобирался при установке/удалении logic-bundle; probe — шов для тестов). Часы — `Application/Port/MonotonicClockInterface`, адаптер
   `Infrastructure/Clock/HrtimeClock`.
 - `slo:generate`: оркестрация в `Application/Generation/Generate/{Action,Input,Output,GenerationConfig,Exception/InvalidGenerationSettings}`;
   `GenerationConfig` — сервис с параметрами `generation.*` (+ `coverage.http_routes.ignored_routes`); команда тонкая.

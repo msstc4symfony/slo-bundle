@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle;
 
+use Msstc4Symfony\SloBundle\Application\Port\ExpectedFailureClassifierInterface;
 use Msstc4Symfony\SloBundle\DependencyInjection\CompilerPass\CollectSloDefinitionsPass;
 use Msstc4Symfony\SloBundle\DependencyInjection\CompilerPass\RegisterSloMetricPass;
+use Msstc4Symfony\SloBundle\DependencyInjection\ExpectedFailureClassifierSelector;
 use Override;
 use Symfony\Component\Config\Definition\Builder\ArrayNodeDefinition;
 use Symfony\Component\Config\Definition\Builder\IntegerNodeDefinition;
@@ -89,6 +91,10 @@ final class SloBundle extends AbstractBundle
         }
 
         $container->import(__DIR__ . '/Resources/config/services.php');
+
+        $classifier = ExpectedFailureClassifierSelector::select($builder);
+        $builder->register($classifier, $classifier);
+        $builder->setAlias(ExpectedFailureClassifierInterface::class, $classifier);
     }
 
     /**

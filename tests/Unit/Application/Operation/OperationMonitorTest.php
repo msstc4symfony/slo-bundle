@@ -24,7 +24,7 @@ use Msstc4Symfony\SloBundle\Domain\Service\EventClassifier;
 use Msstc4Symfony\SloBundle\Domain\Service\RevisionCalculator;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
-use Msstc4Symfony\SloBundle\Infrastructure\LogicBundle\LogicBundleExpectedFailureClassifier;
+use Msstc4Symfony\SloBundle\Infrastructure\LogicBundle\ActionOutcomeClassifier;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MetricsBundleSeriesCatalog;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\CatalogFixture;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\InMemoryRouteCatalog;
@@ -272,7 +272,7 @@ final class OperationMonitorTest extends TestCase
 
     public function testCatalogFailureDoesNotThrow(): void
     {
-        $monitor = new OperationMonitor(new ThrowingCatalog(), $this->action($this->writer, $this->catalog()), $this->clock, new LogicBundleExpectedFailureClassifier(), $this->logger);
+        $monitor = new OperationMonitor(new ThrowingCatalog(), $this->action($this->writer, $this->catalog()), $this->clock, new ActionOutcomeClassifier(), $this->logger);
 
         $monitor->start('payment.validation')->end();
 
@@ -283,7 +283,7 @@ final class OperationMonitorTest extends TestCase
     public function testFailingClockAtStartYieldsANoopHandleAndAWarning(): void
     {
         $catalog = $this->catalog();
-        $monitor = new OperationMonitor($catalog, $this->action($this->writer, $catalog), new ThrowingClock(), new LogicBundleExpectedFailureClassifier(), $this->logger);
+        $monitor = new OperationMonitor($catalog, $this->action($this->writer, $catalog), new ThrowingClock(), new ActionOutcomeClassifier(), $this->logger);
 
         $handle = $monitor->start('payment.validation');
         $handle->end();
@@ -296,7 +296,7 @@ final class OperationMonitorTest extends TestCase
     public function testFailingClockAtEndIsLoggedNotThrown(): void
     {
         $catalog = $this->catalog();
-        $monitor = new OperationMonitor($catalog, $this->action($this->writer, $catalog), new ThrowingClock(1), new LogicBundleExpectedFailureClassifier(), $this->logger);
+        $monitor = new OperationMonitor($catalog, $this->action($this->writer, $catalog), new ThrowingClock(1), new ActionOutcomeClassifier(), $this->logger);
 
         self::assertSame(7, $monitor->measure('payment.validation', static fn (): int => 7));
         self::assertSame([], $this->writer->writes);
@@ -361,6 +361,6 @@ final class OperationMonitorTest extends TestCase
     {
         $catalog = $this->catalog();
 
-        return new OperationMonitor($catalog, $this->action($writer, $catalog), $this->clock, new LogicBundleExpectedFailureClassifier(), $this->logger);
+        return new OperationMonitor($catalog, $this->action($writer, $catalog), $this->clock, new ActionOutcomeClassifier(), $this->logger);
     }
 }
