@@ -14,6 +14,19 @@ use Override;
  */
 final readonly class MonitoringCoverage implements DashboardInterface
 {
+    private const CELL_ESCAPES = [
+        '|' => '\\|',
+        '[' => '\\[',
+        ']' => '\\]',
+        '`' => '\\`',
+        '&' => '&amp;',
+        '<' => '&lt;',
+        '>' => '&gt;',
+        '$' => '&#36;',
+        "\r" => ' ',
+        "\n" => ' ',
+    ];
+
     public function __construct(private PanelFactory $panels)
     {
     }
@@ -62,8 +75,14 @@ final readonly class MonitoringCoverage implements DashboardInterface
         return rtrim(rtrim(\sprintf('%.2F', $value), '0'), '.');
     }
 
+    /**
+     * Reasons and ids are free text: HTML and `$`-interpolation become entities, Markdown punctuation is escaped. A
+     * backslash is doubled only before ASCII punctuation, where Markdown would read it as an escape (class names keep theirs).
+     */
     private function cell(string $value): string
     {
-        return str_replace(['|', "\r", "\n"], ['\|', ' ', ' '], $value);
+        $value = preg_replace('/\\\\(?=[\x21-\x2F\x3A-\x40\x5B-\x60\x7B-\x7E])/', '\\\\\\\\', $value) ?? $value;
+
+        return strtr($value, self::CELL_ESCAPES);
     }
 }
