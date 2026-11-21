@@ -120,7 +120,7 @@ final class MetricBindingResolverTest extends TestCase
 
         $binding = $this->resolver($definition, $extras)->resolve($definition, $definition->objectives()[0]);
 
-        self::assertSame('0.3', $this->series($binding)->le);
+        self::assertSame('0.3', $this->series($binding)->bucketBound);
     }
 
     public function testIntegralBucketRendersPrometheus3LeLabel(): void
@@ -129,7 +129,7 @@ final class MetricBindingResolverTest extends TestCase
 
         $binding = $this->resolver($definition, $this->extras())->resolve($definition, $definition->objectives()[0]);
 
-        self::assertSame('1.0', $this->series($binding)->le);
+        self::assertSame('1.0', $this->series($binding)->bucketBound);
     }
 
     public function testNearBucketDoesNotMatchTheThreshold(): void
@@ -151,7 +151,7 @@ final class MetricBindingResolverTest extends TestCase
 
         self::assertSame('http_response', $series->metric);
         self::assertSame(SeriesKind::Counter, $series->kind);
-        self::assertNull($series->le);
+        self::assertNull($series->bucketBound);
         self::assertSame(['route=~"payment\\\\.create|payment_update"', 'status!~"404"'], $this->rendered($series->matchers));
         self::assertSame(['status=~"429|5.."'], $this->rendered($series->badMatchers));
         self::assertSame(['status!~"429|5..|404"'], $this->rendered($series->goodMatchers));
@@ -176,7 +176,7 @@ final class MetricBindingResolverTest extends TestCase
 
         self::assertSame('request_duration_histogram_seconds', $series->metric);
         self::assertSame(SeriesKind::Histogram, $series->kind);
-        self::assertSame('0.5', $series->le);
+        self::assertSame('0.5', $series->bucketBound);
         self::assertSame(['route=~"payment\\\\.create|payment_update"'], $this->rendered($series->matchers));
         self::assertSame([], $series->badMatchers);
         self::assertSame([], $series->goodMatchers);
@@ -237,7 +237,7 @@ final class MetricBindingResolverTest extends TestCase
 
         self::assertSame('messenger_message_handling_duration_histogram_seconds', $series->metric);
         self::assertSame(SeriesKind::Histogram, $series->kind);
-        self::assertSame('1.0', $series->le);
+        self::assertSame('1.0', $series->bucketBound);
         self::assertSame(['message="ProcessPayment"', 'status="handled"', 'transport!~"failed"'], $this->rendered($series->matchers));
     }
 
@@ -251,11 +251,11 @@ final class MetricBindingResolverTest extends TestCase
 
         self::assertSame('logic_action_duration_histogram_seconds', $availability->metric);
         self::assertSame(SeriesKind::Histogram, $availability->kind);
-        self::assertNull($availability->le);
+        self::assertNull($availability->bucketBound);
         self::assertSame(['action="refund"'], $this->rendered($availability->matchers));
         self::assertSame(['outcome="error"'], $this->rendered($availability->badMatchers));
         self::assertSame(['outcome=~"success|expected_failure"'], $this->rendered($availability->goodMatchers));
-        self::assertSame('0.25', $latency->le);
+        self::assertSame('0.25', $latency->bucketBound);
         self::assertSame(['action="refund"', 'outcome=~"success|expected_failure"'], $this->rendered($latency->matchers));
     }
 

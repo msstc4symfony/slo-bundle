@@ -10,8 +10,8 @@ use InvalidArgumentException;
  * Where an objective reads its good/total events on series metrics-bundle already exports.
  *
  * badMatchers and goodMatchers override same-label entries of matchers; both are empty for histogram latency, where
- * good is the `le` bucket and total is `_count`. For availability, total = matchers, bad = matchers + badMatchers,
- * good = matchers + goodMatchers.
+ * good is the bucket at bucketBound and total is the histogram's event count. For availability, total = matchers,
+ * bad = matchers + badMatchers, good = matchers + goodMatchers.
  *
  * @internal
  */
@@ -22,7 +22,7 @@ final readonly class SeriesBinding
      * @param array<non-empty-string, Matcher> $matchers label => matcher, sorted by label
      * @param array<non-empty-string, Matcher> $goodMatchers label => matcher, sorted by label
      * @param array<non-empty-string, Matcher> $badMatchers label => matcher, sorted by label
-     * @param non-empty-string|null $le histogram bucket bound as exported, null when no bucket is addressed
+     * @param non-empty-string|null $bucketBound histogram bucket bound as the series stores it, null when no bucket is addressed
      */
     public function __construct(
         public string $metric,
@@ -30,7 +30,7 @@ final readonly class SeriesBinding
         public array $matchers,
         public array $goodMatchers,
         public array $badMatchers,
-        public ?string $le,
+        public ?string $bucketBound,
     ) {
         foreach ([$matchers, $goodMatchers, $badMatchers] as $set) {
             foreach ($set as $label => $matcher) {

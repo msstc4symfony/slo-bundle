@@ -11,6 +11,6 @@ enum SeriesKind
 {
     case Counter;
 
-    /** Events are counted by the `_count` series, latency by a `_bucket`. */
+    /** Events are counted by the histogram's event count, latency by one of its buckets. */
     case Histogram;
 }

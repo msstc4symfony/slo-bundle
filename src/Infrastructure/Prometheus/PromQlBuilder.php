@@ -181,11 +181,11 @@ final readonly class PromQlBuilder
         $counted = $series->kind === SeriesKind::Histogram ? $metric . '_count' : $metric;
         $total = $counted . $this->matchers([...$base, ...array_values($series->matchers)]);
 
-        if ($series->le !== null) {
+        if ($series->bucketBound !== null) {
             return [
                 'total' => $total,
                 'bad' => null,
-                'bucket' => $metric . '_bucket' . $this->matchers([...$base, ...array_values($series->matchers), Matcher::equals('le', $series->le)]),
+                'bucket' => $metric . '_bucket' . $this->matchers([...$base, ...array_values($series->matchers), Matcher::equals('le', $series->bucketBound)]),
             ];
         }
 
