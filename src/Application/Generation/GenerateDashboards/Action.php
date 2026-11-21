@@ -11,6 +11,8 @@ use Msstc4Symfony\SloBundle\Application\Generation\GeneratedFile;
 use Msstc4Symfony\SloBundle\Application\Generation\GeneratedFileSet;
 use Msstc4Symfony\SloBundle\Application\Port\CatalogDiagnosticsInterface;
 use Msstc4Symfony\SloBundle\Application\Port\GrafanaFileBuilderInterface;
+use Msstc4Symfony\SloBundle\Application\Port\SeriesCatalogInterface;
+use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
 
 /**
  * @internal
@@ -23,13 +25,12 @@ final readonly class Action
 
     public const PROVISIONING_FILE = self::PROVISIONING_DIRECTORY . '/slo.yaml';
 
-    private const LOGIC_HISTOGRAM = 'logic_action_duration_histogram_seconds';
-
     public function __construct(
         private BoundObjectiveCollector $objectives,
         private AnalyzeCoverage $coverage,
         private GrafanaFileBuilderInterface $builder,
         private CatalogDiagnosticsInterface $diagnostics,
+        private SeriesCatalogInterface $series,
     ) {
     }
 
@@ -40,7 +41,7 @@ final readonly class Action
             $input->datasourceUid,
             $this->objectives->collect(),
             ($this->coverage)(new CoverageInput($input->ignoredRoutes)),
-            isset($this->diagnostics->extras()->metricBuckets[self::LOGIC_HISTOGRAM]),
+            $this->hasLogicHistogram(),
         );
 
         return new Output(new GeneratedFileSet(
@@ -50,5 +51,12 @@ final readonly class Action
                 new GeneratedFile(self::PROVISIONING_FILE, $this->builder->provisioning($input->folder, $input->dashboardsPath)),
             ],
         ));
+    }
+
+    private function hasLogicHistogram(): bool
+    {
+        $histogram = $this->series->histogramFor(PointType::LogicAction);
+
+        return $histogram !== null && $this->diagnostics->metricBuckets($histogram) !== null;
     }
 }

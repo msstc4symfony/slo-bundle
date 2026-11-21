@@ -186,7 +186,7 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
 ## Дашборды Grafana (Task 13)
 
 - Use case `Application/Generation/GenerateDashboards\{Action,Input,Output,DashboardContext}`: собирает `BoundObjectiveCollector` +
-  `Coverage\Analyze\Action` + наличие гистограммы `logic_action_duration_histogram_seconds` в `extras()->metricBuckets` в `DashboardContext` и
+  `Coverage\Analyze\Action` + наличие гистограммы logic (`SeriesCatalogInterface::histogramFor()` + `metricBuckets()`) в `DashboardContext` и
   отдаёт `GeneratedFileSet` (каталоги `grafana/dashboards`, `grafana/provisioning/dashboards`; новых управляемых каталогов нет). Порт
   `GrafanaFileBuilderInterface` (адаптер `Infrastructure/Grafana/GrafanaFileBuilder`, создаётся фабрикой `GrafanaFileBuilder::standard()`).
 - Файлы: `grafana/dashboards/slo-<slug>.json`, slug = `application-overview|http-routes|messenger|business-operations|slo-overview|
