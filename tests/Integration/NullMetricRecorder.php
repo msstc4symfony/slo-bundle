@@ -10,9 +10,12 @@ use Override;
 
 final class NullMetricRecorder implements MetricRecorderInterface
 {
+    public int $increments = 0;
+
     #[Override]
     public function increment(MetricDefinitionInterface $metric, array $labels = []): void
     {
+        $this->increments++;
     }
 
     #[Override]

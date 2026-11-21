@@ -120,17 +120,20 @@ final class RecordEventBenchmarkTest extends TestCase
             return $assembler->assemble(new DefinitionFactory('30d', ['5xx'], [], true, false), new DiscoveryErrors(), new CatalogExtras(hasHttpPoints: true));
         })(), new MetricsBundleSeriesCatalog());
         $warm = new CompiledSloCatalog($dump);
-        (new RouteIndexFile($dir, false, self::FINGERPRINT))->write($dir, RouteIndexFixture::builder($warm, $warm)->build($routes));
+        $built = RouteIndexFixture::builder($warm, $warm)->build($routes);
+        (new RouteIndexFile($dir, false, self::FINGERPRINT))->write($dir, $built);
         // opcache.file_update_protection skips files modified in the last seconds: age the file like a deployed one.
         touch($dir . '/' . RouteIndexFile::PATH, time() - 60);
         $observation = Observation::http(200, 0.05);
+        $recorder = new NullMetricRecorder();
 
         try {
+            self::assertEquals($built, (new RouteIndexFile($dir, false, self::FINGERPRINT))->load(), 'the requests read the warmed index');
             $best = INF;
             for ($round = 0; $round < self::ROUNDS; $round++) {
                 $start = hrtime(true);
                 for ($request = 0; $request < self::COLD_REQUESTS; $request++) {
-                    $this->coldRequest($dump, $dir, 'route_' . ($request % self::COLD_SLOS), $observation);
+                    $this->coldRequest($dump, $dir, 'route_' . ($request % self::COLD_SLOS), $observation, $recorder);
                 }
                 $best = min($best, (hrtime(true) - $start) / 1_000 / self::COLD_REQUESTS);
             }
@@ -148,14 +151,14 @@ final class RecordEventBenchmarkTest extends TestCase
             \PHP_VERSION,
             gmdate('Y-m-d H:i'),
         ));
-        self::assertGreaterThan(0.0, $best);
+        self::assertSame(self::ROUNDS * self::COLD_REQUESTS, $recorder->increments, 'every request records its dedicated latency objective (availability reads the existing series)');
     }
 
     /**
      * @param CatalogShape $dump
      * @param non-empty-string $route
      */
-    private function coldRequest(array $dump, string $dir, string $route, Observation $observation): void
+    private function coldRequest(array $dump, string $dir, string $route, Observation $observation, NullMetricRecorder $recorder): void
     {
         $catalog = new CompiledSloCatalog($dump);
         $file = new RouteIndexFile($dir, false, self::FINGERPRINT);
@@ -166,7 +169,7 @@ final class RecordEventBenchmarkTest extends TestCase
             new MetricBindingResolver($routes, $catalog, new MetricsBundleSeriesCatalog()),
             new RevisionResolver(new RevisionCalculator(), $catalog),
             new EventClassifier(),
-            new MetricsEventWriter(new NullMetricRecorder()),
+            new MetricsEventWriter($recorder),
             new NullLogger(),
             new WarmedRevisions($file),
         );
