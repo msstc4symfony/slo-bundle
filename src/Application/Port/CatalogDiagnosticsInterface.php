@@ -61,6 +61,16 @@ interface CatalogDiagnosticsInterface
     public function metricLabelOf(PointId $point): ?string;
 
     /**
+     * Cheap runtime read of CatalogExtras::$controllerServices: the class behind a controller service id, null when the
+     * id is the class name itself.
+     *
+     * @param non-empty-string $serviceId
+     *
+     * @return class-string|null
+     */
+    public function controllerServiceOf(string $serviceId): ?string;
+
+    /**
      * Cheap runtime read of CatalogExtras::$handlers: every handled message class.
      *
      * @return list<non-empty-string>

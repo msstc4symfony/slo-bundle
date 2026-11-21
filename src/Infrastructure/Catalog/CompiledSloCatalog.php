@@ -183,6 +183,12 @@ final class CompiledSloCatalog implements SloCatalogInterface, CatalogDiagnostic
     }
 
     #[Override]
+    public function controllerServiceOf(string $serviceId): ?string
+    {
+        return $this->isCurrentFormat() ? $this->catalog['extras']['controller_services'][$serviceId] ?? null : null;
+    }
+
+    #[Override]
     public function handledMessageClasses(): array
     {
         return $this->isCurrentFormat() ? array_column($this->catalog['extras']['handlers'], 'message_class') : [];

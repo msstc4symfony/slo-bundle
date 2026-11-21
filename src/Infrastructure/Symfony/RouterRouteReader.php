@@ -99,6 +99,6 @@ final readonly class RouterRouteReader
      */
     private function resolveClass(string $classOrServiceId): string
     {
-        return $this->diagnostics->extras()->controllerServices[$classOrServiceId] ?? $classOrServiceId;
+        return $this->diagnostics->controllerServiceOf($classOrServiceId) ?? $classOrServiceId;
     }
 }

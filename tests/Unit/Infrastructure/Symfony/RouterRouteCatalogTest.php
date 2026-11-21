@@ -12,6 +12,7 @@ use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouterRouteReader;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\InvokableController;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\PaymentController;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\CatalogFixture;
+use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\FailingCatalog;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
@@ -50,6 +51,20 @@ final class RouterRouteCatalogTest extends TestCase
         self::assertSame(['PUT'], $catalog->routesFor(PaymentController::class . '::create')[0]->methods);
         self::assertSame('/a', $catalog->routesFor(PaymentController::class . '::create')[0]->path);
         self::assertSame(['f_none'], array_map(static fn (RouteInfo $r): string => $r->name, array_values(array_filter($catalog->all(), static fn (RouteInfo $r): bool => $r->controller === null))));
+    }
+
+    public function testServiceIdsResolveWithoutHydratingTheExtrasSection(): void
+    {
+        $collection = new RouteCollection();
+        $collection->add('d_service', new Route('/d', ['_controller' => 'app.payment::create']));
+        $router = self::createStub(RouterInterface::class);
+        $router->method('getRouteCollection')->willReturn($collection);
+        $diagnostics = new FailingCatalog(CatalogFixture::build(static function (): void {
+        }, new CatalogExtras(controllerServices: ['app.payment' => PaymentController::class])), ['extras']);
+
+        $catalog = new RouterRouteCatalog(new RouterRouteReader($router, $diagnostics), $this->noFile());
+
+        self::assertSame(['d_service'], array_map(static fn (RouteInfo $r): string => $r->name, $catalog->routesFor(PaymentController::class . '::create')));
     }
 
     public function testRouterIsReadOnceAndLazily(): void

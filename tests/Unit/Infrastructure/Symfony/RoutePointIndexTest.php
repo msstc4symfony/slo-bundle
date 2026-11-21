@@ -7,6 +7,7 @@ namespace Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Symfony;
 use Msstc4Symfony\SloBundle\Application\Attribute\Availability;
 use Msstc4Symfony\SloBundle\Application\Attribute\Slo;
 use Msstc4Symfony\SloBundle\Application\Discovery\CatalogAssembler;
+use Msstc4Symfony\SloBundle\Application\Discovery\CatalogExtras;
 use Msstc4Symfony\SloBundle\Application\Port\RouteCatalogInterface;
 use Msstc4Symfony\SloBundle\Application\Port\RouteInfo;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
@@ -14,10 +15,17 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexData;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RoutePointIndex;
+use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouterRouteCatalog;
+use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouterRouteReader;
+use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\PaymentController;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\CatalogFixture;
+use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\FailingCatalog;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\InMemoryRouteCatalog;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use Symfony\Component\Routing\Route;
+use Symfony\Component\Routing\RouteCollection;
+use Symfony\Component\Routing\RouterInterface;
 
 final class RoutePointIndexTest extends TestCase
 {
@@ -69,6 +77,23 @@ final class RoutePointIndexTest extends TestCase
         self::assertCount(1, $logger->records);
         self::assertSame('warning', $logger->records[0][0]);
         self::assertInstanceOf(RuntimeException::class, $logger->contexts[0]['exception']);
+    }
+
+    public function testCorruptExtrasSectionDoesNotDisableHttpSlos(): void
+    {
+        $collection = new RouteCollection();
+        $collection->add('pay_create', new Route('/pay', ['_controller' => 'app.pay::create']));
+        $router = self::createStub(RouterInterface::class);
+        $router->method('getRouteCollection')->willReturn($collection);
+        $catalog = CatalogFixture::build(static function (CatalogAssembler $assembler): void {
+            $assembler->declare(PointId::of(PointType::HttpRoute, PaymentController::class . '::create'), new Slo('pay.create', [new Availability(99.9)]));
+        }, new CatalogExtras(controllerServices: ['app.pay' => PaymentController::class]));
+        $failing = new FailingCatalog($catalog, ['extras', 'all']);
+        $logger = new RecordingLogger();
+        $index = new RoutePointIndex(new RouterRouteCatalog(new RouterRouteReader($router, $failing), $this->noFile()), $failing, $this->noFile(), $logger);
+
+        self::assertSame(['http_route:' . PaymentController::class . '::create'], $this->strings($index->pointsFor('pay_create')));
+        self::assertSame([], $logger->records);
     }
 
     public function testNumericRouteNameIsIndexed(): void

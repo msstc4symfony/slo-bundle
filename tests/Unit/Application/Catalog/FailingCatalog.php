@@ -122,6 +122,14 @@ final readonly class FailingCatalog implements SloCatalogInterface, CatalogDiagn
     }
 
     #[Override]
+    public function controllerServiceOf(string $serviceId): ?string
+    {
+        $this->fail(__FUNCTION__);
+
+        return $this->inner->controllerServiceOf($serviceId);
+    }
+
+    #[Override]
     public function handledMessageClasses(): array
     {
         $this->fail(__FUNCTION__);
