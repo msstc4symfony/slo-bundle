@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Application\Generation\GenerateDashboards;
 
+use Msstc4Symfony\SloBundle\Application\Binding\DurationBuckets;
 use Msstc4Symfony\SloBundle\Application\Coverage\Analyze\Action as AnalyzeCoverage;
 use Msstc4Symfony\SloBundle\Application\Coverage\Analyze\Input as CoverageInput;
 use Msstc4Symfony\SloBundle\Application\Generation\BoundObjectiveCollector;
@@ -58,8 +59,6 @@ final readonly class Action
 
     private function hasLogicHistogram(): bool
     {
-        $histogram = $this->series->histogramFor(PointType::LogicAction);
-
-        return $histogram !== null && $this->diagnostics->metricBuckets($histogram) !== null;
+        return DurationBuckets::of($this->series, $this->diagnostics, PointType::LogicAction) !== null;
     }
 }

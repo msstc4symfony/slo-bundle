@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Application\Coverage\Analyze;
 
+use Msstc4Symfony\SloBundle\Application\Binding\DurationBuckets;
 use Msstc4Symfony\SloBundle\Application\Discovery\CatalogExtras;
 use Msstc4Symfony\SloBundle\Application\Port\CatalogDiagnosticsInterface;
 use Msstc4Symfony\SloBundle\Application\Port\RouteCatalogInterface;
@@ -133,8 +134,7 @@ final readonly class Action
      */
     private function logicPoints(CatalogExtras $extras): array
     {
-        $histogram = $this->series->histogramFor(PointType::LogicAction);
-        $measured = $histogram !== null && isset($extras->metricBuckets[$histogram]);
+        $measured = DurationBuckets::of($this->series, $this->diagnostics, PointType::LogicAction) !== null;
         $points = [];
         foreach ($extras->taggedPoints as $tagged) {
             $definitions = $this->catalog->forPoint($tagged->point);

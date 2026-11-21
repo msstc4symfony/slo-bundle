@@ -115,8 +115,7 @@ final readonly class MetricBindingResolver
 
     private function logic(SloDefinition $definition, Objective $objective): ?SeriesBinding
     {
-        $histogram = $this->series->histogramFor(PointType::LogicAction);
-        if ($histogram === null || $this->diagnostics->metricBuckets($histogram) === null) {
+        if (DurationBuckets::of($this->series, $this->diagnostics, PointType::LogicAction) === null) {
             return null;
         }
 
@@ -143,12 +142,11 @@ final readonly class MetricBindingResolver
      */
     private function bucket(PointType $type, Objective $objective): ?string
     {
-        $histogram = $this->series->histogramFor($type);
-        if ($histogram === null || !$objective->threshold instanceof LatencyThreshold) {
+        if ($this->series->histogramFor($type) === null || !$objective->threshold instanceof LatencyThreshold) {
             return null;
         }
 
-        return $this->series->bucketFor($this->diagnostics->metricBuckets($histogram) ?? [], $objective->threshold);
+        return $this->series->bucketFor(DurationBuckets::of($this->series, $this->diagnostics, $type) ?? [], $objective->threshold);
     }
 
     /**
