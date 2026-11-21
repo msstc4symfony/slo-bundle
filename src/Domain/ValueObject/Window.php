@@ -53,4 +53,18 @@ final readonly class Window
     {
         return $this->declared;
     }
+
+    /**
+     * The same length spelled in the largest exact unit (30d → 1mo, 7d → 1w, 48h → 2d).
+     */
+    public function canonical(): self
+    {
+        foreach (array_reverse(self::UNIT_SECONDS, true) as $unit => $unitSeconds) {
+            if ($this->seconds % $unitSeconds === 0) {
+                return new self($this->seconds, intdiv($this->seconds, $unitSeconds) . $unit);
+            }
+        }
+
+        return $this;
+    }
 }

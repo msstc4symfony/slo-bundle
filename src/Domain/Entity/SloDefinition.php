@@ -122,6 +122,22 @@ final readonly class SloDefinition
         );
     }
 
+    /**
+     * The window is not part of the revision, so its spelling may change without splitting series.
+     */
+    public function withWindow(Window $window): self
+    {
+        return new self(
+            $this->name,
+            $this->pointType,
+            $this->points,
+            $this->objectives,
+            $window,
+            $this->classification,
+            $this->strategy,
+        );
+    }
+
     public function sameSemanticsAs(self $other): bool
     {
         return $this->name->value === $other->name->value

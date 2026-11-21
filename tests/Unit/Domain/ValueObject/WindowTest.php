@@ -8,6 +8,7 @@ use InvalidArgumentException;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Window;
 use Msstc4Symfony\SloBundle\Infrastructure\Prometheus\PromQlRenderer;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\TestWith;
 use PHPUnit\Framework\TestCase;
 
 final class WindowTest extends TestCase
@@ -67,5 +68,23 @@ final class WindowTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
         Window::fromString($declared);
+    }
+
+    /**
+     * @param non-empty-string $declared
+     * @param non-empty-string $canonical
+     */
+    #[TestWith(['30d', '1mo'])]
+    #[TestWith(['1mo', '1mo'])]
+    #[TestWith(['14d', '2w'])]
+    #[TestWith(['48h', '2d'])]
+    #[TestWith(['36h', '36h'])]
+    #[TestWith(['90d', '3mo'])]
+    public function testCanonicalUsesTheLargestExactUnit(string $declared, string $canonical): void
+    {
+        $window = Window::fromString($declared)->canonical();
+
+        self::assertSame($canonical, $window->toString());
+        self::assertSame(Window::fromString($declared)->seconds(), $window->seconds());
     }
 }

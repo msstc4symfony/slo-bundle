@@ -66,6 +66,19 @@ final class ActionTest extends TestCase
         self::assertStringContainsString('latency objective absent vs declared', $output->errors[0]);
     }
 
+    public function testWindowsOfEqualLengthAreNotADifference(): void
+    {
+        $catalog = CatalogFixture::build(function ($assembler): void {
+            $assembler->declare($this->http('A::a'), new Slo('x.y', [new Availability(99.9)], window: '30d', badStatuses: ['5xx']));
+            $assembler->declare($this->http('A::b'), new Slo('x.y', [new Availability(99.9)], window: '1mo', badStatuses: ['5xx', 429]));
+        });
+
+        $output = (new Action($catalog, $catalog, new InMemoryRouteCatalog(), new MetricBindingResolver(new InMemoryRouteCatalog(), $catalog, new MetricsBundleSeriesCatalog())))();
+
+        self::assertStringContainsString('bad statuses 5xx vs 429,5xx', $output->errors[0]);
+        self::assertStringNotContainsString('window', $output->errors[0]);
+    }
+
     public function testSharedSloIsANoticeNotAnError(): void
     {
         $catalog = CatalogFixture::build(function ($assembler): void {

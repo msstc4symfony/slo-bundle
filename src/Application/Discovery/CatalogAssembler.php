@@ -88,16 +88,19 @@ final class CatalogAssembler
     {
         $merged = $declarations[0]->definition;
         $seen = [$declarations[0]->point->toString() => true];
+        $spellings = [$merged->window()->toString() => true];
         foreach (\array_slice($declarations, 1) as $declaration) {
             $key = $declaration->point->toString();
             if (isset($seen[$key]) || !$merged->sameSemanticsAs($declaration->definition)) {
                 return null;
             }
             $seen[$key] = true;
+            $spellings[$declaration->definition->window()->toString()] = true;
             $merged = $merged->withPoint($declaration->point);
         }
 
-        return $merged;
+        // Equal windows spelled differently ("30d", "1mo") must not depend on which point sorts first.
+        return \count($spellings) > 1 ? $merged->withWindow($merged->window()->canonical()) : $merged;
     }
 
     private function entry(PointId $point): void
