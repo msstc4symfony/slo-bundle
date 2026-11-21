@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Infrastructure\Catalog;
 
+use Closure;
 use Msstc4Symfony\SloBundle\Application\Discovery\CatalogContents;
 use Msstc4Symfony\SloBundle\Application\Discovery\CatalogDump;
 use Msstc4Symfony\SloBundle\Application\Discovery\CatalogExtras;
@@ -16,6 +17,7 @@ use Override;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use RuntimeException;
+use Symfony\Contracts\Service\ResetInterface;
 use Throwable;
 use UnexpectedValueException;
 
@@ -28,7 +30,7 @@ use UnexpectedValueException;
  *
  * @internal
  */
-final class CompiledSloCatalog implements SloCatalogInterface, CatalogDiagnosticsInterface
+final class CompiledSloCatalog implements SloCatalogInterface, CatalogDiagnosticsInterface, ResetInterface
 {
     /** @var array<non-negative-int, SloDefinition> */
     private array $hydrated = [];
@@ -37,6 +39,11 @@ final class CompiledSloCatalog implements SloCatalogInterface, CatalogDiagnostic
     private array $byPoint = [];
 
     private ?CatalogContents $contents = null;
+
+    private ?CatalogExtras $extras = null;
+
+    /** @var array<'contents'|'extras', RuntimeException> memoised until reset: a corrupt section is not re-hydrated on every call */
+    private array $unreadable = [];
 
     /** @var array<non-empty-string, SloDefinition>|null */
     private ?array $byName = null;
@@ -132,10 +139,13 @@ final class CompiledSloCatalog implements SloCatalogInterface, CatalogDiagnostic
         return $shared;
     }
 
+    /**
+     * Hydrates the extras section only: a corrupt definition does not hide the facts every other SLO needs.
+     */
     #[Override]
     public function extras(): CatalogExtras
     {
-        return $this->contents()->extras;
+        return $this->extras ??= $this->contents->extras ?? $this->read('extras', fn (): CatalogExtras => CatalogDump::extrasFromArray($this->catalog['extras']));
     }
 
     #[Override]
@@ -150,12 +160,70 @@ final class CompiledSloCatalog implements SloCatalogInterface, CatalogDiagnostic
         return $this->isCurrentFormat() ? $this->catalog['extras']['failure_transports'] : [];
     }
 
+    #[Override]
+    public function metricBuckets(string $metric): ?array
+    {
+        return $this->isCurrentFormat() ? $this->catalog['extras']['metric_buckets'][$metric] ?? null : null;
+    }
+
+    #[Override]
+    public function metricLabelOf(PointId $point): ?string
+    {
+        if (!$this->isCurrentFormat()) {
+            return null;
+        }
+        $key = $point->toString();
+        foreach ($this->catalog['extras']['tagged_points'] as $tagged) {
+            if ($tagged['point'] === $key) {
+                return $tagged['metric_label'];
+            }
+        }
+
+        return null;
+    }
+
+    #[Override]
+    public function handledMessageClasses(): array
+    {
+        return $this->isCurrentFormat() ? array_column($this->catalog['extras']['handlers'], 'message_class') : [];
+    }
+
+    /**
+     * Retries a dump that could not be read; successfully hydrated data is kept (the dump is fixed per container).
+     */
+    #[Override]
+    public function reset(): void
+    {
+        $this->unreadable = [];
+        $this->unreadableWarned = false;
+    }
+
     private function contents(): CatalogContents
     {
+        return $this->contents ??= $this->read('contents', fn (): CatalogContents => CatalogDump::fromArray($this->catalog));
+    }
+
+    /**
+     * @template T of object
+     *
+     * @param 'contents'|'extras' $section
+     * @param Closure(): T $hydrate
+     *
+     * @return T
+     */
+    private function read(string $section, Closure $hydrate): object
+    {
+        if (isset($this->unreadable[$section])) {
+            throw $this->unreadable[$section];
+        }
         try {
-            return $this->contents ??= CatalogDump::fromArray($this->catalog);
+            if ($this->catalog['format'] !== CatalogDump::FORMAT) {
+                throw new UnexpectedValueException(\sprintf('SLO catalog dump format %d, expected %d.', $this->catalog['format'], CatalogDump::FORMAT));
+            }
+
+            return $hydrate();
         } catch (Throwable $e) {
-            throw new RuntimeException('The compiled SLO catalog cannot be read; clear the cache (bin/console cache:clear) after upgrading slo-bundle.', 0, $e);
+            throw $this->unreadable[$section] = new RuntimeException('The compiled SLO catalog cannot be read; clear the cache (bin/console cache:clear) after upgrading slo-bundle.', 0, $e);
         }
     }
 

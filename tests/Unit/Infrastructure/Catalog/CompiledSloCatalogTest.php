@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Catalog;
 
+use Closure;
 use Msstc4Symfony\SloBundle\Application\Attribute\Availability;
 use Msstc4Symfony\SloBundle\Application\Attribute\Slo;
 use Msstc4Symfony\SloBundle\Application\Discovery\CatalogAssembler;
@@ -81,6 +82,45 @@ final class CompiledSloCatalogTest extends TestCase
         $catalog->all();
     }
 
+    public function testFailedFullHydrationIsMemoisedUntilResetAndDoesNotHideTheExtras(): void
+    {
+        $catalog = new CompiledSloCatalog($this->corruptDump(), new RecordingLogger());
+
+        $first = $this->failure(static fn (): array => $catalog->all());
+        self::assertSame($first, $this->failure(static fn (): array => $catalog->conflicts()));
+        self::assertSame(['failed'], $catalog->extras()->failureTransports);
+        self::assertSame('payment.process', $catalog->forPoint($this->pay())[0]->name()->value);
+
+        $catalog->reset();
+
+        $retried = $this->failure(static fn (): array => $catalog->all());
+        self::assertNotSame($first, $retried);
+        self::assertSame($first->getMessage(), $retried->getMessage());
+    }
+
+    public function testCheapRuntimeReadsUseTheRawDump(): void
+    {
+        $dump = $this->dump();
+        $dump['extras']['metric_buckets'] = ['logic_action_duration_histogram_seconds' => [0.1, 1.0]];
+        $dump['extras']['tagged_points'] = [['point' => 'logic_action:refund', 'metric_label' => 'refund_label'], ['point' => 'logic_action:other', 'metric_label' => null]];
+        $dump['extras']['handlers'] = [['handler_class' => self::class, 'message_class' => self::PAY, 'async' => true, 'from_transport' => null, 'method' => '__invoke']];
+        $catalog = new CompiledSloCatalog($dump, new RecordingLogger());
+
+        self::assertSame([0.1, 1.0], $catalog->metricBuckets('logic_action_duration_histogram_seconds'));
+        self::assertNull($catalog->metricBuckets('request_duration_histogram_seconds'));
+        self::assertSame('refund_label', $catalog->metricLabelOf(PointId::of(PointType::LogicAction, 'refund')));
+        self::assertNull($catalog->metricLabelOf(PointId::of(PointType::LogicAction, 'other')));
+        self::assertNull($catalog->metricLabelOf(PointId::of(PointType::LogicAction, 'unknown')));
+        self::assertSame([self::PAY], $catalog->handledMessageClasses());
+
+        $stale = $dump;
+        $stale['format'] = 1;
+        $staleCatalog = new CompiledSloCatalog($stale, new RecordingLogger());
+        self::assertNull($staleCatalog->metricBuckets('logic_action_duration_histogram_seconds'));
+        self::assertNull($staleCatalog->metricLabelOf(PointId::of(PointType::LogicAction, 'refund')));
+        self::assertSame([], $staleCatalog->handledMessageClasses());
+    }
+
     public function testUndeclaredPointsAreNotMemoised(): void
     {
         $catalog = new CompiledSloCatalog($this->dump(), new RecordingLogger());
@@ -102,6 +142,20 @@ final class CompiledSloCatalogTest extends TestCase
         self::assertSame($catalog->forPoint($this->pay())[0], $catalog->all()[1]);
         self::assertSame(['payment.create', 'payment.process'], array_map(static fn (SloDefinition $d): string => $d->name()->value, $catalog->all()));
         self::assertSame(['failed'], $catalog->extras()->failureTransports);
+    }
+
+    /**
+     * @param Closure(): mixed $call
+     */
+    private function failure(Closure $call): RuntimeException
+    {
+        try {
+            $call();
+        } catch (RuntimeException $e) {
+            return $e;
+        }
+
+        self::fail('Expected a RuntimeException.');
     }
 
     private function create(): PointId

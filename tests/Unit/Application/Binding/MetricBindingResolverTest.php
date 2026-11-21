@@ -30,6 +30,7 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MetricsBundleSeriesCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\Prometheus\PromQlRenderer;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\CatalogFixture;
+use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\FailingCatalog;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\InMemoryRouteCatalog;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -324,7 +325,8 @@ final class MetricBindingResolverTest extends TestCase
             $routes[] = new RouteInfo('payment.create', '/p', ['POST'], $point->id);
         }
 
-        return new MetricBindingResolver(new InMemoryRouteCatalog($routes), CatalogFixture::build(static fn (): null => null, $extras), new MetricsBundleSeriesCatalog());
+        // extras() hydrates CLI-only data: the request path must resolve without it.
+        return new MetricBindingResolver(new InMemoryRouteCatalog($routes), new FailingCatalog(CatalogFixture::build(static fn (): null => null, $extras), ['extras']), new MetricsBundleSeriesCatalog());
     }
 
     private function series(Binding $binding): SeriesBinding

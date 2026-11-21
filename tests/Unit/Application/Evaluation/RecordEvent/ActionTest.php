@@ -68,6 +68,19 @@ final class ActionTest extends TestCase
         self::assertSame((new RevisionCalculator())->revision($definition, ObjectiveKind::Latency, [])->value, $writer->writes[0][2]);
     }
 
+    public function testRuntimeFallbackResolvesPerPointWithoutTheFullCatalog(): void
+    {
+        $writer = new InMemoryEventWriter();
+        $logger = new RecordingLogger();
+        $catalog = new FailingCatalog($this->paymentCatalog(), ['extras', 'all', 'get', 'conflicts', 'shared', 'ignored']);
+
+        $this->action($catalog, $writer, $logger)->record(new Input($this->point(), Observation::http(200, 0.1)));
+
+        self::assertSame(['latency'], array_column($writer->writes, 1));
+        self::assertSame(['good'], array_column($writer->writes, 3));
+        self::assertSame([], $logger->records);
+    }
+
     public function testSlowEventIsBad(): void
     {
         $writer = new InMemoryEventWriter();

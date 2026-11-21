@@ -129,7 +129,6 @@ final class CatalogDump
         if ($catalog['format'] !== self::FORMAT) {
             throw new InvalidArgumentException(\sprintf('Unsupported SLO catalog dump format %d, expected %d.', $catalog['format'], self::FORMAT));
         }
-        $extras = $catalog['extras'];
 
         return new CatalogContents(
             array_map(self::definition(...), $catalog['definitions']),
@@ -142,18 +141,26 @@ final class CatalogDump
                 $catalog['conflicts'],
             ),
             $catalog['ignored'],
-            new CatalogExtras(
-                $extras['controllers'],
-                array_map(static fn (array $h): HandlerInfo => new HandlerInfo($h['handler_class'], $h['message_class'], $h['async'], $h['from_transport'], $h['method']), $extras['handlers']),
-                array_map(static fn (array $t): TaggedPoint => new TaggedPoint(self::point($t['point']), $t['metric_label']), $extras['tagged_points']),
-                $extras['operations'],
-                $extras['failure_transports'],
-                $extras['metric_buckets'],
-                $extras['http_ignored_routes'],
-                $extras['warnings'],
-                $extras['controller_services'],
-                $extras['has_http_points'],
-            ),
+            self::extrasFromArray($catalog['extras']),
+        );
+    }
+
+    /**
+     * @param ExtrasShape $extras
+     */
+    public static function extrasFromArray(array $extras): CatalogExtras
+    {
+        return new CatalogExtras(
+            $extras['controllers'],
+            array_map(static fn (array $h): HandlerInfo => new HandlerInfo($h['handler_class'], $h['message_class'], $h['async'], $h['from_transport'], $h['method']), $extras['handlers']),
+            array_map(static fn (array $t): TaggedPoint => new TaggedPoint(self::point($t['point']), $t['metric_label']), $extras['tagged_points']),
+            $extras['operations'],
+            $extras['failure_transports'],
+            $extras['metric_buckets'],
+            $extras['http_ignored_routes'],
+            $extras['warnings'],
+            $extras['controller_services'],
+            $extras['has_http_points'],
         );
     }
 

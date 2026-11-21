@@ -42,4 +42,28 @@ interface CatalogDiagnosticsInterface
      * @return list<non-empty-string>
      */
     public function failureTransports(): array;
+
+    /**
+     * Cheap runtime read of CatalogExtras::$metricBuckets: the buckets of a registered histogram, null when the metric
+     * is not registered.
+     *
+     * @param non-empty-string $metric
+     *
+     * @return list<float>|null
+     */
+    public function metricBuckets(string $metric): ?array;
+
+    /**
+     * Cheap runtime read of CatalogExtras::$taggedPoints: the `metric_label` of a tagged point.
+     *
+     * @return non-empty-string|null
+     */
+    public function metricLabelOf(PointId $point): ?string;
+
+    /**
+     * Cheap runtime read of CatalogExtras::$handlers: every handled message class.
+     *
+     * @return list<non-empty-string>
+     */
+    public function handledMessageClasses(): array;
 }

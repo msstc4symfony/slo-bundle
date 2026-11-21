@@ -105,6 +105,30 @@ final readonly class FailingCatalog implements SloCatalogInterface, CatalogDiagn
         return $this->inner->failureTransports();
     }
 
+    #[Override]
+    public function metricBuckets(string $metric): ?array
+    {
+        $this->fail(__FUNCTION__);
+
+        return $this->inner->metricBuckets($metric);
+    }
+
+    #[Override]
+    public function metricLabelOf(PointId $point): ?string
+    {
+        $this->fail(__FUNCTION__);
+
+        return $this->inner->metricLabelOf($point);
+    }
+
+    #[Override]
+    public function handledMessageClasses(): array
+    {
+        $this->fail(__FUNCTION__);
+
+        return $this->inner->handledMessageClasses();
+    }
+
     private function fail(string $method): void
     {
         if (\in_array($method, $this->failing, true)) {

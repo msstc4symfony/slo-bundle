@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Msstc4Symfony\SloBundle\Application\Binding;
 
 use InvalidArgumentException;
-use Msstc4Symfony\SloBundle\Application\Discovery\CatalogExtras;
 use Msstc4Symfony\SloBundle\Application\Port\CatalogDiagnosticsInterface;
 use Msstc4Symfony\SloBundle\Application\Port\RouteCatalogInterface;
 use Msstc4Symfony\SloBundle\Application\Port\SeriesCatalogInterface;
@@ -20,6 +19,7 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 
 /**
  * Picks per objective between existing metrics-bundle series (Strategy A) and dedicated counters (Strategy B), spec 5.4.
+ * Runs on the request path when no warmed revisions exist: it reads only cheap catalog facts, never extras().
  *
  * @internal
  */
@@ -38,11 +38,10 @@ final readonly class MetricBindingResolver
             return Binding::dedicated();
         }
 
-        $extras = $this->diagnostics->extras();
         $series = match ($definition->pointType()) {
-            PointType::HttpRoute => $this->http($definition, $objective, $extras),
-            PointType::MessengerMessage => $this->messenger($definition, $objective, $extras),
-            PointType::LogicAction => $this->logic($definition, $objective, $extras),
+            PointType::HttpRoute => $this->http($definition, $objective),
+            PointType::MessengerMessage => $this->messenger($definition, $objective),
+            PointType::LogicAction => $this->logic($definition, $objective),
             PointType::Operation => null,
         };
 
@@ -66,7 +65,7 @@ final readonly class MetricBindingResolver
     {
         return $this->histogramFor($definition->pointType()) !== null
             && $objective->threshold instanceof LatencyThreshold
-            && $this->bucket($definition->pointType(), $objective, $this->diagnostics->extras()) === null;
+            && $this->bucket($definition->pointType(), $objective) === null;
     }
 
     /**
@@ -77,7 +76,7 @@ final readonly class MetricBindingResolver
         return $this->series->histogramFor($type);
     }
 
-    private function http(SloDefinition $definition, Objective $objective, CatalogExtras $extras): ?SeriesBinding
+    private function http(SloDefinition $definition, Objective $objective): ?SeriesBinding
     {
         $routeNames = $this->routeNames($definition);
         if ($routeNames === []) {
@@ -93,37 +92,37 @@ final readonly class MetricBindingResolver
         if (!$objective->includeErrors || !$classification->ineligibleStatuses->isEmpty()) {
             return null;
         }
-        $bucket = $this->bucket(PointType::HttpRoute, $objective, $extras);
+        $bucket = $this->bucket(PointType::HttpRoute, $objective);
 
         return $bucket === null ? null : $this->series->httpLatency($routeNames, $bucket);
     }
 
-    private function messenger(SloDefinition $definition, Objective $objective, CatalogExtras $extras): ?SeriesBinding
+    private function messenger(SloDefinition $definition, Objective $objective): ?SeriesBinding
     {
-        if ($definition->classification()->countAttempts || $this->sharesMessageLabel($definition, $extras)) {
+        if ($definition->classification()->countAttempts || $this->sharesMessageLabel($definition)) {
             return null;
         }
         $messages = array_map(static fn (PointId $point): string => $point->id, $definition->points());
 
         if ($objective->kind === ObjectiveKind::Availability) {
-            return $this->series->messengerAvailability($messages, $extras->failureTransports);
+            return $this->series->messengerAvailability($messages, $this->diagnostics->failureTransports());
         }
 
-        $bucket = $this->bucket(PointType::MessengerMessage, $objective, $extras);
+        $bucket = $this->bucket(PointType::MessengerMessage, $objective);
 
-        return $bucket === null ? null : $this->series->messengerLatency($messages, $extras->failureTransports, $bucket);
+        return $bucket === null ? null : $this->series->messengerLatency($messages, $this->diagnostics->failureTransports(), $bucket);
     }
 
-    private function logic(SloDefinition $definition, Objective $objective, CatalogExtras $extras): ?SeriesBinding
+    private function logic(SloDefinition $definition, Objective $objective): ?SeriesBinding
     {
         $histogram = $this->series->histogramFor(PointType::LogicAction);
-        if ($histogram === null || !isset($extras->metricBuckets[$histogram])) {
+        if ($histogram === null || $this->diagnostics->metricBuckets($histogram) === null) {
             return null;
         }
 
         $labels = [];
         foreach ($definition->points() as $point) {
-            $label = $this->metricLabel($extras, $point);
+            $label = $this->diagnostics->metricLabelOf($point);
             if ($label === null) {
                 return null;
             }
@@ -134,7 +133,7 @@ final readonly class MetricBindingResolver
             // The series counts expected failures as good: it cannot express expectedFailureIsGood: false.
             return $definition->classification()->expectedFailureIsGood ? $this->series->logicAvailability($labels) : null;
         }
-        $bucket = $this->bucket(PointType::LogicAction, $objective, $extras);
+        $bucket = $this->bucket(PointType::LogicAction, $objective);
 
         return $bucket === null ? null : $this->series->logicLatency($labels, $objective->includeErrors, $bucket);
     }
@@ -142,14 +141,14 @@ final readonly class MetricBindingResolver
     /**
      * @return non-empty-string|null
      */
-    private function bucket(PointType $type, Objective $objective, CatalogExtras $extras): ?string
+    private function bucket(PointType $type, Objective $objective): ?string
     {
         $histogram = $this->series->histogramFor($type);
         if ($histogram === null || !$objective->threshold instanceof LatencyThreshold) {
             return null;
         }
 
-        return $this->series->bucketFor($extras->metricBuckets[$histogram] ?? [], $objective->threshold);
+        return $this->series->bucketFor($this->diagnostics->metricBuckets($histogram) ?? [], $objective->threshold);
     }
 
     /**
@@ -172,32 +171,18 @@ final readonly class MetricBindingResolver
     /**
      * Another handled message with the same `message` label value would be summed into the series.
      */
-    private function sharesMessageLabel(SloDefinition $definition, CatalogExtras $extras): bool
+    private function sharesMessageLabel(SloDefinition $definition): bool
     {
         $own = [];
         foreach ($definition->points() as $point) {
             $own[$point->id] = $this->series->messageLabel($point->id);
         }
-        foreach ($extras->handlers as $handler) {
-            if (!isset($own[$handler->messageClass]) && \in_array($this->series->messageLabel($handler->messageClass), $own, true)) {
+        foreach ($this->diagnostics->handledMessageClasses() as $messageClass) {
+            if (!isset($own[$messageClass]) && \in_array($this->series->messageLabel($messageClass), $own, true)) {
                 return true;
             }
         }
 
         return false;
-    }
-
-    /**
-     * @return non-empty-string|null
-     */
-    private function metricLabel(CatalogExtras $extras, PointId $point): ?string
-    {
-        foreach ($extras->taggedPoints as $tagged) {
-            if ($tagged->point->equals($point)) {
-                return $tagged->metricLabel;
-            }
-        }
-
-        return null;
     }
 }
