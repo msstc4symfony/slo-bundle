@@ -33,6 +33,7 @@ use Msstc4Symfony\SloBundle\Infrastructure\Filesystem\FileWriter;
 use Msstc4Symfony\SloBundle\Infrastructure\Grafana\GrafanaFileBuilder;
 use Msstc4Symfony\SloBundle\Infrastructure\Logging\FailSafeLogger;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\DeliveryStatusMapper;
+use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\DeliveryStatusMapperInterface;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\HttpSloObserver;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MessengerSloObserver;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MetricsEventWriter;
@@ -102,6 +103,7 @@ return static function (ContainerConfigurator $container): void {
         ->arg('$logger', service(FailSafeLogger::class))
         ->tag('kernel.reset', ['method' => 'reset'])
     ;
+    $services->alias(DeliveryStatusMapperInterface::class, DeliveryStatusMapper::class);
     $services->set(MessengerSloObserver::class)->arg('$logger', service(FailSafeLogger::class));
 
     $services->set(HrtimeClock::class);

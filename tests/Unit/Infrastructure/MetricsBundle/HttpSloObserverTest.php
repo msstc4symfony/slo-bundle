@@ -9,9 +9,15 @@ use Msstc4Symfony\SloBundle\Application\Attribute\Availability;
 use Msstc4Symfony\SloBundle\Application\Attribute\Combined;
 use Msstc4Symfony\SloBundle\Application\Attribute\Latency;
 use Msstc4Symfony\SloBundle\Application\Attribute\Slo;
+use Msstc4Symfony\SloBundle\Application\Binding\MetricBindingResolver;
+use Msstc4Symfony\SloBundle\Application\Binding\RevisionResolver;
 use Msstc4Symfony\SloBundle\Application\Discovery\CatalogAssembler;
+use Msstc4Symfony\SloBundle\Application\Evaluation\RecordEvent\Action;
 use Msstc4Symfony\SloBundle\Application\Port\RouteInfo;
+use Msstc4Symfony\SloBundle\Application\Port\RoutePointIndexInterface;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
+use Msstc4Symfony\SloBundle\Domain\Service\EventClassifier;
+use Msstc4Symfony\SloBundle\Domain\Service\RevisionCalculator;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\HttpSloObserver;
@@ -20,7 +26,9 @@ use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RoutePointIndex;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouterRouteCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouterRouteReader;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\CatalogFixture;
+use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\FailingCatalog;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\InMemoryRouteCatalog;
+use Msstc4Symfony\SloBundle\Test\Unit\Application\Evaluation\RecordEvent\FixedPrecomputedRevisions;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Evaluation\RecordEvent\InMemoryEventWriter;
 use Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Symfony\RecordingLogger;
 use Override;
@@ -122,6 +130,41 @@ final class HttpSloObserverTest extends TestCase
         self::assertSame('payment_create', $this->logger->contexts[0]['route']);
     }
 
+    public function testFailingHttpPointsFlagIsLoggedNotThrown(): void
+    {
+        $observer = new HttpSloObserver($this->index(), new FailingCatalog($this->catalog, ['hasHttpPoints']), $this->action(), $this->logger);
+
+        $observer->onHttpMeasured(new HttpMeasurement('POST', 'payment_create', 200, 0.01, null));
+
+        $this->assertLoggedOnce();
+    }
+
+    public function testFailingPointIndexIsLoggedNotThrown(): void
+    {
+        $index = self::createStub(RoutePointIndexInterface::class);
+        $index->method('pointsFor')->willThrowException(new RuntimeException('index broken'));
+        $observer = new HttpSloObserver($index, $this->catalog, $this->action(), $this->logger);
+
+        $observer->onHttpMeasured(new HttpMeasurement('POST', 'payment_create', 200, 0.01, null));
+
+        $this->assertLoggedOnce();
+    }
+
+    public function testFailingPointLookupInsideRecordingIsLoggedNotThrown(): void
+    {
+        $writer = new InMemoryEventWriter();
+        $routes = new InMemoryRouteCatalog([new RouteInfo('payment_create', '/payments', ['POST'], self::CONTROLLER)]);
+        $failing = new FailingCatalog($this->catalog, ['forPoint']);
+        $record = new Action($failing, new MetricBindingResolver($routes, $this->catalog), new RevisionResolver(new RevisionCalculator(), $this->catalog), new EventClassifier(), $writer, $this->logger, new FixedPrecomputedRevisions());
+        $observer = new HttpSloObserver($this->index(), $this->catalog, $record, $this->logger);
+
+        $observer->onHttpMeasured(new HttpMeasurement('POST', 'payment_create', 200, 0.01, null));
+
+        self::assertSame([], $writer->writes);
+        self::assertSame([['warning', 'SLO event was not recorded.']], $this->logger->records);
+        self::assertSame('http_route:' . self::CONTROLLER, $this->logger->contexts[0]['point']);
+    }
+
     public function testApplicationWithoutHttpSlosNeverTouchesTheRouter(): void
     {
         $catalog = CatalogFixture::build(static function (CatalogAssembler $assembler): void {
@@ -142,5 +185,25 @@ final class HttpSloObserverTest extends TestCase
 
         self::assertSame([], $writer->writes);
         self::assertSame([], $this->logger->records);
+    }
+
+    private function index(): RoutePointIndex
+    {
+        $routes = new InMemoryRouteCatalog([new RouteInfo('payment_create', '/payments', ['POST'], self::CONTROLLER)]);
+
+        return new RoutePointIndex($routes, $this->catalog, new RouteIndexFile(sys_get_temp_dir() . '/msstc4symfony-slo-no-route-index', false), $this->logger);
+    }
+
+    private function action(): Action
+    {
+        return ObserverFixture::action($this->catalog, new InMemoryRouteCatalog(), $this->writer, $this->logger);
+    }
+
+    private function assertLoggedOnce(): void
+    {
+        self::assertSame([], $this->writer->writes);
+        self::assertSame([['warning', 'SLO event was not recorded.']], $this->logger->records);
+        self::assertSame('payment_create', $this->logger->contexts[0]['route']);
+        self::assertInstanceOf(RuntimeException::class, $this->logger->contexts[0]['exception']);
     }
 }

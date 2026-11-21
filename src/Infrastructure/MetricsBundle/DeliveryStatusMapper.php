@@ -14,7 +14,7 @@ use Symfony\Contracts\Service\ResetInterface;
  *
  * @internal
  */
-final class DeliveryStatusMapper implements ResetInterface
+final class DeliveryStatusMapper implements DeliveryStatusMapperInterface, ResetInterface
 {
     /** @var array<string, true> */
     private array $warned = [];
@@ -23,6 +23,7 @@ final class DeliveryStatusMapper implements ResetInterface
     {
     }
 
+    #[Override]
     public function map(string $status): ?DeliveryStatus
     {
         $delivery = DeliveryStatus::tryFrom($status);

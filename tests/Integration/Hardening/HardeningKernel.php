@@ -22,13 +22,16 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
 
 /**
- * HTTP, Messenger (when installed) and operation points on in-memory storage; the environment "failing_storage" makes the SLO writer's recorder throw.
+ * HTTP, Messenger (when installed) and operation points on in-memory storage; the environment "failing_storage" makes the SLO writer's recorder throw,
+ * "failing_storage_and_log" also makes every log record of the slo_bundle channel throw.
  */
 final class HardeningKernel extends Kernel
 {
     use MicroKernelTrait;
 
     public const FAILING_STORAGE = 'failing_storage';
+
+    public const FAILING_STORAGE_AND_LOG = 'failing_storage_and_log';
 
     public const ASYNC = 'async';
 
@@ -60,7 +63,7 @@ final class HardeningKernel extends Kernel
     #[Override]
     protected function build(ContainerBuilder $container): void
     {
-        if ($this->environment === self::FAILING_STORAGE) {
+        if ($this->environment === self::FAILING_STORAGE || $this->environment === self::FAILING_STORAGE_AND_LOG) {
             $container->addCompilerPass(new UseThrowingRecorderPass(), PassConfig::TYPE_BEFORE_OPTIMIZATION);
         }
     }
@@ -86,7 +89,11 @@ final class HardeningKernel extends Kernel
             ];
         }
         $container->extension('framework', $framework);
-        $container->extension('monolog', ['handlers' => ['capture' => ['type' => 'service', 'id' => TestHandler::class]]]);
+        $handlers = ['capture' => ['type' => 'service', 'id' => TestHandler::class]];
+        if ($this->environment === self::FAILING_STORAGE_AND_LOG) {
+            $handlers = ['broken' => ['type' => 'service', 'id' => ThrowingSloLogHandler::class, 'priority' => 10]] + $handlers;
+        }
+        $container->extension('monolog', ['handlers' => $handlers]);
         $container->extension('msstc4symfony_metrics', [
             'storage' => ['dsn' => 'inmemory://'],
             'application_name' => 'test',
@@ -100,6 +107,7 @@ final class HardeningKernel extends Kernel
 
         $services = $container->services();
         $services->set(TestHandler::class)->public();
+        $services->set(ThrowingSloLogHandler::class)->public();
         $services->set(ThrowingRecorder::class)->public();
         $services->set(CheckoutController::class)->autowire()->autoconfigure()->tag('controller.service_arguments');
         if ($messenger) {

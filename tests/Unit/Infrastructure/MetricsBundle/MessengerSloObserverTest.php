@@ -11,6 +11,7 @@ use Msstc4Symfony\SloBundle\Application\Attribute\Latency;
 use Msstc4Symfony\SloBundle\Application\Attribute\Slo;
 use Msstc4Symfony\SloBundle\Application\Discovery\CatalogAssembler;
 use Msstc4Symfony\SloBundle\Application\Discovery\CatalogExtras;
+use Msstc4Symfony\SloBundle\Domain\Enum\DeliveryStatus;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
@@ -19,6 +20,7 @@ use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MessengerSloObserver;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Message\ProcessPayment;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Message\RefundPayment;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\CatalogFixture;
+use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\FailingCatalog;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\InMemoryRouteCatalog;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Evaluation\RecordEvent\InMemoryEventWriter;
 use Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Symfony\RecordingLogger;
@@ -88,6 +90,48 @@ final class MessengerSloObserverTest extends TestCase
         self::assertSame([], $this->writer->writes);
     }
 
+    public function testUnknownDeliveryStatusRecordsNothing(): void
+    {
+        $observer = $this->observer(new FixedDeliveryStatusMapper(null));
+
+        $observer->onMessageMeasured(new MessengerMeasurement('async', ProcessPayment::class, MessengerMessageStatus::HANDLED, 0.1, null));
+
+        self::assertSame([], $this->writer->writes);
+        self::assertSame([], $this->logger->records);
+    }
+
+    /**
+     * @return iterable<string, array{list<non-empty-string>, bool}>
+     */
+    public static function failingDependencyProvider(): iterable
+    {
+        yield 'point lookup' => [['forPoint'], false];
+        yield 'failure transports' => [['failureTransports'], false];
+        yield 'status mapper' => [[], true];
+    }
+
+    /**
+     * @param list<non-empty-string> $failing
+     */
+    #[DataProvider('failingDependencyProvider')]
+    public function testFailingDependencyIsLoggedNotThrown(array $failing, bool $mapperThrows): void
+    {
+        $observer = new MessengerSloObserver(
+            new FailingCatalog($this->catalog, $failing),
+            new FailingCatalog($this->catalog, $failing),
+            new FixedDeliveryStatusMapper(DeliveryStatus::Handled, $mapperThrows),
+            ObserverFixture::action($this->catalog, new InMemoryRouteCatalog(), $this->writer, $this->logger),
+            $this->logger,
+        );
+
+        $observer->onMessageMeasured(new MessengerMeasurement('async', ProcessPayment::class, MessengerMessageStatus::HANDLED, 0.1, null));
+
+        self::assertSame([], $this->writer->writes);
+        self::assertSame([['warning', 'SLO event was not recorded.']], $this->logger->records);
+        self::assertSame(ProcessPayment::class, $this->logger->contexts[0]['message']);
+        self::assertSame('async', $this->logger->contexts[0]['transport']);
+    }
+
     public function testInvalidMeasurementIsLoggedNotThrown(): void
     {
         $this->observer->onMessageMeasured(new MessengerMeasurement('async', ProcessPayment::class, MessengerMessageStatus::HANDLED, INF, null));
@@ -95,5 +139,10 @@ final class MessengerSloObserverTest extends TestCase
         self::assertSame([], $this->writer->writes);
         self::assertCount(1, $this->logger->records);
         self::assertSame(ProcessPayment::class, $this->logger->contexts[0]['message']);
+    }
+
+    private function observer(FixedDeliveryStatusMapper $mapper): MessengerSloObserver
+    {
+        return new MessengerSloObserver($this->catalog, $this->catalog, $mapper, ObserverFixture::action($this->catalog, new InMemoryRouteCatalog(), $this->writer, $this->logger), $this->logger);
     }
 }

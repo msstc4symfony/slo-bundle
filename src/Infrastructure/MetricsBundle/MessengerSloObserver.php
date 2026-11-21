@@ -28,7 +28,7 @@ final readonly class MessengerSloObserver implements MessengerMeasurementObserve
     public function __construct(
         private SloCatalogInterface $catalog,
         private CatalogDiagnosticsInterface $diagnostics,
-        private DeliveryStatusMapper $statuses,
+        private DeliveryStatusMapperInterface $statuses,
         private RecordEvent $record,
         private LoggerInterface $logger,
     ) {
