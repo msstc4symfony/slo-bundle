@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Presentation\Command;
 
+use Closure;
 use JsonException;
 use Msstc4Symfony\SloBundle\Application\Coverage\Analyze\Action;
+use Msstc4Symfony\SloBundle\Application\Coverage\Analyze\CoverageKind;
 use Msstc4Symfony\SloBundle\Application\Coverage\Analyze\Input;
+use Msstc4Symfony\SloBundle\Application\Coverage\Analyze\KindCoverage;
 use Msstc4Symfony\SloBundle\Application\Coverage\Analyze\Output;
 use Msstc4Symfony\SloBundle\Application\Coverage\Analyze\PointCoverage;
 use Msstc4Symfony\SloBundle\Domain\Enum\CoverageStatus;
@@ -89,15 +92,15 @@ final class CoverageCommand extends Command
     }
 
     /**
-     * @return array<PointCoverage::KIND_*, float>|null null when --min is not a number from 0 to 100
+     * @return array<value-of<CoverageKind>, float>|null null when --min is not a number from 0 to 100
      */
     private function required(mixed $min): ?array
     {
         if ($min === null) {
             return [
-                PointCoverage::KIND_HTTP_ROUTE => (float) $this->httpRequiredPercent,
-                PointCoverage::KIND_MESSENGER_HANDLER => (float) $this->messengerRequiredPercent,
-                PointCoverage::KIND_LOGIC_ACTION => (float) $this->logicRequiredPercent,
+                CoverageKind::HttpRoute->value => (float) $this->httpRequiredPercent,
+                CoverageKind::MessengerHandler->value => (float) $this->messengerRequiredPercent,
+                CoverageKind::LogicAction->value => (float) $this->logicRequiredPercent,
             ];
         }
         if (!\is_string($min) || !is_numeric($min)) {
@@ -108,17 +111,12 @@ final class CoverageCommand extends Command
             return null;
         }
 
-        return [
-            PointCoverage::KIND_HTTP_ROUTE => $percent,
-            PointCoverage::KIND_MESSENGER_HANDLER => $percent,
-            PointCoverage::KIND_LOGIC_ACTION => $percent,
-            PointCoverage::KIND_OPERATION => $percent,
-        ];
+        return array_fill_keys(array_map(static fn (CoverageKind $kind): string => $kind->value, CoverageKind::cases()), $percent);
     }
 
     /**
-     * @param array<PointCoverage::KIND_*, float> $required
-     * @param list<PointCoverage::KIND_*> $below
+     * @param array<value-of<CoverageKind>, float> $required
+     * @param list<CoverageKind> $below
      */
     private function text(OutputInterface $output, Output $report, array $required, array $below): void
     {
@@ -126,13 +124,14 @@ final class CoverageCommand extends Command
             if ($point->status === CoverageStatus::Monitored) {
                 continue;
             }
-            $output->writeln(OutputFormatter::escape(\sprintf('%-11s %-17s %s - %s', $point->status->value, $point->kind, $point->point, $point->reason ?? '')));
+            $output->writeln(OutputFormatter::escape(\sprintf('%-11s %-17s %s - %s', $point->status->value, $point->kind->value, $point->point, $point->reason ?? '')));
         }
 
-        foreach (PointCoverage::KINDS as $kind) {
-            $line = \sprintf('%-17s SLO %s%%, measured by universal metrics %s%%', $kind, number_format($report->sloPercent[$kind], 2, '.', ''), number_format($report->measuredPercent[$kind], 2, '.', ''));
+        foreach ($report->kinds() as $coverage) {
+            $kind = $coverage->kind->value;
+            $line = \sprintf('%-17s SLO %s%%, measured by universal metrics %s%%', $kind, number_format($coverage->sloPercent, 2, '.', ''), number_format($coverage->measuredPercent, 2, '.', ''));
             if (isset($required[$kind])) {
-                $line .= \sprintf(', required %s%%%s', rtrim(rtrim(number_format($required[$kind], 2, '.', ''), '0'), '.'), \in_array($kind, $below, true) ? ' BELOW' : '');
+                $line .= \sprintf(', required %s%%%s', rtrim(rtrim(number_format($required[$kind], 2, '.', ''), '0'), '.'), \in_array($coverage->kind, $below, true) ? ' BELOW' : '');
             }
             $output->writeln($line);
         }
@@ -143,7 +142,7 @@ final class CoverageCommand extends Command
     }
 
     /**
-     * @param array<PointCoverage::KIND_*, float> $required
+     * @param array<value-of<CoverageKind>, float> $required
      *
      * @throws JsonException
      */
@@ -151,10 +150,10 @@ final class CoverageCommand extends Command
     {
         $document = [
             'invalid' => $report->invalid,
-            'measured_percent' => $report->measuredPercent,
+            'measured_percent' => $this->percentByKind($report, static fn (KindCoverage $coverage): float => $coverage->measuredPercent),
             'passed' => $passed,
             'points' => array_map(static fn (PointCoverage $point): array => [
-                'kind' => $point->kind,
+                'kind' => $point->kind->value,
                 'measured_by_universal_metric' => $point->measuredByUniversalMetric,
                 'point' => $point->point,
                 'reason' => $point->reason,
@@ -162,12 +161,27 @@ final class CoverageCommand extends Command
                 'status' => $point->status->value,
             ], $report->points),
             'required_percent' => $required,
-            'slo_percent' => $report->sloPercent,
+            'slo_percent' => $this->percentByKind($report, static fn (KindCoverage $coverage): float => $coverage->sloPercent),
         ];
         ksort($document['measured_percent']);
         ksort($document['required_percent']);
         ksort($document['slo_percent']);
 
         return json_encode($document, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+    }
+
+    /**
+     * @param Closure(KindCoverage): float $percent
+     *
+     * @return array<value-of<CoverageKind>, float>
+     */
+    private function percentByKind(Output $report, Closure $percent): array
+    {
+        $byKind = [];
+        foreach ($report->kinds() as $coverage) {
+            $byKind[$coverage->kind->value] = $percent($coverage);
+        }
+
+        return $byKind;
     }
 }

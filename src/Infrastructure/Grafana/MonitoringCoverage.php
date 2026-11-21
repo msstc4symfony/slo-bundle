@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Infrastructure\Grafana;
 
-use Msstc4Symfony\SloBundle\Application\Coverage\Analyze\PointCoverage;
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateDashboards\DashboardContext;
 use Override;
 
@@ -36,8 +35,8 @@ final readonly class MonitoringCoverage implements DashboardInterface
     {
         $coverage = $context->coverage;
         $summary = ['| Kind | SLO coverage | Measured by a metric |', '| --- | --- | --- |'];
-        foreach (PointCoverage::KINDS as $kind) {
-            $summary[] = \sprintf('| %s | %s%% | %s%% |', $kind, $this->number($coverage->sloPercent[$kind] ?? 100.0), $this->number($coverage->measuredPercent[$kind] ?? 100.0));
+        foreach ($coverage->kinds() as $kind) {
+            $summary[] = \sprintf('| %s | %s%% | %s%% |', $kind->kind->value, $this->number($kind->sloPercent), $this->number($kind->measuredPercent));
         }
 
         $rows = ['| Point | Kind | Status | SLOs | Note |', '| --- | --- | --- | --- | --- |'];
@@ -45,7 +44,7 @@ final readonly class MonitoringCoverage implements DashboardInterface
             $rows[] = \sprintf(
                 '| %s | %s | %s | %s | %s |',
                 $this->cell($point->point),
-                $point->kind,
+                $point->kind->value,
                 $point->status->value,
                 $point->slos === [] ? '-' : $this->cell(implode(', ', $point->slos)),
                 $point->reason === null ? '-' : $this->cell($point->reason),

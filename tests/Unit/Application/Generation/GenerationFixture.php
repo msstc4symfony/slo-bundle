@@ -94,7 +94,7 @@ final class GenerationFixture
 
     public static function dashboardsAction(CompiledSloCatalog $catalog): DashboardsAction
     {
-        return new DashboardsAction(self::collector($catalog), new CoverageAction($catalog, $catalog, self::routes()), GrafanaFileBuilder::standard(), $catalog);
+        return new DashboardsAction(self::collector($catalog), new CoverageAction($catalog, $catalog, self::routes(), new MetricsBundleSeriesCatalog()), GrafanaFileBuilder::standard(), $catalog);
     }
 
     public static function dashboardsInput(): DashboardsInput

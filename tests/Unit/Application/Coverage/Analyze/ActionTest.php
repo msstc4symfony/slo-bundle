@@ -8,6 +8,7 @@ use Closure;
 use Msstc4Symfony\SloBundle\Application\Attribute\Availability;
 use Msstc4Symfony\SloBundle\Application\Attribute\Slo;
 use Msstc4Symfony\SloBundle\Application\Coverage\Analyze\Action;
+use Msstc4Symfony\SloBundle\Application\Coverage\Analyze\CoverageKind;
 use Msstc4Symfony\SloBundle\Application\Coverage\Analyze\Input;
 use Msstc4Symfony\SloBundle\Application\Coverage\Analyze\Output;
 use Msstc4Symfony\SloBundle\Application\Coverage\Analyze\PointCoverage;
@@ -19,6 +20,7 @@ use Msstc4Symfony\SloBundle\Application\Port\RouteInfo;
 use Msstc4Symfony\SloBundle\Domain\Enum\CoverageStatus;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
+use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MetricsBundleSeriesCatalog;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Handler\AuditPaymentHandler;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Handler\ProcessPaymentHandler;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Handler\ReceiptHandler;
@@ -44,7 +46,7 @@ final class ActionTest extends TestCase
             ],
         );
 
-        $byPoint = $this->byPoint($output, PointCoverage::KIND_HTTP_ROUTE);
+        $byPoint = $this->byPoint($output, CoverageKind::HttpRoute);
         self::assertSame(CoverageStatus::Monitored, $byPoint['route_slo']->status);
         self::assertSame(['a.slo'], $byPoint['route_slo']->slos);
         self::assertNull($byPoint['route_slo']->reason);
@@ -55,8 +57,8 @@ final class ActionTest extends TestCase
         self::assertSame('system route', $byPoint['_profiler']->reason);
         self::assertFalse($byPoint['_profiler']->measuredByUniversalMetric);
         self::assertSame(CoverageStatus::Unmonitored, $byPoint['route_plain']->status);
-        self::assertSame(50.0, $output->sloPercent[PointCoverage::KIND_HTTP_ROUTE]);
-        self::assertSame(75.0, $output->measuredPercent[PointCoverage::KIND_HTTP_ROUTE]);
+        self::assertSame(50.0, $output->of(CoverageKind::HttpRoute)->sloPercent);
+        self::assertSame(75.0, $output->of(CoverageKind::HttpRoute)->measuredPercent);
         self::assertSame(0, $output->invalid);
     }
 
@@ -73,13 +75,13 @@ final class ActionTest extends TestCase
             new Input(['configured']),
         );
 
-        $byPoint = $this->byPoint($output, PointCoverage::KIND_HTTP_ROUTE);
+        $byPoint = $this->byPoint($output, CoverageKind::HttpRoute);
         self::assertSame('configured in coverage.http_routes.ignored_routes', $byPoint['configured']->reason);
         self::assertSame(CoverageStatus::Ignored, $byPoint['health']->status);
         self::assertSame('system route', $byPoint['health']->reason);
         self::assertFalse($byPoint['health']->measuredByUniversalMetric);
         self::assertTrue($byPoint['configured']->measuredByUniversalMetric);
-        self::assertSame(100.0, $output->sloPercent[PointCoverage::KIND_HTTP_ROUTE]);
+        self::assertSame(100.0, $output->of(CoverageKind::HttpRoute)->sloPercent);
     }
 
     public function testSloOnRouteIgnoredByMetricsBundleIsInvalid(): void
@@ -92,11 +94,11 @@ final class ActionTest extends TestCase
             new CatalogExtras(httpIgnoredRoutes: ['health']),
         );
 
-        $point = $this->byPoint($output, PointCoverage::KIND_HTTP_ROUTE)['health'];
+        $point = $this->byPoint($output, CoverageKind::HttpRoute)['health'];
         self::assertSame(CoverageStatus::Invalid, $point->status);
         self::assertSame(['a.slo'], $point->slos);
         self::assertSame(1, $output->invalid);
-        self::assertSame(0.0, $output->sloPercent[PointCoverage::KIND_HTTP_ROUTE]);
+        self::assertSame(0.0, $output->of(CoverageKind::HttpRoute)->sloPercent);
     }
 
     public function testConflictingDeclarationsMakeEveryTouchedRouteInvalid(): void
@@ -112,7 +114,7 @@ final class ActionTest extends TestCase
             ],
         );
 
-        $byPoint = $this->byPoint($output, PointCoverage::KIND_HTTP_ROUTE);
+        $byPoint = $this->byPoint($output, CoverageKind::HttpRoute);
         self::assertSame(CoverageStatus::Invalid, $byPoint['one']->status);
         self::assertSame(CoverageStatus::Invalid, $byPoint['two']->status);
         self::assertSame('SLO a.same is declared differently on several points', $byPoint['one']->reason);
@@ -124,7 +126,7 @@ final class ActionTest extends TestCase
         $output = $this->analyse(static function (CatalogAssembler $assembler): void {
         }, [new RouteInfo('closure', '/x', [], null)]);
 
-        self::assertSame(CoverageStatus::Unmonitored, $this->byPoint($output, PointCoverage::KIND_HTTP_ROUTE)['closure']->status);
+        self::assertSame(CoverageStatus::Unmonitored, $this->byPoint($output, CoverageKind::HttpRoute)['closure']->status);
     }
 
     public function testSharedSloAppearsOnEveryRoute(): void
@@ -140,7 +142,7 @@ final class ActionTest extends TestCase
             ],
         );
 
-        foreach ($this->byPoint($output, PointCoverage::KIND_HTTP_ROUTE) as $point) {
+        foreach ($this->byPoint($output, CoverageKind::HttpRoute) as $point) {
             self::assertSame(CoverageStatus::Monitored, $point->status);
             self::assertSame(['a.shared'], $point->slos);
         }
@@ -162,7 +164,7 @@ final class ActionTest extends TestCase
             ]),
         );
 
-        $byPoint = $this->byPoint($output, PointCoverage::KIND_MESSENGER_HANDLER);
+        $byPoint = $this->byPoint($output, CoverageKind::MessengerHandler);
         $pay = $byPoint[ProcessPaymentHandler::class . '::__invoke'];
         self::assertSame(CoverageStatus::Monitored, $pay->status);
         self::assertSame(['pay.handle'], $pay->slos);
@@ -175,8 +177,8 @@ final class ActionTest extends TestCase
         self::assertSame(CoverageStatus::Ignored, $audit->status);
         self::assertSame('best effort', $audit->reason);
         self::assertSame(CoverageStatus::Unmonitored, $byPoint[ReceiptHandler::class . '::onReceipt']->status);
-        self::assertSame(50.0, $output->sloPercent[PointCoverage::KIND_MESSENGER_HANDLER]);
-        self::assertSame(75.0, $output->measuredPercent[PointCoverage::KIND_MESSENGER_HANDLER]);
+        self::assertSame(50.0, $output->of(CoverageKind::MessengerHandler)->sloPercent);
+        self::assertSame(75.0, $output->of(CoverageKind::MessengerHandler)->measuredPercent);
     }
 
     public function testMessengerConflictIsInvalid(): void
@@ -191,7 +193,7 @@ final class ActionTest extends TestCase
             new CatalogExtras(handlers: [new HandlerInfo(ProcessPaymentHandler::class, 'App\Pay', true, 'async', '__invoke')]),
         );
 
-        self::assertSame(CoverageStatus::Invalid, $this->byPoint($output, PointCoverage::KIND_MESSENGER_HANDLER)[ProcessPaymentHandler::class . '::__invoke']->status);
+        self::assertSame(CoverageStatus::Invalid, $this->byPoint($output, CoverageKind::MessengerHandler)[ProcessPaymentHandler::class . '::__invoke']->status);
         self::assertSame(1, $output->invalid);
     }
 
@@ -208,13 +210,13 @@ final class ActionTest extends TestCase
         $without = $this->analyse($declare, [], new CatalogExtras(taggedPoints: $tagged));
         $with = $this->analyse($declare, [], new CatalogExtras(taggedPoints: $tagged, metricBuckets: ['logic_action_duration_histogram_seconds' => [0.1]]));
 
-        $byPoint = $this->byPoint($with, PointCoverage::KIND_LOGIC_ACTION);
+        $byPoint = $this->byPoint($with, CoverageKind::LogicAction);
         self::assertSame(CoverageStatus::Monitored, $byPoint['refund']->status);
         self::assertSame(CoverageStatus::Ignored, $byPoint['cleanup']->status);
         self::assertSame(CoverageStatus::Unmonitored, $byPoint['sync']->status);
         self::assertTrue($byPoint['refund']->measuredByUniversalMetric);
-        self::assertFalse($this->byPoint($without, PointCoverage::KIND_LOGIC_ACTION)['refund']->measuredByUniversalMetric);
-        self::assertSame(50.0, $with->sloPercent[PointCoverage::KIND_LOGIC_ACTION]);
+        self::assertFalse($this->byPoint($without, CoverageKind::LogicAction)['refund']->measuredByUniversalMetric);
+        self::assertSame(50.0, $with->of(CoverageKind::LogicAction)->sloPercent);
     }
 
     public function testOperationsAreMonitoredAndDedicatedOnly(): void
@@ -223,12 +225,12 @@ final class ActionTest extends TestCase
             $assembler->declare(PointId::of(PointType::Operation, 'export'), new Slo('export', [new Availability(99)]));
         }, [], new CatalogExtras(operations: ['export']));
 
-        $point = $this->byPoint($output, PointCoverage::KIND_OPERATION)['export'];
+        $point = $this->byPoint($output, CoverageKind::Operation)['export'];
         self::assertSame(CoverageStatus::Monitored, $point->status);
         self::assertSame(['export'], $point->slos);
         self::assertFalse($point->measuredByUniversalMetric);
-        self::assertSame(100.0, $output->sloPercent[PointCoverage::KIND_OPERATION]);
-        self::assertSame(0.0, $output->measuredPercent[PointCoverage::KIND_OPERATION]);
+        self::assertSame(100.0, $output->of(CoverageKind::Operation)->sloPercent);
+        self::assertSame(0.0, $output->of(CoverageKind::Operation)->measuredPercent);
     }
 
     public function testEmptyDenominatorIsOneHundredPercent(): void
@@ -237,9 +239,9 @@ final class ActionTest extends TestCase
         }, []);
 
         self::assertSame([], $output->points);
-        foreach ([PointCoverage::KIND_HTTP_ROUTE, PointCoverage::KIND_MESSENGER_HANDLER, PointCoverage::KIND_LOGIC_ACTION, PointCoverage::KIND_OPERATION] as $kind) {
-            self::assertSame(100.0, $output->sloPercent[$kind]);
-            self::assertSame(100.0, $output->measuredPercent[$kind]);
+        foreach ([CoverageKind::HttpRoute, CoverageKind::MessengerHandler, CoverageKind::LogicAction, CoverageKind::Operation] as $kind) {
+            self::assertSame(100.0, $output->of($kind)->sloPercent);
+            self::assertSame(100.0, $output->of($kind)->measuredPercent);
         }
     }
 
@@ -254,7 +256,7 @@ final class ActionTest extends TestCase
             $assembler->declare(self::http('A::m0'), new Slo('a.m0', [new Availability(99.9)]));
         }, $routes);
 
-        self::assertSame(33.33, $output->sloPercent[PointCoverage::KIND_HTTP_ROUTE]);
+        self::assertSame(33.33, $output->of(CoverageKind::HttpRoute)->sloPercent);
     }
 
     public function testPointsAreSortedByKindThenPoint(): void
@@ -278,8 +280,8 @@ final class ActionTest extends TestCase
             [new RouteInfo('a', '/a', [], 'A::slo'), new RouteInfo('b', '/b', [], 'A::b')],
         );
 
-        self::assertSame([PointCoverage::KIND_HTTP_ROUTE], $output->belowThreshold([PointCoverage::KIND_HTTP_ROUTE => 95.0, PointCoverage::KIND_MESSENGER_HANDLER => 95.0]));
-        self::assertSame([], $output->belowThreshold([PointCoverage::KIND_HTTP_ROUTE => 50.0]));
+        self::assertSame([CoverageKind::HttpRoute], $output->belowThreshold([CoverageKind::HttpRoute->value => 95.0, CoverageKind::MessengerHandler->value => 95.0]));
+        self::assertSame([], $output->belowThreshold([CoverageKind::HttpRoute->value => 50.0]));
     }
 
     /**
@@ -290,13 +292,13 @@ final class ActionTest extends TestCase
     {
         $catalog = CatalogFixture::build(Closure::fromCallable($declare), $extras);
 
-        return (new Action($catalog, $catalog, new InMemoryRouteCatalog($routes)))($input ?? new Input([]));
+        return (new Action($catalog, $catalog, new InMemoryRouteCatalog($routes), new MetricsBundleSeriesCatalog()))($input ?? new Input([]));
     }
 
     /**
      * @return array<string, PointCoverage>
      */
-    private function byPoint(Output $output, string $kind): array
+    private function byPoint(Output $output, CoverageKind $kind): array
     {
         $result = [];
         foreach ($output->points as $point) {

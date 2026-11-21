@@ -4,42 +4,62 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Application\Coverage\Analyze;
 
+use InvalidArgumentException;
+
 /**
  * @internal
  */
 final readonly class Output
 {
+    /** @var array<value-of<CoverageKind>, KindCoverage> */
+    private array $kinds;
+
     /**
      * @param list<PointCoverage> $points sorted by kind, then point
-     * @param array<PointCoverage::KIND_*, float> $sloPercent monitored / (total - ignored - unsupported), 100 when that is 0
-     * @param array<PointCoverage::KIND_*, float> $measuredPercent points measured by a universal metric / total, 100 when total is 0
+     * @param list<KindCoverage> $kinds one per CoverageKind
      * @param non-negative-int $invalid
-     * @param array<PointCoverage::KIND_*, array{non-negative-int, non-negative-int}> $sloFraction monitored and eligible counts behind $sloPercent, which is rounded for display
      */
     public function __construct(
         public array $points,
-        public array $sloPercent,
-        public array $measuredPercent,
+        array $kinds,
         public int $invalid,
-        public array $sloFraction,
     ) {
+        $indexed = [];
+        foreach ($kinds as $coverage) {
+            $indexed[$coverage->kind->value] = $coverage;
+        }
+        foreach (CoverageKind::cases() as $kind) {
+            if (!isset($indexed[$kind->value])) {
+                throw new InvalidArgumentException(\sprintf('Coverage of the "%s" kind is missing.', $kind->value));
+            }
+        }
+        $this->kinds = $indexed;
+    }
+
+    public function of(CoverageKind $kind): KindCoverage
+    {
+        return $this->kinds[$kind->value];
     }
 
     /**
-     * @param array<PointCoverage::KIND_*, float> $required
+     * @return list<KindCoverage> in CoverageKind order
+     */
+    public function kinds(): array
+    {
+        return array_map($this->of(...), CoverageKind::cases());
+    }
+
+    /**
+     * @param array<value-of<CoverageKind>, float> $required percent per kind, kinds without an entry are not checked
      *
-     * @return list<PointCoverage::KIND_*>
+     * @return list<CoverageKind>
      */
     public function belowThreshold(array $required): array
     {
         $below = [];
-        foreach (PointCoverage::KINDS as $kind) {
-            if (!isset($required[$kind], $this->sloFraction[$kind])) {
-                continue;
-            }
-            [$monitored, $eligible] = $this->sloFraction[$kind];
-            if ($eligible > 0 && $monitored * 100 < $required[$kind] * $eligible) {
-                $below[] = $kind;
+        foreach ($this->kinds() as $coverage) {
+            if (isset($required[$coverage->kind->value]) && $coverage->isBelow($required[$coverage->kind->value])) {
+                $below[] = $coverage->kind;
             }
         }
 

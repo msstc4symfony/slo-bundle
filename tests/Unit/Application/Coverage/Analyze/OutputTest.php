@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Test\Unit\Application\Coverage\Analyze;
 
+use InvalidArgumentException;
+use Msstc4Symfony\SloBundle\Application\Coverage\Analyze\CoverageKind;
+use Msstc4Symfony\SloBundle\Application\Coverage\Analyze\KindCoverage;
 use Msstc4Symfony\SloBundle\Application\Coverage\Analyze\Output;
-use Msstc4Symfony\SloBundle\Application\Coverage\Analyze\PointCoverage;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -32,10 +34,25 @@ final class OutputTest extends TestCase
     #[DataProvider('thresholdProvider')]
     public function testThresholdIsComparedOnTheExactFraction(int $monitored, int $eligible, float $required, bool $below): void
     {
-        $kind = PointCoverage::KIND_HTTP_ROUTE;
-        $percent = $eligible === 0 ? 100.0 : round($monitored / $eligible * 100, 2);
-        $output = new Output([], [$kind => $percent], [$kind => 100.0], 0, [$kind => [$monitored, $eligible]]);
+        $kinds = array_map(static fn (CoverageKind $kind): KindCoverage => new KindCoverage($kind, 0, 0, 100.0), CoverageKind::cases());
+        $kinds[0] = new KindCoverage(CoverageKind::HttpRoute, $monitored, $eligible, 100.0);
+        $output = new Output([], $kinds, 0);
 
-        self::assertSame($below ? [$kind] : [], $output->belowThreshold([$kind => $required]));
+        self::assertSame($below ? [CoverageKind::HttpRoute] : [], $output->belowThreshold([CoverageKind::HttpRoute->value => $required]));
+        self::assertSame($eligible === 0 ? 100.0 : round($monitored / $eligible * 100, 2), $output->of(CoverageKind::HttpRoute)->sloPercent);
+    }
+
+    public function testEveryKindMustBeReported(): void
+    {
+        $this->expectExceptionObject(new InvalidArgumentException('Coverage of the "operation" kind is missing.'));
+
+        new Output([], [new KindCoverage(CoverageKind::HttpRoute, 0, 0, 100.0), new KindCoverage(CoverageKind::MessengerHandler, 0, 0, 100.0), new KindCoverage(CoverageKind::LogicAction, 0, 0, 100.0)], 0);
+    }
+
+    public function testMonitoredCannotExceedEligible(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        new KindCoverage(CoverageKind::HttpRoute, 2, 1, 100.0);
     }
 }

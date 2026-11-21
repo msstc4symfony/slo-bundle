@@ -5,9 +5,10 @@ declare(strict_types=1);
 namespace Msstc4Symfony\SloBundle\Application\Coverage\Analyze;
 
 use Msstc4Symfony\SloBundle\Application\Discovery\CatalogExtras;
-use Msstc4Symfony\SloBundle\Application\Discovery\HandlerInfo;
 use Msstc4Symfony\SloBundle\Application\Port\CatalogDiagnosticsInterface;
 use Msstc4Symfony\SloBundle\Application\Port\RouteCatalogInterface;
+use Msstc4Symfony\SloBundle\Application\Port\RouteInfo;
+use Msstc4Symfony\SloBundle\Application\Port\SeriesCatalogInterface;
 use Msstc4Symfony\SloBundle\Domain\Entity\SloDefinition;
 use Msstc4Symfony\SloBundle\Domain\Enum\CoverageStatus;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
@@ -21,12 +22,13 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
  */
 final readonly class Action
 {
-    private const LOGIC_HISTOGRAM = 'logic_action_duration_histogram_seconds';
+    private const IGNORED_BY_METRICS_BUNDLE = 'route is in the ignored routes of metrics-bundle (http.ignored_routes), it is never measured';
 
     public function __construct(
         private SloCatalogInterface $catalog,
         private CatalogDiagnosticsInterface $diagnostics,
         private RouteCatalogInterface $routes,
+        private SeriesCatalogInterface $series,
     ) {
     }
 
@@ -39,22 +41,34 @@ final readonly class Action
             ...$this->logicPoints($extras),
             ...$this->operationPoints($extras),
         ];
-        usort($points, static fn (PointCoverage $a, PointCoverage $b): int => [array_search($a->kind, PointCoverage::KINDS, true), $a->point] <=> [array_search($b->kind, PointCoverage::KINDS, true), $b->point]);
+        usort($points, static fn (PointCoverage $a, PointCoverage $b): int => [$a->kind->position(), $a->point] <=> [$b->kind->position(), $b->point]);
 
-        $slo = [];
-        $fraction = [];
-        $measured = [];
-        $invalid = 0;
-        foreach (PointCoverage::KINDS as $kind) {
-            $ofKind = array_filter($points, static fn (PointCoverage $p): bool => $p->kind === $kind);
-            $count = static fn (CoverageStatus ...$statuses): int => \count(array_filter($ofKind, static fn (PointCoverage $p): bool => \in_array($p->status, $statuses, true)));
-            $fraction[$kind] = [$count(CoverageStatus::Monitored), max(0, \count($ofKind) - $count(CoverageStatus::Ignored, CoverageStatus::Unsupported))];
-            $slo[$kind] = $this->percent(...$fraction[$kind]);
-            $measured[$kind] = $this->percent(\count(array_filter($ofKind, static fn (PointCoverage $p): bool => $p->measuredByUniversalMetric)), \count($ofKind));
-            $invalid += $count(CoverageStatus::Invalid);
+        $kinds = array_map(fn (CoverageKind $kind): KindCoverage => $this->summarise($kind, $points), CoverageKind::cases());
+        $invalid = \count(array_filter($points, static fn (PointCoverage $p): bool => $p->status === CoverageStatus::Invalid));
+
+        return new Output($points, $kinds, $invalid);
+    }
+
+    /**
+     * @param list<PointCoverage> $points
+     */
+    private function summarise(CoverageKind $kind, array $points): KindCoverage
+    {
+        $total = 0;
+        $monitored = 0;
+        $excluded = 0;
+        $measured = 0;
+        foreach ($points as $point) {
+            if ($point->kind !== $kind) {
+                continue;
+            }
+            $total++;
+            $monitored += (int) ($point->status === CoverageStatus::Monitored);
+            $excluded += (int) ($point->status === CoverageStatus::Ignored || $point->status === CoverageStatus::Unsupported);
+            $measured += (int) $point->measuredByUniversalMetric;
         }
 
-        return new Output($points, $slo, $measured, $invalid, $fraction);
+        return new KindCoverage($kind, $monitored, max(0, $total - $excluded), $total === 0 ? 100.0 : round($measured / $total * 100, 2));
     }
 
     /**
@@ -66,32 +80,30 @@ final readonly class Action
         foreach ($this->routes->all() as $route) {
             $point = $route->controller === null ? null : PointId::of(PointType::HttpRoute, $route->controller);
             $definitions = $point instanceof PointId ? $this->catalog->forPoint($point) : [];
-            $systemRoute = \in_array($route->name, $extras->httpIgnoredRoutes, true) || str_starts_with($route->name, '_');
-            $measured = !$systemRoute;
+            $ignoredByMetricsBundle = \in_array($route->name, $extras->httpIgnoredRoutes, true);
+            $systemRoute = $ignoredByMetricsBundle || str_starts_with($route->name, '_');
 
-            $invalid = match (true) {
-                $point instanceof PointId && $this->conflictReason($point) !== null => $this->conflictReason($point),
-                $definitions !== [] && \in_array($route->name, $extras->httpIgnoredRoutes, true) => 'route is in the ignored routes of metrics-bundle (http.ignored_routes), it is never measured',
-                default => null,
-            };
-            $ignore = match (true) {
-                $systemRoute => 'system route',
-                \in_array($route->name, $input->ignoredRoutes, true) => 'configured in coverage.http_routes.ignored_routes',
-                default => $point instanceof PointId ? ($this->catalog->ignored()[$point->toString()] ?? null) : null,
-            };
-
-            $points[] = $this->classify(
-                $route->name,
-                PointCoverage::KIND_HTTP_ROUTE,
-                $definitions,
-                $invalid,
-                $ignore,
-                null,
-                $measured,
+            $verdict = CoverageVerdict::decide(
+                covered: $definitions !== [],
+                invalid: ($point instanceof PointId ? $this->conflictReason($point) : null) ?? ($definitions !== [] && $ignoredByMetricsBundle ? self::IGNORED_BY_METRICS_BUNDLE : null),
+                ignored: $this->httpIgnoreReason($route, $point, $systemRoute, $input),
             );
+            $points[] = PointCoverage::judged($route->name, CoverageKind::HttpRoute, $verdict, $this->names($definitions), !$systemRoute);
         }
 
         return $points;
+    }
+
+    /**
+     * @return non-empty-string|null
+     */
+    private function httpIgnoreReason(RouteInfo $route, ?PointId $point, bool $systemRoute, Input $input): ?string
+    {
+        return match (true) {
+            $systemRoute => 'system route',
+            \in_array($route->name, $input->ignoredRoutes, true) => 'configured in coverage.http_routes.ignored_routes',
+            default => $point instanceof PointId ? $this->ignoreReason($point) : null,
+        };
     }
 
     /**
@@ -102,16 +114,15 @@ final readonly class Action
         $points = [];
         foreach ($extras->handlers as $handler) {
             $message = PointId::of(PointType::MessengerMessage, $handler->messageClass);
+            $definitions = $this->catalog->forPoint($message);
 
-            $points[] = $this->classify(
-                $this->handlerPoint($handler),
-                PointCoverage::KIND_MESSENGER_HANDLER,
-                $this->catalog->forPoint($message),
-                $this->conflictReason($message),
-                $this->catalog->ignored()[$message->toString()] ?? null,
-                $handler->async ? null : 'sync handling is not measured',
-                $handler->async,
+            $verdict = CoverageVerdict::decide(
+                covered: $definitions !== [],
+                invalid: $this->conflictReason($message),
+                ignored: $this->ignoreReason($message),
+                unsupported: $handler->async ? null : 'sync handling is not measured',
             );
+            $points[] = PointCoverage::judged($handler->handlerClass . '::' . $handler->method, CoverageKind::MessengerHandler, $verdict, $this->names($definitions), $handler->async);
         }
 
         return $points;
@@ -122,66 +133,37 @@ final readonly class Action
      */
     private function logicPoints(CatalogExtras $extras): array
     {
-        $measured = isset($extras->metricBuckets[self::LOGIC_HISTOGRAM]);
+        $histogram = $this->series->histogramFor(PointType::LogicAction);
+        $measured = $histogram !== null && isset($extras->metricBuckets[$histogram]);
         $points = [];
         foreach ($extras->taggedPoints as $tagged) {
-            $points[] = $this->classify(
-                $tagged->point->id,
-                PointCoverage::KIND_LOGIC_ACTION,
-                $this->catalog->forPoint($tagged->point),
-                $this->conflictReason($tagged->point),
-                $this->catalog->ignored()[$tagged->point->toString()] ?? null,
-                null,
-                $measured,
+            $definitions = $this->catalog->forPoint($tagged->point);
+
+            $verdict = CoverageVerdict::decide(
+                covered: $definitions !== [],
+                invalid: $this->conflictReason($tagged->point),
+                ignored: $this->ignoreReason($tagged->point),
             );
+            $points[] = PointCoverage::judged($tagged->point->id, CoverageKind::LogicAction, $verdict, $this->names($definitions), $measured);
         }
 
         return $points;
     }
 
     /**
+     * Declared in the configuration, so always monitored.
+     *
      * @return list<PointCoverage>
      */
     private function operationPoints(CatalogExtras $extras): array
     {
         $points = [];
         foreach ($extras->operations as $operation) {
-            $point = PointId::of(PointType::Operation, $operation);
-            $points[] = new PointCoverage(
-                $operation,
-                PointCoverage::KIND_OPERATION,
-                CoverageStatus::Monitored,
-                null,
-                $this->names($this->catalog->forPoint($point)),
-                false,
-            );
+            $definitions = $this->catalog->forPoint(PointId::of(PointType::Operation, $operation));
+            $points[] = PointCoverage::judged($operation, CoverageKind::Operation, CoverageVerdict::decide(covered: true), $this->names($definitions), false);
         }
 
         return $points;
-    }
-
-    /**
-     * Precedence: invalid, ignored, unsupported, then monitored or unmonitored.
-     *
-     * @param non-empty-string $point
-     * @param PointCoverage::KIND_* $kind
-     * @param list<SloDefinition> $definitions
-     * @param non-empty-string|null $invalid
-     * @param non-empty-string|null $ignored
-     * @param non-empty-string|null $unsupported
-     */
-    private function classify(string $point, string $kind, array $definitions, ?string $invalid, ?string $ignored, ?string $unsupported, bool $measured): PointCoverage
-    {
-        $slos = $this->names($definitions);
-        [$status, $reason] = match (true) {
-            $invalid !== null => [CoverageStatus::Invalid, $invalid],
-            $ignored !== null => [CoverageStatus::Ignored, $ignored],
-            $unsupported !== null => [CoverageStatus::Unsupported, $unsupported],
-            $slos !== [] => [CoverageStatus::Monitored, null],
-            default => [CoverageStatus::Unmonitored, 'no SLO is declared'],
-        };
-
-        return new PointCoverage($point, $kind, $status, $reason, $slos, $measured);
     }
 
     /**
@@ -195,6 +177,14 @@ final readonly class Action
     }
 
     /**
+     * @return non-empty-string|null
+     */
+    private function ignoreReason(PointId $point): ?string
+    {
+        return $this->catalog->ignored()[$point->toString()] ?? null;
+    }
+
+    /**
      * @param list<SloDefinition> $definitions
      *
      * @return list<non-empty-string>
@@ -205,18 +195,5 @@ final readonly class Action
         sort($names, SORT_STRING);
 
         return array_values(array_unique($names));
-    }
-
-    /**
-     * @return non-empty-string
-     */
-    private function handlerPoint(HandlerInfo $handler): string
-    {
-        return $handler->handlerClass . '::' . $handler->method;
-    }
-
-    private function percent(int $part, int $whole): float
-    {
-        return $whole <= 0 ? 100.0 : round($part / $whole * 100, 2);
     }
 }
