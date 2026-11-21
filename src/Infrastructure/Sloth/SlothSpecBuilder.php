@@ -15,6 +15,26 @@ use Override;
  * Sloth `prometheus/v1` spec: one SLO per objective, queries are the bundle's bad/total selectors over Sloth's
  * `{{.window}}` template. The SLO window is not part of the spec: Sloth takes it from its own period configuration.
  *
+ * Labels of a Sloth SLO and its alerts.
+ *
+ * @phpstan-type SlothLabels array{application: non-empty-string, objective: non-empty-string, slo: non-empty-string}
+ * One entry of the `slos` list.
+ * @phpstan-type SlothSloShape array{
+ *     name: non-empty-string,
+ *     objective: float,
+ *     description: non-empty-string,
+ *     labels: SlothLabels,
+ *     sli: array{events: array{error_query: string, total_query: string}},
+ *     alerting: array{
+ *         name: non-empty-string,
+ *         labels: SlothLabels,
+ *         page_alert: array{labels: array{severity: 'page'}},
+ *         ticket_alert: array{labels: array{severity: 'ticket'}},
+ *     },
+ * }
+ * The `prometheus/v1` spec document.
+ * @phpstan-type SlothSpecShape array{version: 'prometheus/v1', service: non-empty-string, labels: array{application: non-empty-string}, slos: list<SlothSloShape>}
+ *
  * @internal
  */
 final readonly class SlothSpecBuilder implements SlothSpecBuilderInterface
@@ -41,16 +61,26 @@ final readonly class SlothSpecBuilder implements SlothSpecBuilderInterface
             $slos[] = $this->slo($selector, $objective);
         }
 
-        return $this->yaml->dump([
+        return $this->yaml->dump($this->document($selector, $slos));
+    }
+
+    /**
+     * @param list<SlothSloShape> $slos
+     *
+     * @return SlothSpecShape
+     */
+    private function document(Selector $selector, array $slos): array
+    {
+        return [
             'version' => 'prometheus/v1',
             'service' => $selector->application,
             'labels' => ['application' => $selector->application],
             'slos' => $slos,
-        ]);
+        ];
     }
 
     /**
-     * @return array<non-empty-string, mixed>
+     * @return SlothSloShape
      */
     private function slo(Selector $selector, BoundObjective $objective): array
     {

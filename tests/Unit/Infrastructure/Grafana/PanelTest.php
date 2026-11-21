@@ -28,11 +28,11 @@ final class PanelTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage(\sprintf('Panel size %dx%d', $width, $height));
 
-        new Panel([], $width, $height);
+        new Panel(['type' => 'row', 'title' => 'x'], $width, $height);
     }
 
     public function testFullWidthIsAccepted(): void
     {
-        self::assertSame(24, (new Panel([], 24, 1))->width);
+        self::assertSame(24, (new Panel(['type' => 'row', 'title' => 'x'], 24, 1))->width);
     }
 }

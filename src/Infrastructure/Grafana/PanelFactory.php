@@ -7,6 +7,11 @@ namespace Msstc4Symfony\SloBundle\Infrastructure\Grafana;
 /**
  * Panel JSON in the shapes Grafana 13 writes for schemaVersion 41. Every query panel shows "No data" for an empty series.
  *
+ * @phpstan-import-type ThresholdStep from Panel
+ * @phpstan-import-type ValueMapping from Panel
+ * @phpstan-import-type FieldDefaults from Panel
+ * @phpstan-import-type PanelOptions from Panel
+ *
  * @internal
  */
 final readonly class PanelFactory
@@ -31,8 +36,8 @@ final readonly class PanelFactory
     }
 
     /**
-     * @param list<array{color: non-empty-string, value: float|null}> $thresholds ascending; the first is the base
-     * @param list<array<string, mixed>> $mappings
+     * @param list<ThresholdStep> $thresholds ascending; the first is the base
+     * @param list<ValueMapping> $mappings
      * @param int<1, 24> $width
      * @param positive-int $height
      */
@@ -47,7 +52,7 @@ final readonly class PanelFactory
     }
 
     /**
-     * @param list<array{color: non-empty-string, value: float|null}> $thresholds ascending; the first is the base
+     * @param list<ThresholdStep> $thresholds ascending; the first is the base
      * @param int<1, 24> $width
      * @param positive-int $height
      */
@@ -79,10 +84,10 @@ final readonly class PanelFactory
     }
 
     /**
-     * @param list<array{color: non-empty-string, value: float|null}> $thresholds
-     * @param list<array<string, mixed>> $mappings
+     * @param list<ThresholdStep> $thresholds
+     * @param list<ValueMapping> $mappings
      *
-     * @return array<string, mixed>
+     * @return FieldDefaults
      */
     private function defaults(string $unit, array $thresholds, array $mappings): array
     {
@@ -99,9 +104,10 @@ final readonly class PanelFactory
     }
 
     /**
+     * @param 'timeseries'|'stat'|'gauge' $type
      * @param non-empty-list<Query> $queries
-     * @param array<string, mixed> $defaults
-     * @param array<string, mixed> $options
+     * @param FieldDefaults $defaults
+     * @param PanelOptions $options
      * @param int<1, 24> $width
      * @param positive-int $height
      */

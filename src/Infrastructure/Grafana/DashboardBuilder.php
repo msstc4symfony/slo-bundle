@@ -10,6 +10,27 @@ use Msstc4Symfony\SloBundle\Application\Generation\GenerateDashboards\DashboardC
  * Wraps the panels of one dashboard: stable uid, panel ids 1..n and a fixed left-to-right grid layout, the four template
  * variables and fixed time defaults. Nothing here reads the clock or the environment.
  *
+ * A dashboard template variable; the keys depend on its type.
+ *
+ * @phpstan-type TemplateVariable array<non-empty-string, bool|int|string|null|array<array-key, mixed>>
+ * The dashboard JSON written for file provisioning.
+ * @phpstan-type DashboardJson array{
+ *     annotations: array{list: list<never>},
+ *     editable: false,
+ *     graphTooltip: 1,
+ *     id: null,
+ *     links: list<never>,
+ *     panels: list<array<non-empty-string, mixed>>,
+ *     refresh: non-empty-string,
+ *     schemaVersion: int,
+ *     tags: list<non-empty-string>,
+ *     templating: array{list: list<TemplateVariable>},
+ *     time: array{from: non-empty-string, to: non-empty-string},
+ *     timezone: 'utc',
+ *     title: non-empty-string,
+ *     uid: non-empty-string,
+ * }
+ *
  * @internal
  */
 final readonly class DashboardBuilder
@@ -17,7 +38,7 @@ final readonly class DashboardBuilder
     public const SCHEMA_VERSION = 41;
 
     /**
-     * @return array<string, mixed>
+     * @return DashboardJson
      */
     public function build(DashboardInterface $dashboard, DashboardContext $context): array
     {
@@ -52,7 +73,7 @@ final readonly class DashboardBuilder
     /**
      * @param list<Panel> $panels
      *
-     * @return list<array<string, mixed>>
+     * @return list<array<non-empty-string, mixed>> Panel::$json plus `gridPos` and `id` 1..n
      */
     private function layout(array $panels): array
     {
@@ -84,7 +105,7 @@ final readonly class DashboardBuilder
     }
 
     /**
-     * @return list<array<string, mixed>>
+     * @return list<TemplateVariable>
      */
     private function variables(DashboardContext $context): array
     {
