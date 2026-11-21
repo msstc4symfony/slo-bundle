@@ -173,7 +173,7 @@ written) or counts good and bad events itself (Strategy B, `symfony_slo_events_t
 | HTTP latency | `includeErrors: true`, and the threshold equals a bucket of `request_duration_histogram_seconds` | observer |
 | Messenger availability | `countAttempts` not set (`handled + failed`, failure transports excluded) and no other handled message shares the short class name (metrics-bundle labels messages by short name; `slo:validate` warns) | observer |
 | Messenger latency | `countAttempts` not set (`countAttempts: false`), the threshold is a bucket boundary, and no other handled message shares the short class name (`slo:validate` warns) | observer |
-| Logic action | availability: `expectedFailureIsGood` is default; latency: the threshold is a bucket of `logic_action_duration_histogram_seconds` | `slo-bridge-logic` |
+| Logic action | the point has a `metric_label` no other point shares; availability: `expectedFailureIsGood` is default; latency: the threshold is a bucket of `logic_action_duration_histogram_seconds` | `slo-bridge-logic` |
 | Operation, `Combined` | never | always B |
 
 `strategy: StrategyPreference::Dedicated` forces B. A threshold matches a bucket when the bucket, as metrics-bundle exposes it, equals
@@ -337,7 +337,8 @@ Commit the directory, run `slo:generate --check` in CI ("rules are stale" fails 
 Any service tagged `msstc4symfony_slo.point` becomes a measurement point of the catalog; the bundle reflects its class
 for `#[Slo]` and `#[IgnoreMonitoring]`. Tag attributes: `type` (a `PointType` value), `id` (non-empty, without `%`,
 unique across services), optional `metric_label` (the label value of the existing series; valid UTF-8 without control
-characters, `{{` or `}}`).
+characters, `{{` or `}}`; one value per point). Points of one type that share a `metric_label` cannot be told apart in
+that series: the label is dropped for all of them, their SLOs use dedicated counters and `slo:validate` warns.
 slo-bundle never depends on logic-bundle: the `slo-bridge-logic` package tags `msstc4symfony_logic.action` services and
 records their events through `Application\Port\EventRecorderInterface` (inject it, call
 `record(new RecordEvent\Input($point, $observation))`). `record()` never throws, but building its argument does:
@@ -455,11 +456,13 @@ Before 1.0 a reset also dropped the resolved strategy and revision of every obje
 28.7 us per event (6.4 us with warmed revisions) because every event resolved its binding and hashed its revision again.
 
 A cold PHP-FPM request is benchmarked as well: every service is new, the catalog has 500 HTTP SLOs with two objectives
-each, the route index comes from the warmed file and the request records one event. It cost about 195 us per request
-(2026-11-21 UTC, the same machine, opcache on in the CLI and the index file aged past `opcache.file_update_protection`;
-a file younger than that is parsed on every include, about 1.4 ms). Most of it (about 115 us) is hydrating the one SLO
-definition of the route, i.e. the value-object invariants of the compiled catalog entry; the route index entries cost
-about 20 us.
+each, the route index comes from the warmed file and the request records the event of its dedicated latency objective
+(availability reads the metrics-bundle series). It costs about 70 us per request (2026-11-21 UTC, the same machine,
+opcache on in the CLI and the index file aged past `opcache.file_update_protection`; a file younger than that is
+parsed on every include, about 1.4 ms). Most of it is hydrating the one SLO definition of the route (the value-object
+invariants of the compiled catalog entry) and reading the route index entries. Before 1.0 the status-set overlap check
+of that hydration walked every status code: the same run measured about 115 us per request with it (an earlier,
+less loaded run of that code measured about 195 us).
 
 A real Redis storage adds its network round trip per `increment`; the events are written after the response is
 produced in the HTTP path (`kernel.terminate`) and in the worker loop for Messenger.
@@ -477,8 +480,11 @@ same way, per point on first use. The lazy build stays the fallback when the fil
 once per process as degraded mode on the `slo_bundle` channel), and in debug mode, where routes may change without a
 cache clear and the file is ignored. Outside debug mode the request path that had to build the index stores it, with
 the objective revisions, in the same file (exclusive temporary file and rename), so the rebuild and the warning happen
-once per deploy rather than on every request; a cache directory that cannot be written is skipped silently and every
-process keeps building its own index. An application without HTTP SLOs never touches the router on the request path.
+once per deploy rather than on every request. Whether the cache directory can be written is checked before anything is
+built: a read-only one costs a few `stat` calls, the degraded-mode warning says that every process reads the router,
+and nothing is stored. The file carries a fingerprint of the compiled catalog, so an index stored by another container
+(an old process finishing a request during an in-place `cache:clear --no-warmup`) is not trusted and is replaced, like
+a malformed one. An application without HTTP SLOs never touches the router on the request path.
 The warmer never fails the warm-up: problems are logged on the `slo_bundle` channel.
 
 ## License

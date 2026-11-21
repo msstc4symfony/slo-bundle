@@ -73,7 +73,6 @@
 - Public API listed type by type in the README; `Domain\Enum\CoverageStatus` and `Domain\Enum\Strategy` moved to
   `Application\Coverage\Analyze\CoverageStatus` and `Application\Binding\Strategy` (internal); `Revision` and
   `EventResult` are internal. The Grafana datasource, folder and dashboards path are settings of the Grafana adapter.
-
 - Outside debug mode an index the request path had to build (no warmed `route_index.php`) is stored in the cache
   directory with its objective revisions, so the rebuild and the degraded-mode warning happen once per deploy; a
   read-only cache directory is skipped. The cache warmer and the request path share one `RouteIndexBuilder`.
@@ -87,11 +86,26 @@
   `%` are rejected centrally.
 - `GenerationConfig` validates its settings; burn-rate alert severities are an enum (`page`, `ticket`), generated files
   unchanged.
+- The route index is format 3 and carries a fingerprint of the compiled catalog: a file stored by another container
+  (an old process during an in-place `cache:clear --no-warmup`) is not trusted and is replaced. The request path checks
+  that the cache directory is writable before it builds an index to store (a read-only one costs a few stat calls and
+  is named in the degraded-mode warning), logs a failed write once per process and replaces a malformed index.
+- Tagged points of one type sharing a `metric_label` drop it, so their SLOs use dedicated counters (`slo:validate`
+  warning); one service tagged twice for the same point with different `metric_label` values is a compilation error.
+- `slo:coverage` sorts points by name as strings (numeric route names no longer make the order depend on the input) and
+  prints the exact fraction of a kind below its required percent (`BELOW (2 of 3 eligible points have an SLO)`).
+- An empty `generation.selector.application` (an env placeholder resolved to nothing) is reported by `slo:generate` as
+  not configured instead of failing the service construction.
+- Deterministic JSON and YAML output rejects a map keyed exactly `0..n-1` out of order at any size.
+- `StatusSet::intersects()` compares the item bounds instead of walking every status code; the cold PHP-FPM request
+  benchmark (500 SLOs) drops from about 115 us to about 70 us on the same machine.
+- Public methods of the public domain types used only by discovery and the compiled catalog
+  (`Classification::appliesTo()`, `pointTypesOf()`, `inapplicableFieldsFor()`, `SloDefinition::withWindow()`,
+  `Window::canonical()`, `LatencyThreshold::fromMilliseconds()`, `PointType::acceptsIncludeErrors()`) are `@internal`.
 
 ### Documentation
 
 - README: bridges build `RecordEvent\Input` inside their own `try` (building it can throw, `record()` cannot); the cold
   PHP-FPM request benchmark (500 SLOs) and the stored runtime route index.
-
 - README: cleaning the series of retired revisions from the Redis storage; Messenger latency uses dedicated counters
   when the message short name is shared.
