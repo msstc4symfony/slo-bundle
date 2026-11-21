@@ -103,7 +103,7 @@ public function debug(): Response { /* ... */ }
 | Attribute / argument | Meaning |
 |----------------------|---------|
 | `Availability(target)` | share of eligible events that are not bad, `0 < target < 100`, up to 4 decimals |
-| `Latency(threshold, target, includeErrors: false)` | share of eligible events not slower than `threshold` (`<int>ms` or `<decimal>s`, stored as whole milliseconds) |
+| `Latency(threshold, target, includeErrors: false)` | share of eligible events not slower than `threshold` (`<int>ms` or `<decimal>s`, stored as whole milliseconds); `includeErrors` is HTTP only |
 | `Combined(threshold, target)` | good = not bad **and** not slower than `threshold`; eligible like availability |
 | `name` | unique per application, `^[a-z][a-z0-9_.-]{0,62}$`; becomes the `slo` label |
 | `window` | `<N>h`, `<N>d`, `<N>w`, `<N>mo` (month = 30 days; `m` is minutes and rejected), 1h - 90d, default `defaults.window` |
@@ -147,7 +147,8 @@ Defaults, all overridable per SLO. An *eligible* event enters the denominator; *
 | Operation | finished handle | `error` | everything except `error` |
 
 - Latency is eligible only for availability-good events, unless `Latency(includeErrors: true)` (then every
-  availability-eligible event). `Combined` is bad when the event is bad or slow.
+  availability-eligible event; `includeErrors` applies to HTTP routes only, elsewhere it is a compilation error).
+  `Combined` is bad when the event is bad or slow.
 - `countAttempts: true` (Messenger): every attempt is an event - handled is good, failed and retried are bad;
   failure-transport events stay ineligible.
 - Failure transports are detected at compile time from the framework's failure-transport listener and can be set with
@@ -164,8 +165,8 @@ written) or counts good and bad events itself (Strategy B, `symfony_slo_events_t
 |-------------------|-----------------|-------------|
 | HTTP availability | classification is the default or expressible through the `status` label | observer |
 | HTTP latency | `includeErrors: true`, and the threshold equals a bucket of `request_duration_histogram_seconds` | observer |
-| Messenger availability | `countAttempts` not set (`handled + failed`, failure transports excluded) | observer |
-| Messenger latency | the threshold is a bucket boundary | observer |
+| Messenger availability | `countAttempts` not set (`handled + failed`, failure transports excluded) and no other handled message shares the short class name (metrics-bundle labels messages by short name; `slo:validate` warns) | observer |
+| Messenger latency | `countAttempts` not set (`countAttempts: false`) and the threshold is a bucket boundary | observer |
 | Logic action | the threshold is a bucket of `logic_action_duration_histogram_seconds` and `expectedFailureIsGood` is default | `slo-bridge-logic` |
 | Operation, `Combined` | never | always B |
 
@@ -180,8 +181,11 @@ points are **not** part of it. Consequences:
 - Changing a threshold from `200ms` to `100ms` creates a new revision. Generated rules filter only the current
   revision, so old and new data are never summed; `slo:window:coverage_ratio` stays below 1 until the new revision
   has covered the whole window.
-- While the coverage ratio is below 1 the SLO is *warming up*: dashboards show it, ticket alerts on the long windows
+- While the coverage ratio is below 1 the SLO is *warming up*: dashboards show it together with the expected end
+  (`Warming up until`, a UTC date computed as `time() + (1 - coverage) * window`), ticket alerts on the long windows
   are suppressed, page alerts on short windows stay active.
+- **Prometheus retention must be at least the longest SLO window plus 1h.** The coverage ratio looks one window back;
+  with a shorter retention it never reaches 1, the SLO stays warming up forever and the ticket alerts never fire.
 - Changing the target or the window is recomputed by the rules instantly from the same data.
 - Changing the canonical form of the hash itself would change every revision; it is pinned by a test.
 
@@ -216,8 +220,9 @@ try {
 }
 ```
 
-`measure()` rethrows the exception of the closure unchanged; an exception implementing logic-bundle's
-`ExpectedFailureInterface` (when installed) is an expected failure, any other one an error. An undeclared or invalid
+`measure()` rethrows the exception of the closure unchanged and classifies it as logic-bundle classifies its Actions
+when logic-bundle is installed (`ActionOutcome::of()`: `ExpectedFailureInterface` and Symfony's
+`ValidationFailedException` are expected failures); without logic-bundle every exception is an error. An undeclared or invalid
 name records nothing and logs one warning per name until the next `kernel.reset`. The clock is `hrtime(true)`, no sampling.
 
 ## Configuration reference
@@ -256,9 +261,9 @@ msstc4symfony_slo:
 
 | Command | Purpose | Exit codes |
 |---------|---------|------------|
-| `slo:list [--format=text\|json]` | declared SLOs with points, routes, strategy and revisions; shared and `DUPLICATE` names are marked | 0 ok, 2 bad option |
+| `slo:list [--format=text\|json]` | declared SLOs with points, routes, strategy and revisions; shared and `DUPLICATE` names are marked | 0 ok, 1 the JSON cannot be encoded, 2 bad option |
 | `slo:validate` | validates the catalog against the routes; prints `ERROR`, `WARNING` and `NOTICE` lines | 0 no errors (warnings allowed), 1 errors |
-| `slo:coverage [--format=text\|json] [--min=<0-100>]` | which routes, handlers, actions and operations have an SLO and which are already measured by a universal series; statuses `monitored`, `unmonitored`, `ignored`, `invalid`, `unsupported` | 0 passed, 1 any `invalid` point or a kind below its required percent (`--min` overrides all kinds), 2 bad option |
+| `slo:coverage [--format=text\|json] [--min=<0-100>]` | which routes, handlers, actions and operations have an SLO and which are already measured by a universal series; statuses `monitored`, `unmonitored`, `ignored`, `invalid`, `unsupported` | 0 passed, 1 any `invalid` point, a kind below its required percent (`--min` overrides all kinds) or the JSON cannot be encoded, 2 bad option |
 | `slo:generate [--output=<dir>] [--check]` | writes Prometheus rules, Grafana dashboards and optional Sloth specs; `--check` compares with the disk without writing and prints `stale`, `missing`, `extra` paths | 0 ok / up to date, 1 `--check` found differences, 2 missing `generation.selector.application` or output directory |
 
 `slo:coverage --format=json` is stable and described by the JSON Schema [`doc/coverage-schema.json`](doc/coverage-schema.json).
@@ -304,8 +309,10 @@ Commit the directory, run `slo:generate --check` in CI ("rules are stale" fails 
   the total. When the storage (Redis) is down, **a lost write loses the whole event, not the ratio**: the SLI is
   computed from the events that were written, and a long outage shows up as missing data, not as a skewed percentage.
 - Under long-running workers (RoadRunner, Messenger workers) every stateful service is reset through `kernel.reset`:
-  the memoised revisions, the per-process warning sets and the lazy route index. Two requests with different routes and
-  outcomes are attributed to their own SLO (`StateLeakageTest`).
+  the memoised revisions and the per-process warning sets. Two requests with different routes and outcomes are
+  attributed to their own SLO (`StateLeakageTest`). The route index is not reset: routes are fixed per container, so
+  it is built once per process (or read from the [warmed cache](#overhead)). A router that fails while the index is
+  built disables HTTP SLOs (one warning) until the worker restarts.
 - Cardinality is bounded: labels are `slo` (declared name), `objective`, `revision` and `result` only. No path,
   query string, user or request value ever becomes a label (`CardinalityTest`: 1000 random URLs, at most two
   `result` values per objective).
@@ -329,7 +336,7 @@ Covered by semantic versioning; everything else is marked `@internal` and may ch
 |------|----------|
 | Attributes | `Application\Attribute\*` (`Slo`, `Availability`, `Latency`, `Combined`, `IgnoreMonitoring`, `ObjectiveAttributeInterface`) |
 | Operations | `Application\Port\OperationMonitorInterface`, `Application\Port\OperationHandleInterface` |
-| Bridges | `Application\Discovery\PointTag`, `Application\Evaluation\RecordEvent\{Action,Input}` |
+| Bridges | `Application\Discovery\PointTag`, `Application\Evaluation\RecordEvent\{Action,Input}`; obtain `RecordEvent\Action` from the container (inject it), do not instantiate it: its constructor takes internal classes and is not covered |
 | Catalog | `Domain\Repository\SloCatalogInterface`, `Domain\Entity\SloDefinition` |
 | Value objects and enums | `Domain\ValueObject\*`, `Domain\Enum\*` |
 | Console | the commands `slo:list`, `slo:validate`, `slo:coverage`, `slo:generate`, their options, exit codes and the JSON of `slo:coverage` |
@@ -345,6 +352,9 @@ Covered by semantic versioning; everything else is marked `@internal` and may ch
   revision warms up for one window while the generated rules ignore the old one. Regenerate and commit the rules
   (`slo:generate`) together with such a change.
 - The label order of `symfony_slo_events_total` is `application, component, slo, objective, revision, result`.
+- Retired revisions are not removed: their series stay in the metrics-bundle storage and in its export until the
+  storage is cleared (`metrics:clear`) or expires, so every revision ever deployed adds its `good`/`bad` series per
+  objective. Clear the storage after a burst of semantic changes if the cardinality matters.
 
 ## Layers
 

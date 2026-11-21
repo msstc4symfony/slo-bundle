@@ -20,6 +20,9 @@ use Throwable;
 
 /**
  * Fail-open: nothing thrown while classifying or writing reaches the caller.
+ *
+ * Public API for bridges as a service: obtain it from the container, do not instantiate it, its constructor takes
+ * internal classes and may change in any release.
  */
 final class Action implements ResetInterface
 {

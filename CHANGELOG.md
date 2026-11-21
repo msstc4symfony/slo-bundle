@@ -16,8 +16,9 @@
 - Generated Grafana dashboards (application overview, HTTP routes, Messenger, business operations, SLO overview, monitoring coverage) with file provisioning, and optional Sloth `prometheus/v1` specs.
 - Rule tests with `promtool` and `sloth validate` in Docker (`make test-promtool`, CI job `promtool`).
 - Hardening regression tests: fail-open with an unreachable metrics storage (HTTP, Messenger, `measure()`), state isolation across `kernel.reset`, bounded label cardinality; `make benchmark` overhead benchmark.
-- README: installation, attributes, classification, strategies, revisions and warming up, configuration reference, commands and exit codes, GitOps provisioning, failure semantics, public API, compatibility matrix.
-
-### Changed
-
+- Route index warmed into `%kernel.cache_dir%/msstc4symfony_slo/route_index.php` by the optional cache warmer, so the HTTP path does not reload the route collection per request under PHP-FPM; lazy fallback when the file is missing and in debug mode; applications without HTTP SLOs never read the routes. Works with `framework.router.enabled: false` (no routes).
+- Messenger SLOs whose message short class name is shared with another handled message use dedicated counters, with a `slo:validate` warning; unknown delivery statuses are skipped with one warning.
+- `measure()` classifies exceptions with logic-bundle's `ActionOutcome::of()` when installed (`ValidationFailedException` is an expected failure).
+- Dashboard rows show the expected end of warming up as a UTC date.
+- README: installation, attributes, classification, strategies, revisions and warming up, configuration reference, commands and exit codes, GitOps provisioning, failure semantics, public API, compatibility matrix, Prometheus retention, route-index overhead.
 - Everything outside the documented public API is marked `@internal`.

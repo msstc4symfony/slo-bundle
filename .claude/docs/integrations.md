@@ -35,10 +35,12 @@
   `kernel.reset`). Конфликтное имя считается объявленным: предупреждение даёт `RecordEvent\Action`.
 - `OperationHandle`: первый исход побеждает; `end()` идемпотентен и пишет `Observation::outcome(исход ?? Success, elapsed)`;
   деструктора нет — не завершённый handle ничего не пишет. `measure()` пробрасывает то же исключение; классификация
-  `interface_exists(ExpectedFailureInterface::class) && instanceof` (logic-bundle только в require-dev).
+  через `ActionOutcome::of()` logic-bundle (`ExpectedFailureInterface` и `ValidationFailedException` → expected), если
+  `enum_exists(ActionOutcome)`, иначе fallback `interface_exists(ExpectedFailureInterface) && instanceof`
+  (logic-bundle только в composer-ci.json/composer-local.json).
 - Логирование: все fail-open классы получают `Infrastructure/Logging/FailSafeLogger` (обёртка над каналом `slo_bundle`,
   глотает Throwable) через `->arg('$logger', service(FailSafeLogger::class))` в `services.php`; тег
-  `monolog.logger` стоит только на самом `FailSafeLogger` (+ `SloCacheWarmer`). Application-классы зависят лишь от
+  `monolog.logger` стоит только на самом `FailSafeLogger` (warmer тоже получает `FailSafeLogger`). Application-классы зависят лишь от
   `Psr\Log\LoggerInterface`; try/catch вокруг `warning()` больше нигде не нужен.
 
 ## Имена серий и promtool (Task 12)

@@ -47,8 +47,9 @@
 
 ## Маршруты и CLI (Task 6)
 
-- `TestContainer` (голый `ContainerBuilder`) регистрирует заглушки `RouterInterface` и `LoggerInterface`: сервисы бандла
-  (`RouterRouteCatalog`, `SloCacheWarmer`) автовайрят их из FrameworkBundle, без заглушек компиляция падает.
+- `TestContainer` (голый `ContainerBuilder`) регистрирует заглушки `router` и `LoggerInterface` и параметр `kernel.cache_dir`
+  (нужен `RouteIndexFile`). Роутер подключается как `service('router')->nullOnInvalid()`: с `framework.router.enabled: false`
+  контейнер компилируется, маршрутов просто нет (`NoRouterKernelTest`).
 - `tests/Integration/Kernel/RoutedTestKernel` — ядро с произвольным набором контроллеров и маршрутов (`add()->controller([Class,
   method])`); кеш-каталог зависит от хеша сценария, иначе ядра с разными маршрутами в одном процессе делят кеш.
 - Правило `slo:validate` про `httpIgnoredRoutes` сравнивает имя маршрута точно, как `RequestEventListener` metrics-bundle.
@@ -132,3 +133,21 @@
   Запуск: `env -u TMPDIR make infection` с отключённым sandbox (нужен записываемый /tmp).
 - **`@internal`** в docblock класса — признак «не публичный API»; PHPStan не ругается, пока код в том же корневом namespace `Msstc4Symfony`.
 - **Мосты** обязаны регистрировать свой compiler pass с тегом `msstc4symfony_slo.point` в `TYPE_BEFORE_OPTIMIZATION` с приоритетом >= 10 (README, `PointTag`).
+
+## Финальное ревью ветки (2026-11-21 UTC)
+
+- **Symfony 8.1 `MicroKernelTrait`** грузит свой `framework.router.resource` *после* `configureContainer()`, и это снова
+  включает роутер: `'router' => ['enabled' => false]` в `configureContainer()` не работает. `NoRouterTestKernel` переопределяет
+  `registerContainerConfiguration()` и догружает `router.enabled: false` последним (на 7.4 порядок обратный, работало и так).
+- **Опциональные библиотеки** (symfony/messenger, msstc4symfony/logic-bundle) — только в `composer-ci.json`/`composer-local.json`,
+  не в `composer.json` (джоба bundle-standard «PHPUnit without optional libraries» ставит `composer.json`). Тесты с Messenger
+  помечены `#[RequiresMethod(MessageBusInterface::class, 'dispatch')]` (или `AsMessage::__construct`), `HardeningKernel`/`NoRouterTestKernel`
+  включают messenger только при `interface_exists(MessageBusInterface::class)`. Проверка локально (без vcs-репозиториев, им нужна
+  авторизация GitHub): копия `src tests doc phpunit.xml.dist composer.json` в `$TMPDIR/noopt`, в `composer.json` оставить только
+  path-репозитории `../metrics-bundle` (2.3.0) и `../sql-labeller` (1.0.0) и `config.cache-read-only: true`, затем
+  `composer update --ignore-platform-req=php && vendor/bin/phpunit` — все тесты проходят, skipped только Messenger и logic-bundle.
+- **Прогретый индекс маршрутов** читается только при `kernel.debug = false`; kernel-тесты по умолчанию в debug и идут по
+  ленивому пути, `HttpSloKernelTest::testWarmedRouteIndexServesRequestsWithoutDebug` проверяет путь `cache:warmup` → файл.
+- **Grafana `dateTimeAsIso`** ждёт epoch в миллисекундах: `Warming up until` = `(time() + (1 - (coverage < 0.999999)) * W) * 1000`;
+  дашборды в `timezone: utc`. Когда окно полное или нет покрытия — серии нет, панель показывает `No data`.
+- **Retention Prometheus** ≥ окно + 1h: `coverageRatio` — подзапрос `[W/1h + 1 h:1h]`, с меньшим retention покрытие никогда не 1.

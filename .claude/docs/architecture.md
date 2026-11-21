@@ -55,8 +55,9 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
 - Порты в `src/Application/Port/`: `RouteCatalogInterface` (`routesFor('Class::method')`, `all()`; `RouteInfo{name, path, methods,
   controller}`) и `CatalogDiagnosticsInterface` (`conflicts()`, `shared()`, `extras()`), его реализует `CompiledSloCatalog`.
   Application не зависит от Infrastructure (deptrac) — Validate/List получают диагностику только через порт.
-- `Infrastructure/Symfony/RouterRouteCatalog` — ленивый индекс по `RouterInterface::getRouteCollection()`, строится один раз
-  (ruling 7). `_controller`: `Class::method`, `service_id::method`, invokable `Class`/`service_id` (→ `::__invoke`), массив
+- `Infrastructure/Symfony/RouterRouteCatalog` — `RouteCatalogInterface` поверх `RouteIndexData`: сначала прогретый
+  `RouteIndexFile`, иначе `RouterRouteReader::read()` один раз (ruling 7). Нормализацию делает `RouterRouteReader`
+  (`?RouterInterface` = `service('router')->nullOnInvalid()`; без роутера маршрутов нет). `_controller`: `Class::method`, `service_id::method`, invokable `Class`/`service_id` (→ `::__invoke`), массив
   `[Class|object, method]`; без `_controller` / Closure → `controller = null`. Service id, не равный имени класса,
   переводится через `CatalogExtras::controllerServices` (id => класс; заполняет `ControllerReader::serviceIds()`).
 - `Application/Catalog/List/{Action,Output,Row,ObjectiveRow,PointRow}`: строка на SLO (на каждое объявление для
@@ -66,8 +67,22 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
 - Команды `slo:list [--format=text|json]` и `slo:validate` — `Presentation/Command/`. JSON: массив по имени, ключи
   `name,status(ok|duplicate),point_type,window,objectives[kind,target,threshold,revision],points[point,routes],shared_points`.
   `slo:validate`: код 0 — нет ошибок (предупреждения и notice печатаются), 1 — есть ошибки.
-- `SloCacheWarmer`: `isOptional() = true`, тег `kernel.cache_warmer`, канал логов `slo_bundle`; ошибки и предупреждения
-  валидации логирует как warning, исключения глушит.
+- `SloCacheWarmer`: `isOptional() = true`, тег `kernel.cache_warmer`, логгер — `FailSafeLogger`; ошибки и предупреждения
+  валидации логирует как warning, исключения глушит; затем пишет индекс маршрутов (см. ниже «Прогретый индекс маршрутов»).
+
+## Прогретый индекс маршрутов (финальное ревью, Important 1/2)
+
+- Проблема: `FrameworkBundle\Routing\Router::getRouteCollection()` при каждом вызове заново грузит маршруты через
+  `routing.loader`, а «мемоизация на процесс» под FPM = на запрос.
+- `SloCacheWarmer::warmUp($cacheDir)` пишет `$cacheDir/msstc4symfony_slo/route_index.php` (`var_export` массива
+  `RouteIndexData::toArray()`: `version`, `routes` name => {path, methods, controller}, `controllers` controller => имена,
+  `points` маршрут => строки `PointId`), атомарно (tmp + rename) и с `opcache_invalidate`.
+- `RouteIndexFile` (`%kernel.cache_dir%`, `%kernel.debug%`) читает файл один раз на процесс; в debug файл игнорируется
+  (маршруты меняются без cache:clear, а опциональные warmer'ы при пересборке контейнера в dev не запускаются).
+  Битый/чужой версии/отсутствующий файл → `null` → ленивый fallback (`RouterRouteReader`, `RouteIndexData::pointsOf`).
+- `CatalogExtras::hasHttpPoints` (ставит `CatalogAssembler`, в дампе `has_http_points`): `HttpSloObserver` выходит сразу,
+  если нет ни одного http_route SLO/конфликта, — приложение без HTTP SLO не трогает роутер на пути запроса.
+- Опциональные warmer'ы запускаются только `cache:warmup` и `cache:clear` (без `--no-optional-warmers`), не при boot ядра.
 
 ## Привязка метрик: Strategy A / B (Task 7)
 
@@ -76,7 +91,9 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
 - `Binding{strategy: Domain\Enum\Strategy (existing_series|dedicated), series: ?SeriesBinding}`. `SeriesBinding{metric (без префикса),
   kind counter|histogram, matchers, goodMatchers, badMatchers, le}`; значения матчеров - `Matcher` (label, `MatchOperator`, сырое значение;
   `toPromQl()` экранирует строку PromQL, `escapeRegex()` экранирует RE2). badMatchers/goodMatchers перекрывают matchers по label.
-- Всегда B: `strategy: dedicated`, Combined, Operation, HTTP без маршрутов, countAttempts (Messenger), `expectedFailureIsGood=false` или нет
+- Всегда B: `strategy: dedicated`, Combined, Operation, HTTP без маршрутов, countAttempts (Messenger), Messenger-сообщение,
+  чьё короткое имя класса совпадает с другим обрабатываемым сообщением (`extras()->handlers`; HandlerReader даёт warning,
+  а SLO-SLO совпадение — ошибка компиляции), Messenger latency с `includeErrors` (защитно), `expectedFailureIsGood=false` или нет
   бакетов/`metricLabel` (logic). HTTP latency: A только с `includeErrors` и пустыми `ineligibleStatuses` (у гистограммы нет `status`).
 - Порог vs бакет: `(int) round(bucket * 1000) === thresholdMs`; `le` = `(string) $bucket` ("0.5", "1").
 - `slo:list` показывает колонку Strategy (`-` у DUPLICATE), JSON-ключ `strategy`; `slo:validate` пишет NOTICE, когда latency-порог `auto` SLO
@@ -97,10 +114,12 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
   `Observation::http(status, duration)` → `RecordEvent\Action`. Пустой список → ранний выход (одна выборка из массива).
 - `Application/Port/RoutePointIndexInterface` + `Infrastructure/Symfony/RoutePointIndex`: имя маршрута → `list<PointId>`
   (контроллер `Class::method` из `RouteCatalogInterface::all()`), в индекс попадают только точки с SLO или с
-  конфликтным именем (чтобы Action выдал warning о конфликте). Строится лениво один раз за процесс; ошибка построения
-  мемоизируется пустым индексом (один warning, HTTP SLO больше ничего не пишут до перезапуска).
+  конфликтным именем (чтобы Action выдал warning о конфликте). Читается из прогретого `RouteIndexFile`, иначе строится лениво
+  один раз за процесс; ошибка построения мемоизируется пустым индексом (один warning, HTTP SLO больше ничего не пишут до
+  перезапуска; `kernel.reset` индекс не сбрасывает).
 - Messenger: `PointId(messenger_message, messageClass)`; нет SLO и конфликтов → ранний выход; иначе
-  `Observation::delivery(DeliveryStatus::from(status->value), transport ∈ extras()->failureTransports, duration)`.
+  `Observation::delivery(DeliveryStatusMapper::map(status->value), transport ∈ extras()->failureTransports, duration)`;
+  неизвестный статус (новый case в metrics-bundle) → событие пропускается, один warning на статус до `kernel.reset`.
 - Оба наблюдателя ловят любой `Throwable` (в т.ч. от логгера) и логируют в `slo_bundle`.
 - `RecordEvent\Action`: ошибка резолвера/ревизии мемоизируется по (slo, kind) как «пропуск» и логируется один раз
   (контекст `slo`, `objective`, `point`, `exception`); поиск конфликтов в отдельном guard; все вызовы логгера защищены.
