@@ -47,11 +47,13 @@ use Msstc4Symfony\SloBundle\Test\Fixtures\Message\Contract\PaymentMessageInterfa
 use Msstc4Symfony\SloBundle\Test\Fixtures\Message\Legacy\ProcessPayment as LegacyProcessPayment;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Message\ProcessPayment;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Message\SendReceipt;
+use Msstc4Symfony\SloBundle\Test\Integration\CallbackPass;
 use Msstc4Symfony\SloBundle\Test\Integration\TestContainer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\RequiresMethod;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
+use Symfony\Component\DependencyInjection\Compiler\PassConfig;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\Messenger\Attribute\AsMessage;
@@ -428,6 +430,19 @@ final class CollectSloDefinitionsPassTest extends TestCase
             $container->register(RefundAction::class, RefundAction::class)->addTag(PointTag::TAG, [PointTag::TYPE => 'logic_action', PointTag::ID => 'refund']);
             $container->register('second_refund', CleanupAction::class)->addTag(PointTag::TAG, [PointTag::TYPE => 'logic_action', PointTag::ID => 'refund']);
         }, [], 'logic_action:refund: tagged on services "' . RefundAction::class . '" and "second_refund"'];
+        yield 'invalid default window without any point' => [[], null, ['defaults' => ['window' => '5m']], 'msstc4symfony_slo.defaults: Invalid SLO window "5m"'];
+        yield 'overlapping default statuses without any point' => [[], null, ['defaults' => ['http' => ['bad_statuses' => ['5xx'], 'ineligible_statuses' => ['503']]]], 'msstc4symfony_slo.defaults: Bad statuses "5xx" overlap ineligible statuses "503"'];
+        yield 'invalid default status' => [[], null, ['defaults' => ['http' => ['bad_statuses' => ['600']]]], 'msstc4symfony_slo.defaults: '];
+        yield 'missing defaults parameter' => [[], static function (ContainerBuilder $container): void {
+            $container->addCompilerPass(new CallbackPass(static function (ContainerBuilder $container): void {
+                $container->getParameterBag()->remove('msstc4symfony_slo.defaults.window');
+            }), PassConfig::TYPE_BEFORE_OPTIMIZATION, 10);
+        }, [], 'Parameter "msstc4symfony_slo.defaults.window" is missing or not a string'];
+        yield 'ill-typed defaults parameter' => [[], static function (ContainerBuilder $container): void {
+            $container->addCompilerPass(new CallbackPass(static function (ContainerBuilder $container): void {
+                $container->setParameter('msstc4symfony_slo.defaults.http.bad_statuses', ['5xx', 5.5]);
+            }), PassConfig::TYPE_BEFORE_OPTIMIZATION, 10);
+        }, [], 'Parameter "msstc4symfony_slo.defaults.http.bad_statuses" is missing or not a list of status codes, classes and ranges'];
         yield 'invalid tagged point type' => [[], static function (ContainerBuilder $container): void {
             $container->register(RefundAction::class, RefundAction::class)->addTag(PointTag::TAG, [PointTag::TYPE => 'job', PointTag::ID => 'refund']);
         }, [], 'service "' . RefundAction::class . '": tag "msstc4symfony_slo.point" needs attribute "type"'];

@@ -114,12 +114,16 @@ final class SloBundle extends AbstractBundle
         return $this->node('defaults')
             ->addDefaultsIfNotSet()
             ->children()
-                ->scalarNode('window')->cannotBeEmpty()->defaultValue(CollectSloDefinitionsPass::DEFAULT_WINDOW)->end()
+                ->scalarNode('window')
+                    ->cannotBeEmpty()
+                    ->defaultValue(CollectSloDefinitionsPass::DEFAULT_WINDOW)
+                    ->validate()->ifTrue(static fn (mixed $v): bool => !\is_string($v))->thenInvalid('window must be a string such as "30d", %s given.')->end()
+                ->end()
                 ->arrayNode('http')
                     ->addDefaultsIfNotSet()
                     ->children()
-                        ->append($this->listNode('bad_statuses')->scalarPrototype()->end()->defaultValue(['5xx']))
-                        ->append($this->listNode('ineligible_statuses')->scalarPrototype()->end()->defaultValue([]))
+                        ->append($this->statusesNode('bad_statuses', ['5xx']))
+                        ->append($this->statusesNode('ineligible_statuses', []))
                     ->end()
                 ->end()
                 ->arrayNode('logic')
@@ -284,6 +288,23 @@ final class SloBundle extends AbstractBundle
         $node->beforeNormalization()->ifArray()->then(array_values(...))->end();
 
         return $node;
+    }
+
+    /**
+     * @param non-empty-string $name
+     * @param list<int|string> $default
+     */
+    private function statusesNode(string $name, array $default): ArrayNodeDefinition
+    {
+        return $this->listNode($name)
+            ->scalarPrototype()
+                ->validate()
+                    ->ifTrue(static fn (mixed $v): bool => !\is_int($v) && !\is_string($v))
+                    ->thenInvalid('a status is a code (500), a class ("5xx") or a range ("500-503"), %s given.')
+                ->end()
+            ->end()
+            ->defaultValue($default)
+        ;
     }
 
     private static function isLabelValue(mixed $value): bool

@@ -6,10 +6,10 @@ namespace Msstc4Symfony\SloBundle\DependencyInjection\CompilerPass;
 
 use Msstc4Symfony\SloBundle\Application\Discovery\CatalogAssembler;
 use Msstc4Symfony\SloBundle\Application\Discovery\CatalogExtras;
-use Msstc4Symfony\SloBundle\Application\Discovery\DefinitionFactory;
 use Msstc4Symfony\SloBundle\Application\Discovery\DiscoveryErrors;
 use Msstc4Symfony\SloBundle\DependencyInjection\CompilerPass\Discovery\AttributeReader;
 use Msstc4Symfony\SloBundle\DependencyInjection\CompilerPass\Discovery\ControllerReader;
+use Msstc4Symfony\SloBundle\DependencyInjection\CompilerPass\Discovery\DefaultsReader;
 use Msstc4Symfony\SloBundle\DependencyInjection\CompilerPass\Discovery\HandlerReader;
 use Msstc4Symfony\SloBundle\DependencyInjection\CompilerPass\Discovery\MessengerRouting;
 use Msstc4Symfony\SloBundle\DependencyInjection\CompilerPass\Discovery\MetricsParameters;
@@ -62,7 +62,7 @@ final class CollectSloDefinitionsPass implements CompilerPassInterface
             $warnings,
             $controllerReader->serviceIds($container),
         );
-        $contents = $assembler->assemble($this->factory($container), $errors, $extras);
+        $contents = $assembler->assemble(DefaultsReader::factory($container), $errors, $extras);
 
         if (!$errors->isEmpty()) {
             throw new InvalidConfigurationException($errors->summary());
@@ -87,29 +87,6 @@ final class CollectSloDefinitionsPass implements CompilerPassInterface
             \is_array($item) => self::escape($item),
             default => $item,
         }, $value);
-    }
-
-    private function factory(ContainerBuilder $container): DefinitionFactory
-    {
-        $window = $this->parameter($container, 'defaults.window');
-        $expectedFailureIsGood = $this->parameter($container, 'defaults.logic.expected_failure_is_good');
-        $countAttempts = $this->parameter($container, 'defaults.messenger.count_attempts');
-
-        return new DefinitionFactory(
-            \is_string($window) ? $window : self::DEFAULT_WINDOW,
-            $this->statuses($this->parameter($container, 'defaults.http.bad_statuses')),
-            $this->statuses($this->parameter($container, 'defaults.http.ineligible_statuses')),
-            $expectedFailureIsGood !== false,
-            $countAttempts === true,
-        );
-    }
-
-    /**
-     * @return list<int|string>
-     */
-    private function statuses(mixed $value): array
-    {
-        return array_values(array_filter(\is_array($value) ? $value : [], static fn (mixed $item): bool => \is_int($item) || \is_string($item)));
     }
 
     private function parameter(ContainerBuilder $container, string $path): mixed

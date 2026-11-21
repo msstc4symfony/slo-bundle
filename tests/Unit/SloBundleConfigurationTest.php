@@ -203,6 +203,16 @@ final class SloBundleConfigurationTest extends TestCase
         $this->load(['operations' => ['a.b' => ['objectives' => [$objective]]]]);
     }
 
+    public function testNonStringDefaultWindowIsRejected(): void
+    {
+        $this->assertRejected(['defaults' => ['window' => 30]]);
+    }
+
+    public function testDefaultStatusesOtherThanIntegersAndStringsAreRejected(): void
+    {
+        $this->assertRejected(['defaults' => ['http' => ['bad_statuses' => [5.5]]]]);
+    }
+
     public function testEmptyWindowIsRejected(): void
     {
         $this->assertRejected(['defaults' => ['window' => '']]);
