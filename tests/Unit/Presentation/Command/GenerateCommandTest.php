@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Test\Unit\Presentation\Command;
 
+use LogicException;
 use Msstc4Symfony\SloBundle\Application\Generation\Generate\Action as GenerateAction;
 use Msstc4Symfony\SloBundle\Application\Generation\Generate\GenerationConfig;
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateDashboards\Action as GenerateDashboardsAction;
@@ -15,8 +16,10 @@ use Msstc4Symfony\SloBundle\Test\Unit\Application\Generation\GenerationFixture;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Generation\SyncFiles\InMemoryFileWriter;
 use PHPUnit\Framework\Attributes\TestWith;
 use PHPUnit\Framework\TestCase;
+use ReflectionMethod;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
+use Symfony\Component\DependencyInjection\Definition;
 
 final class GenerateCommandTest extends TestCase
 {
@@ -134,15 +137,46 @@ final class GenerateCommandTest extends TestCase
 
     public function testCommandIsRegisteredWithTheGenerationParameters(): void
     {
-        $container = TestContainer::compile();
-        $definition = $container->getDefinition(GenerationConfig::class);
+        $container = TestContainer::compile([
+            'coverage' => ['http_routes' => ['ignored_routes' => ['health']]],
+            'generation' => [
+                'selector' => ['application' => 'shop', 'components' => ['web']],
+                'output_dir' => '/srv/observability',
+                'prometheus' => ['alerts' => false, 'no_events_alert_hours' => 6],
+                'sloth' => true,
+                'grafana' => ['datasource_uid' => 'mimir', 'folder' => 'Shop SLO'],
+            ],
+        ]);
 
-        self::assertSame([null, [], sys_get_temp_dir() . '/infrastructure/observability', true, true, null, false], array_values($definition->getArguments()));
-        self::assertSame(['prometheus', 'SLO'], array_values($container->getDefinition(GrafanaFileBuilder::class)->getArguments()));
-        self::assertSame([], $container->getDefinition(GenerateDashboardsAction::class)->getArgument(5));
+        $config = $container->get(GenerationConfig::class);
+        self::assertInstanceOf(GenerationConfig::class, $config);
+        self::assertSame(['shop', ['web'], '/srv/observability', true, false, 6, true], [$config->application, $config->components, $config->outputDir, $config->prometheusRules, $config->prometheusAlerts, $config->noEventsAlertHours, $config->sloth]);
+
+        $grafana = $container->getDefinition(GrafanaFileBuilder::class);
+        $standard = new ReflectionMethod(GrafanaFileBuilder::class, 'standard');
+        self::assertSame('mimir', $this->argument($grafana, $standard, 'datasourceUid'));
+        self::assertSame('Shop SLO', $this->argument($grafana, $standard, 'folder'));
+        self::assertSame(['health'], $container->getParameterBag()->resolveValue($this->argument($container->getDefinition(GenerateDashboardsAction::class), new ReflectionMethod(GenerateDashboardsAction::class, '__construct'), 'ignoredRoutes')));
         self::assertSame('slo:generate', $this->command(new InMemoryFileWriter())->getName());
     }
 
+    /**
+     * Compiled definitions hold positional arguments: look the position up by parameter name.
+     */
+    private function argument(Definition $definition, ReflectionMethod $method, string $name): mixed
+    {
+        foreach ($method->getParameters() as $parameter) {
+            if ($parameter->getName() === $name) {
+                return $definition->getArgument($parameter->getPosition());
+            }
+        }
+
+        throw new LogicException(\sprintf('%s has no parameter $%s.', $method->getName(), $name));
+    }
+
+    /**
+     * @param non-empty-string|null $application
+     */
     private function command(InMemoryFileWriter $writer, ?string $application = 'shop', float $availabilityTarget = 99.9, bool $sloth = false): GenerateCommand
     {
         $catalog = GenerationFixture::catalog(checkoutAvailabilityTarget: $availabilityTarget);

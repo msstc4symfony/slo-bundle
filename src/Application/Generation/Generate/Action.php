@@ -37,7 +37,7 @@ final readonly class Action
     public function __invoke(Input $input): Output
     {
         $application = $this->config->application;
-        if ($application === null || $application === '') {
+        if ($application === null) {
             throw InvalidGenerationSettings::missingApplication();
         }
         $root = rtrim($input->outputDir ?? $this->config->outputDir, '/');
