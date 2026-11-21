@@ -8,6 +8,7 @@ use InvalidArgumentException;
 use Msstc4Symfony\SloBundle\Application\Discovery\CatalogExtras;
 use Msstc4Symfony\SloBundle\Application\Port\CatalogDiagnosticsInterface;
 use Msstc4Symfony\SloBundle\Application\Port\RouteCatalogInterface;
+use Msstc4Symfony\SloBundle\Application\Port\SeriesCatalogInterface;
 use Msstc4Symfony\SloBundle\Domain\Entity\SloDefinition;
 use Msstc4Symfony\SloBundle\Domain\Enum\ObjectiveKind;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
@@ -24,21 +25,10 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
  */
 final readonly class MetricBindingResolver
 {
-    private const HTTP_COUNTER = 'http_response';
-
-    private const HTTP_HISTOGRAM = 'request_duration_histogram_seconds';
-
-    private const MESSENGER_COUNTER = 'messenger_message_handled';
-
-    private const MESSENGER_HISTOGRAM = 'messenger_message_handling_duration_histogram_seconds';
-
-    private const LOGIC_HISTOGRAM = 'logic_action_duration_histogram_seconds';
-
-    private const LOGIC_NON_ERROR = 'success|expected_failure';
-
     public function __construct(
         private RouteCatalogInterface $routes,
         private CatalogDiagnosticsInterface $diagnostics,
+        private SeriesCatalogInterface $series,
     ) {
     }
 
@@ -74,11 +64,9 @@ final readonly class MetricBindingResolver
      */
     public function thresholdMissesBucket(SloDefinition $definition, Objective $objective): bool
     {
-        $histogram = $this->histogramFor($definition->pointType());
-
-        return $histogram !== null
+        return $this->histogramFor($definition->pointType()) !== null
             && $objective->threshold instanceof LatencyThreshold
-            && $this->bucketBound($this->diagnostics->extras()->metricBuckets[$histogram] ?? [], $objective) === null;
+            && $this->bucket($definition->pointType(), $objective, $this->diagnostics->extras()) === null;
     }
 
     /**
@@ -86,12 +74,7 @@ final readonly class MetricBindingResolver
      */
     public function histogramFor(PointType $type): ?string
     {
-        return match ($type) {
-            PointType::HttpRoute => self::HTTP_HISTOGRAM,
-            PointType::MessengerMessage => self::MESSENGER_HISTOGRAM,
-            PointType::LogicAction => self::LOGIC_HISTOGRAM,
-            PointType::Operation => null,
-        };
+        return $this->series->histogramFor($type);
     }
 
     private function http(SloDefinition $definition, Objective $objective, CatalogExtras $extras): ?SeriesBinding
@@ -100,66 +83,45 @@ final readonly class MetricBindingResolver
         if ($routeNames === []) {
             return null;
         }
-        $route = Matcher::regex('route', $this->alternation($routeNames));
         $classification = $definition->classification();
 
         if ($objective->kind === ObjectiveKind::Availability) {
-            $bad = $classification->badStatuses->toRegex();
-            $ineligible = $classification->ineligibleStatuses->toRegex();
-            $notGood = implode('|', array_filter([$bad, $ineligible], static fn (string $part): bool => $part !== ''));
-
-            return new SeriesBinding(
-                self::HTTP_COUNTER,
-                SeriesBinding::KIND_COUNTER,
-                SeriesBinding::index($ineligible === '' ? [$route] : [$route, Matcher::notRegex('status', $ineligible)]),
-                SeriesBinding::index($notGood === '' ? [] : [Matcher::notRegex('status', $notGood)]),
-                SeriesBinding::index($bad === '' ? [] : [Matcher::regex('status', $bad)]),
-                null,
-            );
+            return $this->series->httpAvailability($routeNames, $classification->badStatuses, $classification->ineligibleStatuses);
         }
 
         // The histogram has no status label: only "every eligible event" can be read from it.
         if (!$objective->includeErrors || !$classification->ineligibleStatuses->isEmpty()) {
             return null;
         }
+        $bucket = $this->bucket(PointType::HttpRoute, $objective, $extras);
 
-        return $this->latency(self::HTTP_HISTOGRAM, [$route], $objective, $extras);
+        return $bucket === null ? null : $this->series->httpLatency($routeNames, $bucket);
     }
 
     private function messenger(SloDefinition $definition, Objective $objective, CatalogExtras $extras): ?SeriesBinding
     {
-        if ($definition->classification()->countAttempts || $this->sharesShortName($definition, $extras)) {
+        if ($definition->classification()->countAttempts || $this->sharesMessageLabel($definition, $extras)) {
             return null;
         }
-
-        $messages = array_map(static fn (PointId $point): string => self::shortName($point->id), $definition->points());
-        $message = $this->exactOrAlternation('message', $messages);
-        $failureTransports = $extras->failureTransports;
-        sort($failureTransports, SORT_STRING);
-        $transport = $failureTransports === [] ? [] : [Matcher::notRegex('transport', $this->alternation($failureTransports))];
+        $messages = array_map(static fn (PointId $point): string => $point->id, $definition->points());
 
         if ($objective->kind === ObjectiveKind::Availability) {
-            return new SeriesBinding(
-                self::MESSENGER_COUNTER,
-                SeriesBinding::KIND_COUNTER,
-                SeriesBinding::index([$message, Matcher::regex('status', 'handled|failed'), ...$transport]),
-                SeriesBinding::index([Matcher::equals('status', 'handled')]),
-                SeriesBinding::index([Matcher::equals('status', 'failed')]),
-                null,
-            );
+            return $this->series->messengerAvailability($messages, $extras->failureTransports);
         }
 
         // includeErrors is rejected for Messenger at compile time; the histogram could not express it anyway.
         if ($objective->includeErrors) {
             return null;
         }
+        $bucket = $this->bucket(PointType::MessengerMessage, $objective, $extras);
 
-        return $this->latency(self::MESSENGER_HISTOGRAM, [$message, Matcher::equals('status', 'handled'), ...$transport], $objective, $extras);
+        return $bucket === null ? null : $this->series->messengerLatency($messages, $extras->failureTransports, $bucket);
     }
 
     private function logic(SloDefinition $definition, Objective $objective, CatalogExtras $extras): ?SeriesBinding
     {
-        if (!isset($extras->metricBuckets[self::LOGIC_HISTOGRAM])) {
+        $histogram = $this->series->histogramFor(PointType::LogicAction);
+        if ($histogram === null || !isset($extras->metricBuckets[$histogram])) {
             return null;
         }
 
@@ -171,61 +133,27 @@ final readonly class MetricBindingResolver
             }
             $labels[] = $label;
         }
-        $action = $this->exactOrAlternation('action', $labels);
 
         if ($objective->kind === ObjectiveKind::Availability) {
             // The series counts expected failures as good: it cannot express expectedFailureIsGood: false.
-            if (!$definition->classification()->expectedFailureIsGood) {
-                return null;
-            }
-
-            return new SeriesBinding(
-                self::LOGIC_HISTOGRAM,
-                SeriesBinding::KIND_HISTOGRAM,
-                SeriesBinding::index([$action]),
-                SeriesBinding::index([Matcher::regex('outcome', self::LOGIC_NON_ERROR)]),
-                SeriesBinding::index([Matcher::equals('outcome', 'error')]),
-                null,
-            );
+            return $definition->classification()->expectedFailureIsGood ? $this->series->logicAvailability($labels) : null;
         }
+        $bucket = $this->bucket(PointType::LogicAction, $objective, $extras);
 
-        $eligible = $objective->includeErrors ? [] : [Matcher::regex('outcome', self::LOGIC_NON_ERROR)];
-
-        return $this->latency(self::LOGIC_HISTOGRAM, [$action, ...$eligible], $objective, $extras);
+        return $bucket === null ? null : $this->series->logicLatency($labels, $objective->includeErrors, $bucket);
     }
 
     /**
-     * @param non-empty-string $histogram
-     * @param list<Matcher> $matchers
-     */
-    private function latency(string $histogram, array $matchers, Objective $objective, CatalogExtras $extras): ?SeriesBinding
-    {
-        $le = $this->bucketBound($extras->metricBuckets[$histogram] ?? [], $objective);
-        if ($le === null) {
-            return null;
-        }
-
-        return new SeriesBinding($histogram, SeriesBinding::KIND_HISTOGRAM, SeriesBinding::index($matchers), [], [], $le);
-    }
-
-    /**
-     * @param list<float> $buckets
-     *
      * @return non-empty-string|null
      */
-    private function bucketBound(array $buckets, Objective $objective): ?string
+    private function bucket(PointType $type, Objective $objective, CatalogExtras $extras): ?string
     {
-        if (!$objective->threshold instanceof LatencyThreshold) {
+        $histogram = $this->series->histogramFor($type);
+        if ($histogram === null || !$objective->threshold instanceof LatencyThreshold) {
             return null;
         }
-        foreach ($buckets as $bucket) {
-            $label = BucketLabel::fromBucket($bucket);
-            if ($label->equalsMilliseconds($objective->threshold->milliseconds)) {
-                return $label->value;
-            }
-        }
 
-        return null;
+        return $this->series->bucketFor($extras->metricBuckets[$histogram] ?? [], $objective->threshold);
     }
 
     /**
@@ -246,17 +174,16 @@ final readonly class MetricBindingResolver
     }
 
     /**
-     * metrics-bundle labels messages by short class name: another handled message with the same short name would be
-     * summed into the series.
+     * Another handled message with the same `message` label value would be summed into the series.
      */
-    private function sharesShortName(SloDefinition $definition, CatalogExtras $extras): bool
+    private function sharesMessageLabel(SloDefinition $definition, CatalogExtras $extras): bool
     {
         $own = [];
         foreach ($definition->points() as $point) {
-            $own[$point->id] = self::shortName($point->id);
+            $own[$point->id] = $this->series->messageLabel($point->id);
         }
         foreach ($extras->handlers as $handler) {
-            if (!isset($own[$handler->messageClass]) && \in_array(self::shortName($handler->messageClass), $own, true)) {
+            if (!isset($own[$handler->messageClass]) && \in_array($this->series->messageLabel($handler->messageClass), $own, true)) {
                 return true;
             }
         }
@@ -276,38 +203,5 @@ final readonly class MetricBindingResolver
         }
 
         return null;
-    }
-
-    /**
-     * @param non-empty-string $label
-     * @param non-empty-list<non-empty-string>|list<non-empty-string> $values
-     */
-    private function exactOrAlternation(string $label, array $values): Matcher
-    {
-        $values = array_values(array_unique($values));
-        sort($values, SORT_STRING);
-
-        return \count($values) === 1 ? Matcher::equals($label, $values[0]) : Matcher::regex($label, $this->alternation($values));
-    }
-
-    /**
-     * @param list<non-empty-string> $values sorted
-     */
-    private function alternation(array $values): string
-    {
-        return implode('|', array_map(Matcher::escapeRegex(...), $values));
-    }
-
-    /**
-     * @param non-empty-string $class
-     *
-     * @return non-empty-string
-     */
-    private static function shortName(string $class): string
-    {
-        $position = strrpos($class, '\\');
-        $short = $position === false ? $class : substr($class, $position + 1);
-
-        return $short === '' ? $class : $short;
     }
 }

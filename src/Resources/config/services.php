@@ -29,6 +29,7 @@ use Msstc4Symfony\SloBundle\Application\Port\PrecomputedRevisionsInterface;
 use Msstc4Symfony\SloBundle\Application\Port\RouteCatalogInterface;
 use Msstc4Symfony\SloBundle\Application\Port\RoutePointIndexInterface;
 use Msstc4Symfony\SloBundle\Application\Port\RuleFileBuilderInterface;
+use Msstc4Symfony\SloBundle\Application\Port\SeriesCatalogInterface;
 use Msstc4Symfony\SloBundle\Application\Port\SlothSpecBuilderInterface;
 use Msstc4Symfony\SloBundle\Domain\Repository\SloCatalogInterface;
 use Msstc4Symfony\SloBundle\Domain\Service\EventClassifier;
@@ -44,6 +45,7 @@ use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\DeliveryStatusMapper;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\DeliveryStatusMapperInterface;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\HttpSloObserver;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MessengerSloObserver;
+use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MetricsBundleSeriesCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MetricsEventWriter;
 use Msstc4Symfony\SloBundle\Infrastructure\Prometheus\PromQlBuilder;
 use Msstc4Symfony\SloBundle\Infrastructure\Prometheus\RuleGroupsBuilder;
@@ -86,6 +88,8 @@ return static function (ContainerConfigurator $container): void {
     $services->set(WarmedRevisions::class);
     $services->alias(PrecomputedRevisionsInterface::class, WarmedRevisions::class);
 
+    $services->set(MetricsBundleSeriesCatalog::class);
+    $services->alias(SeriesCatalogInterface::class, MetricsBundleSeriesCatalog::class);
     $services->set(MetricBindingResolver::class);
     $services->set(RevisionResolver::class);
     $services->set(EventClassifier::class);

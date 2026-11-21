@@ -71,28 +71,11 @@ final readonly class StatusSet
     }
 
     /**
-     * @return list<string>
+     * @return list<string> sorted items, each a code "429", a class "5xx" or a range "500-503"
      */
     public function canonical(): array
     {
         return $this->canonical;
-    }
-
-    public function toRegex(): string
-    {
-        $parts = [];
-        foreach ($this->canonical as $item) {
-            if (str_ends_with($item, 'xx')) {
-                $parts[] = $item[0] . '..';
-                continue;
-            }
-            [$from, $to] = self::bounds($item);
-            for ($code = $from; $code <= $to; $code++) {
-                $parts[] = (string) $code;
-            }
-        }
-
-        return implode('|', $parts);
     }
 
     private static function normalise(int|string $item): string

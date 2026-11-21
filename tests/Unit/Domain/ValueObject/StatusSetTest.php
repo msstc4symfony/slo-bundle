@@ -6,6 +6,7 @@ namespace Msstc4Symfony\SloBundle\Test\Unit\Domain\ValueObject;
 
 use InvalidArgumentException;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\StatusSet;
+use Msstc4Symfony\SloBundle\Infrastructure\Prometheus\PromQlRenderer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -15,7 +16,7 @@ final class StatusSetTest extends TestCase
     {
         $set = StatusSet::fromList(['5xx', 429]);
 
-        self::assertSame('429|5..', $set->toRegex());
+        self::assertSame('429|5..', PromQlRenderer::statusPattern($set));
         self::assertTrue($set->contains(503));
         self::assertTrue($set->contains(429));
         self::assertFalse($set->contains(404));
@@ -55,8 +56,18 @@ final class StatusSetTest extends TestCase
         $set = StatusSet::fromList($items);
 
         self::assertSame($canonical, $set->canonical());
-        self::assertSame($regex, $set->toRegex());
+        self::assertSame($regex, PromQlRenderer::statusPattern($set));
         self::assertSame($items === [], $set->isEmpty());
+    }
+
+    public function testCodeBoundsAreInclusive(): void
+    {
+        $set = StatusSet::fromList([100, 599, '100-102', '597-599']);
+
+        self::assertTrue($set->contains(100));
+        self::assertTrue($set->contains(599));
+        self::assertFalse($set->contains(99));
+        self::assertFalse($set->contains(600));
     }
 
     public function testRangeContains(): void
@@ -80,6 +91,8 @@ final class StatusSetTest extends TestCase
         yield 'garbage' => ['abc'];
         yield 'empty string' => [''];
         yield 'range out of bounds' => ['500-700'];
+        yield 'range below 100' => ['099-200'];
+        yield 'range above 599' => ['500-600'];
     }
 
     #[DataProvider('provideInvalid')]

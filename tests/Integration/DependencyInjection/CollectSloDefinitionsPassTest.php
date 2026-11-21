@@ -361,7 +361,7 @@ final class CollectSloDefinitionsPassTest extends TestCase
         yield 'invalid target' => [[InvalidValuesController::class], null, [], $http(InvalidValuesController::class, 'target') . ': Invalid SLO target "120.0"'];
         yield 'invalid threshold' => [[InvalidValuesController::class], null, [], $http(InvalidValuesController::class, 'threshold') . ': Invalid latency threshold "fast"'];
         yield 'invalid name' => [[InvalidValuesController::class], null, [], $http(InvalidValuesController::class, 'name') . ': Invalid SLO name "Payment Name"'];
-        yield 'overlapping statuses' => [[InvalidValuesController::class], null, [], $http(InvalidValuesController::class, 'statuses') . ': Bad statuses "5.." overlap ineligible statuses "503"'];
+        yield 'overlapping statuses' => [[InvalidValuesController::class], null, [], $http(InvalidValuesController::class, 'statuses') . ': Bad statuses "5xx" overlap ineligible statuses "503"'];
         yield 'invalid strategy' => [[InvalidValuesController::class], null, [], $http(InvalidValuesController::class, 'strategy') . ': invalid attribute: ' . Slo::class . '::__construct(): Argument #8 ($strategy) must be of type ' . StrategyPreference::class];
         yield 'count attempts on http' => [[WrongOptionsController::class], null, [], $http(WrongOptionsController::class, 'attempts') . ': SLO "payment.attempts": countAttempts applies to messenger_message points only'];
         yield 'expected failure on http' => [[WrongOptionsController::class], null, [], $http(WrongOptionsController::class, 'expected') . ': SLO "payment.expected": expectedFailureIsGood applies to logic_action and operation points only'];

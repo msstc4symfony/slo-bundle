@@ -21,6 +21,7 @@ use Msstc4Symfony\SloBundle\Domain\Service\RevisionCalculator;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Observation;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
+use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MetricsBundleSeriesCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MetricsEventWriter;
 use Msstc4Symfony\SloBundle\Test\Integration\Hardening\HardeningKernel;
 use Msstc4Symfony\SloBundle\Test\Integration\NullMetricRecorder;
@@ -88,7 +89,7 @@ final class RecordEventBenchmarkTest extends TestCase
         });
         $action = new Action(
             $catalog,
-            new MetricBindingResolver(new InMemoryRouteCatalog([new RouteInfo('payment_create', '/payments', [], self::CONTROLLER)]), $catalog),
+            new MetricBindingResolver(new InMemoryRouteCatalog([new RouteInfo('payment_create', '/payments', [], self::CONTROLLER)]), $catalog, new MetricsBundleSeriesCatalog()),
             new RevisionResolver(new RevisionCalculator(), $catalog),
             new EventClassifier(),
             new MetricsEventWriter($recorder),

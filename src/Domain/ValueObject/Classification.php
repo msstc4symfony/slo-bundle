@@ -15,7 +15,7 @@ final readonly class Classification
         public bool $countAttempts,
     ) {
         if ($badStatuses->intersects($ineligibleStatuses)) {
-            throw new InvalidArgumentException(\sprintf('Bad statuses "%s" overlap ineligible statuses "%s".', $badStatuses->toRegex(), $ineligibleStatuses->toRegex()));
+            throw new InvalidArgumentException(\sprintf('Bad statuses "%s" overlap ineligible statuses "%s".', implode(',', $badStatuses->canonical()), implode(',', $ineligibleStatuses->canonical())));
         }
     }
 

@@ -15,6 +15,7 @@ use Msstc4Symfony\SloBundle\Application\Binding\Binding;
 use Msstc4Symfony\SloBundle\Application\Binding\Matcher;
 use Msstc4Symfony\SloBundle\Application\Binding\MetricBindingResolver;
 use Msstc4Symfony\SloBundle\Application\Binding\SeriesBinding;
+use Msstc4Symfony\SloBundle\Application\Binding\SeriesKind;
 use Msstc4Symfony\SloBundle\Application\Discovery\CatalogExtras;
 use Msstc4Symfony\SloBundle\Application\Discovery\HandlerInfo;
 use Msstc4Symfony\SloBundle\Application\Discovery\TaggedPoint;
@@ -27,6 +28,8 @@ use Msstc4Symfony\SloBundle\Domain\Enum\StrategyPreference;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Objective;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Target;
+use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MetricsBundleSeriesCatalog;
+use Msstc4Symfony\SloBundle\Infrastructure\Prometheus\PromQlRenderer;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\CatalogFixture;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\InMemoryRouteCatalog;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -105,7 +108,7 @@ final class MetricBindingResolverTest extends TestCase
     public function testHttpWithoutRoutesIsDedicated(): void
     {
         $definition = $this->define(PointType::HttpRoute, self::slo(new Availability(99.9)));
-        $resolver = new MetricBindingResolver(new InMemoryRouteCatalog(), CatalogFixture::build(static fn (): null => null, $this->extras()));
+        $resolver = new MetricBindingResolver(new InMemoryRouteCatalog(), CatalogFixture::build(static fn (): null => null, $this->extras()), new MetricsBundleSeriesCatalog());
 
         self::assertSame(Strategy::Dedicated, $resolver->resolve($definition, $definition->objectives()[0])->strategy);
     }
@@ -147,7 +150,7 @@ final class MetricBindingResolverTest extends TestCase
         $series = $this->series($this->resolver($definition, $this->extras())->resolve($definition, $definition->objectives()[0]));
 
         self::assertSame('http_response', $series->metric);
-        self::assertSame('counter', $series->kind);
+        self::assertSame(SeriesKind::Counter, $series->kind);
         self::assertNull($series->le);
         self::assertSame(['route=~"payment\\\\.create|payment_update"', 'status!~"404"'], $this->rendered($series->matchers));
         self::assertSame(['status=~"429|5.."'], $this->rendered($series->badMatchers));
@@ -172,7 +175,7 @@ final class MetricBindingResolverTest extends TestCase
         $series = $this->series($this->resolver($definition, $this->extras())->resolve($definition, $definition->objectives()[0]));
 
         self::assertSame('request_duration_histogram_seconds', $series->metric);
-        self::assertSame('histogram', $series->kind);
+        self::assertSame(SeriesKind::Histogram, $series->kind);
         self::assertSame('0.5', $series->le);
         self::assertSame(['route=~"payment\\\\.create|payment_update"'], $this->rendered($series->matchers));
         self::assertSame([], $series->badMatchers);
@@ -186,7 +189,7 @@ final class MetricBindingResolverTest extends TestCase
         $series = $this->series($this->resolver($definition, $this->extras(failureTransports: ['failed', 'dead.letter']))->resolve($definition, $definition->objectives()[0]));
 
         self::assertSame('messenger_message_handled', $series->metric);
-        self::assertSame('counter', $series->kind);
+        self::assertSame(SeriesKind::Counter, $series->kind);
         self::assertSame(['message="ProcessPayment"', 'status=~"handled|failed"', 'transport!~"dead\\\\.letter|failed"'], $this->rendered($series->matchers));
         self::assertSame(['status="failed"'], $this->rendered($series->badMatchers));
         self::assertSame(['status="handled"'], $this->rendered($series->goodMatchers));
@@ -250,7 +253,7 @@ final class MetricBindingResolverTest extends TestCase
         $series = $this->series($this->resolver($definition, $this->extras(failureTransports: ['failed']))->resolve($definition, $definition->objectives()[0]));
 
         self::assertSame('messenger_message_handling_duration_histogram_seconds', $series->metric);
-        self::assertSame('histogram', $series->kind);
+        self::assertSame(SeriesKind::Histogram, $series->kind);
         self::assertSame('1.0', $series->le);
         self::assertSame(['message="ProcessPayment"', 'status="handled"', 'transport!~"failed"'], $this->rendered($series->matchers));
     }
@@ -264,7 +267,7 @@ final class MetricBindingResolverTest extends TestCase
         $latency = $this->series($resolver->resolve($definition, $this->objective($definition, ObjectiveKind::Latency)));
 
         self::assertSame('logic_action_duration_histogram_seconds', $availability->metric);
-        self::assertSame('histogram', $availability->kind);
+        self::assertSame(SeriesKind::Histogram, $availability->kind);
         self::assertNull($availability->le);
         self::assertSame(['action="refund"'], $this->rendered($availability->matchers));
         self::assertSame(['outcome="error"'], $this->rendered($availability->badMatchers));
@@ -339,7 +342,7 @@ final class MetricBindingResolverTest extends TestCase
             $routes[] = new RouteInfo('payment.create', '/p', ['POST'], $point->id);
         }
 
-        return new MetricBindingResolver(new InMemoryRouteCatalog($routes), CatalogFixture::build(static fn (): null => null, $extras));
+        return new MetricBindingResolver(new InMemoryRouteCatalog($routes), CatalogFixture::build(static fn (): null => null, $extras), new MetricsBundleSeriesCatalog());
     }
 
     private function series(Binding $binding): SeriesBinding
@@ -362,6 +365,6 @@ final class MetricBindingResolverTest extends TestCase
         sort($sorted, SORT_STRING);
         self::assertSame($sorted, $keys);
 
-        return array_values(array_map(static fn (Matcher $m): string => $m->toPromQl(), $matchers));
+        return array_values(array_map(PromQlRenderer::matcher(...), $matchers));
     }
 }

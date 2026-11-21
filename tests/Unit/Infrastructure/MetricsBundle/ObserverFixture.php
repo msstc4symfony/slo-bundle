@@ -11,6 +11,7 @@ use Msstc4Symfony\SloBundle\Application\Port\RouteCatalogInterface;
 use Msstc4Symfony\SloBundle\Domain\Service\EventClassifier;
 use Msstc4Symfony\SloBundle\Domain\Service\RevisionCalculator;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
+use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MetricsBundleSeriesCatalog;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Evaluation\RecordEvent\FixedPrecomputedRevisions;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Evaluation\RecordEvent\InMemoryEventWriter;
 use Psr\Log\LoggerInterface;
@@ -19,7 +20,7 @@ final class ObserverFixture
 {
     public static function action(CompiledSloCatalog $catalog, RouteCatalogInterface $routes, InMemoryEventWriter $writer, LoggerInterface $logger): Action
     {
-        return new Action($catalog, new MetricBindingResolver($routes, $catalog), new RevisionResolver(new RevisionCalculator(), $catalog), new EventClassifier(), $writer, $logger, new FixedPrecomputedRevisions());
+        return new Action($catalog, new MetricBindingResolver($routes, $catalog, new MetricsBundleSeriesCatalog()), new RevisionResolver(new RevisionCalculator(), $catalog), new EventClassifier(), $writer, $logger, new FixedPrecomputedRevisions());
     }
 
     /**

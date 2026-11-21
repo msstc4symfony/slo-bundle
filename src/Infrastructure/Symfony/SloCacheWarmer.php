@@ -9,6 +9,7 @@ use Msstc4Symfony\SloBundle\Application\Binding\RevisionResolver;
 use Msstc4Symfony\SloBundle\Application\Catalog\Validate\Action;
 use Msstc4Symfony\SloBundle\Application\Port\CatalogDiagnosticsInterface;
 use Msstc4Symfony\SloBundle\Application\Port\RouteCatalogInterface;
+use Msstc4Symfony\SloBundle\Application\Port\SeriesCatalogInterface;
 use Msstc4Symfony\SloBundle\Domain\Repository\SloCatalogInterface;
 use Override;
 use Psr\Log\LoggerInterface;
@@ -29,6 +30,7 @@ final readonly class SloCacheWarmer implements CacheWarmerInterface
         private LoggerInterface $logger,
         private CatalogDiagnosticsInterface $diagnostics,
         private RevisionResolver $revisions,
+        private SeriesCatalogInterface $series,
     ) {
     }
 
@@ -72,7 +74,7 @@ final readonly class SloCacheWarmer implements CacheWarmerInterface
      */
     private function revisionsOf(RouteCatalogInterface $routes): array
     {
-        $resolver = new MetricBindingResolver($routes, $this->diagnostics);
+        $resolver = new MetricBindingResolver($routes, $this->diagnostics, $this->series);
         $revisions = [];
         foreach ($this->catalog->all() as $definition) {
             foreach ($definition->objectives() as $objective) {

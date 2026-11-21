@@ -25,6 +25,7 @@ use Msstc4Symfony\SloBundle\Domain\Service\RevisionCalculator;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\LogicBundle\LogicBundleExpectedFailureClassifier;
+use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MetricsBundleSeriesCatalog;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\CatalogFixture;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\InMemoryRouteCatalog;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Evaluation\RecordEvent\FixedPrecomputedRevisions;
@@ -353,7 +354,7 @@ final class OperationMonitorTest extends TestCase
 
     private function action(EventWriterInterface $writer, CompiledSloCatalog $catalog): Action
     {
-        return new Action($catalog, new MetricBindingResolver(new InMemoryRouteCatalog([]), $catalog), new RevisionResolver(new RevisionCalculator(), $catalog), new EventClassifier(), $writer, $this->logger, new FixedPrecomputedRevisions());
+        return new Action($catalog, new MetricBindingResolver(new InMemoryRouteCatalog([]), $catalog, new MetricsBundleSeriesCatalog()), new RevisionResolver(new RevisionCalculator(), $catalog), new EventClassifier(), $writer, $this->logger, new FixedPrecomputedRevisions());
     }
 
     private function monitor(EventWriterInterface $writer): OperationMonitor

@@ -16,6 +16,7 @@ use Msstc4Symfony\SloBundle\Application\Port\RouteInfo;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
 use Msstc4Symfony\SloBundle\Domain\Enum\StrategyPreference;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
+use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MetricsBundleSeriesCatalog;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\CatalogFixture;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\InMemoryRouteCatalog;
 use PHPUnit\Framework\TestCase;
@@ -30,7 +31,7 @@ final class ActionTest extends TestCase
             $assembler->declare($this->http('A::createV2'), new Slo('payment.create', [new Availability(99.5)]));
         });
 
-        $output = (new Action($catalog, $catalog, new InMemoryRouteCatalog(), new MetricBindingResolver(new InMemoryRouteCatalog(), $catalog)))();
+        $output = (new Action($catalog, $catalog, new InMemoryRouteCatalog(), new MetricBindingResolver(new InMemoryRouteCatalog(), $catalog, new MetricsBundleSeriesCatalog())))();
 
         self::assertFalse($output->isValid());
         self::assertCount(1, $output->errors);
@@ -46,7 +47,7 @@ final class ActionTest extends TestCase
             $assembler->declare($this->http('A::create'), new Slo('payment.create', [new Availability(99.9)]));
         });
 
-        $output = (new Action($catalog, $catalog, new InMemoryRouteCatalog(), new MetricBindingResolver(new InMemoryRouteCatalog(), $catalog)))();
+        $output = (new Action($catalog, $catalog, new InMemoryRouteCatalog(), new MetricBindingResolver(new InMemoryRouteCatalog(), $catalog, new MetricsBundleSeriesCatalog())))();
 
         self::assertFalse($output->isValid());
         self::assertStringContainsString('identical, declared twice', $output->errors[0]);
@@ -59,7 +60,7 @@ final class ActionTest extends TestCase
             $assembler->declare($this->http('A::b'), new Slo('x.y', [new Availability(99.9), new Latency('200ms', 99)], window: '7d'));
         });
 
-        $output = (new Action($catalog, $catalog, new InMemoryRouteCatalog(), new MetricBindingResolver(new InMemoryRouteCatalog(), $catalog)))();
+        $output = (new Action($catalog, $catalog, new InMemoryRouteCatalog(), new MetricBindingResolver(new InMemoryRouteCatalog(), $catalog, new MetricsBundleSeriesCatalog())))();
 
         self::assertStringContainsString('window 30d vs 7d', $output->errors[0]);
         self::assertStringContainsString('latency objective absent vs declared', $output->errors[0]);
@@ -76,7 +77,7 @@ final class ActionTest extends TestCase
             new RouteInfo('create_v2', '/b', ['POST'], 'A::createV2'),
         ]);
 
-        $output = (new Action($catalog, $catalog, $routes, new MetricBindingResolver($routes, $catalog)))();
+        $output = (new Action($catalog, $catalog, $routes, new MetricBindingResolver($routes, $catalog, new MetricsBundleSeriesCatalog())))();
 
         self::assertTrue($output->isValid());
         self::assertSame(['SLO payment.shared is shared by 2 points: http_route:A::create, http_route:A::createV2'], $output->notices);
@@ -89,7 +90,7 @@ final class ActionTest extends TestCase
             $assembler->declare(PointId::of(PointType::MessengerMessage, 'App\Msg'), new Slo('msg.handle', [new Availability(99)]));
         });
 
-        $output = (new Action($catalog, $catalog, new InMemoryRouteCatalog(), new MetricBindingResolver(new InMemoryRouteCatalog(), $catalog)))();
+        $output = (new Action($catalog, $catalog, new InMemoryRouteCatalog(), new MetricBindingResolver(new InMemoryRouteCatalog(), $catalog, new MetricsBundleSeriesCatalog())))();
 
         self::assertSame(['SLO payment.create: A::create has no route'], $output->errors);
     }
@@ -104,7 +105,7 @@ final class ActionTest extends TestCase
         );
         $routes = new InMemoryRouteCatalog([new RouteInfo('create', '/a', ['POST'], 'A::create')]);
 
-        $output = (new Action($catalog, $catalog, $routes, new MetricBindingResolver($routes, $catalog)))();
+        $output = (new Action($catalog, $catalog, $routes, new MetricBindingResolver($routes, $catalog, new MetricsBundleSeriesCatalog())))();
 
         self::assertCount(1, $output->errors);
         self::assertStringContainsString('route create of A::create is in the ignored routes of metrics-bundle', $output->errors[0]);
@@ -117,7 +118,7 @@ final class ActionTest extends TestCase
             $assembler->declare(PointId::of(PointType::Operation, 'report.export'), new Slo('report.export', [new Availability(90)]));
         });
 
-        $output = (new Action($catalog, $catalog, new InMemoryRouteCatalog(), new MetricBindingResolver(new InMemoryRouteCatalog(), $catalog)))();
+        $output = (new Action($catalog, $catalog, new InMemoryRouteCatalog(), new MetricBindingResolver(new InMemoryRouteCatalog(), $catalog, new MetricsBundleSeriesCatalog())))();
 
         self::assertTrue($output->isValid());
         self::assertSame(['SLO report.export availability: page burn-rate alert 1h/5m omitted, factor 14.4 x error budget 0.1 >= 1'], $output->warnings);
@@ -139,7 +140,7 @@ final class ActionTest extends TestCase
             ]),
         );
 
-        $output = (new Action($catalog, $catalog, new InMemoryRouteCatalog(), new MetricBindingResolver(new InMemoryRouteCatalog(), $catalog)))();
+        $output = (new Action($catalog, $catalog, new InMemoryRouteCatalog(), new MetricBindingResolver(new InMemoryRouteCatalog(), $catalog, new MetricsBundleSeriesCatalog())))();
 
         self::assertTrue($output->isValid());
         self::assertSame(['SLO sync.handle: messenger_message:App\Message\Sync is handled synchronously only (not routed to a transport); sync handling is not measured, the SLO never records events'], $output->warnings);
@@ -149,7 +150,7 @@ final class ActionTest extends TestCase
     {
         $catalog = CatalogFixture::build(static function (): void {
         });
-        $resolver = new MetricBindingResolver(new InMemoryRouteCatalog(), $catalog);
+        $resolver = new MetricBindingResolver(new InMemoryRouteCatalog(), $catalog, new MetricsBundleSeriesCatalog());
 
         $output = (new Action($catalog, $catalog, new InMemoryRouteCatalog(), $resolver, prometheusRules: false))();
 
@@ -165,7 +166,7 @@ final class ActionTest extends TestCase
         });
         $routes = new InMemoryRouteCatalog([new RouteInfo('create', '/a', ['POST'], 'A::create')]);
 
-        $output = (new Action($catalog, $catalog, $routes, new MetricBindingResolver($routes, $catalog)))();
+        $output = (new Action($catalog, $catalog, $routes, new MetricBindingResolver($routes, $catalog, new MetricsBundleSeriesCatalog())))();
 
         self::assertTrue($output->isValid());
         self::assertSame([], $output->warnings);
@@ -188,7 +189,7 @@ final class ActionTest extends TestCase
             new RouteInfo('forced', '/c', ['POST'], 'A::forced'),
         ]);
 
-        $output = (new Action($catalog, $catalog, $routes, new MetricBindingResolver($routes, $catalog)))();
+        $output = (new Action($catalog, $catalog, $routes, new MetricBindingResolver($routes, $catalog, new MetricsBundleSeriesCatalog())))();
 
         self::assertTrue($output->isValid());
         self::assertSame(['SLO payment.create: latency threshold 200ms is not a bucket of request_duration_histogram_seconds, uses dedicated counters'], $output->notices);

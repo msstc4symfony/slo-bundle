@@ -7,7 +7,8 @@ namespace Msstc4Symfony\SloBundle\Application\Binding;
 use InvalidArgumentException;
 
 /**
- * One PromQL label matcher. The value is kept raw (regex source for the regex operators); toPromQl() quotes it.
+ * One label matcher of a series selector. The value is kept raw (the pattern for the regex operators); the
+ * Prometheus adapter renders and quotes it.
  *
  * @internal
  */
@@ -58,21 +59,5 @@ final readonly class Matcher
     public static function notRegex(string $label, string $pattern): self
     {
         return new self($label, MatchOperator::NotRegex, $pattern);
-    }
-
-    /**
-     * Escapes a literal for use inside an RE2 pattern (PromQL regex matchers); any ASCII punctuation may be escaped.
-     */
-    public static function escapeRegex(string $literal): string
-    {
-        return preg_replace('/[\x21-\x2F\x3A-\x40\x5B-\x5E\x60\x7B-\x7E]/', '\\\\$0', $literal) ?? $literal;
-    }
-
-    /**
-     * @return non-empty-string
-     */
-    public function toPromQl(): string
-    {
-        return $this->label . $this->operator->value . '"' . strtr($this->value, ['\\' => '\\\\', '"' => '\\"', "\n" => '\\n']) . '"';
     }
 }

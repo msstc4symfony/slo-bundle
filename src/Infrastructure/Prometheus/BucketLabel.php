@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Msstc4Symfony\SloBundle\Application\Binding;
+namespace Msstc4Symfony\SloBundle\Infrastructure\Prometheus;
 
 /**
  * The `le` label value Prometheus 3 stores for a classic-histogram bucket exposed by promphp.

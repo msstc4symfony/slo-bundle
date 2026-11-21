@@ -28,6 +28,7 @@ use Msstc4Symfony\SloBundle\Domain\Service\RevisionCalculator;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\Grafana\GrafanaFileBuilder;
+use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MetricsBundleSeriesCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\Prometheus\PromQlBuilder;
 use Msstc4Symfony\SloBundle\Infrastructure\Prometheus\RuleGroupsBuilder;
 use Msstc4Symfony\SloBundle\Infrastructure\Sloth\SlothSpecBuilder;
@@ -78,7 +79,7 @@ final class GenerationFixture
 
     public static function collector(CompiledSloCatalog $catalog): BoundObjectiveCollector
     {
-        return new BoundObjectiveCollector($catalog, new MetricBindingResolver(self::routes(), $catalog), new RevisionResolver(new RevisionCalculator(), $catalog));
+        return new BoundObjectiveCollector($catalog, new MetricBindingResolver(self::routes(), $catalog, new MetricsBundleSeriesCatalog()), new RevisionResolver(new RevisionCalculator(), $catalog));
     }
 
     public static function action(CompiledSloCatalog $catalog): Action

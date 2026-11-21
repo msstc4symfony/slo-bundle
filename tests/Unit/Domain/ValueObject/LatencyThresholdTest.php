@@ -23,6 +23,9 @@ final class LatencyThresholdTest extends TestCase
         yield '0.25s' => ['0.25s', 250, '250ms'];
         yield '0.001s' => ['0.001s', 1, '1ms'];
         yield '2.500s' => ['2.500s', 2500, '2500ms'];
+        yield 'smallest' => ['1ms', 1, '1ms'];
+        yield 'largest ms' => ['999999999ms', 999999999, '999999999ms'];
+        yield 'largest s with ms' => ['999999999.999s', 999999999999, '999999999999ms'];
     }
 
     /**
@@ -52,6 +55,8 @@ final class LatencyThresholdTest extends TestCase
         yield 'empty' => [''];
         yield 'negative' => ['-5s'];
         yield 'huge' => ['99999999999999999999ms'];
+        yield 'ten digits of ms' => ['1000000000ms'];
+        yield 'thirteen fraction digits' => ['1.0000000000000s'];
     }
 
     #[DataProvider('provideInvalid')]

@@ -29,7 +29,7 @@ final class SloDefinitionTest extends TestCase
         self::assertSame(PointType::HttpRoute, $definition->pointType());
         self::assertCount(1, $definition->points());
         self::assertCount(2, $definition->objectives());
-        self::assertSame('30d', $definition->window()->toPromQl());
+        self::assertSame(2592000, $definition->window()->seconds());
         self::assertEquals(Classification::defaults(), $definition->classification());
         self::assertSame(StrategyPreference::Auto, $definition->strategy());
         self::assertSame(ObjectiveKind::Latency, $definition->objective(ObjectiveKind::Latency)?->kind);

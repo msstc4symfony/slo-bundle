@@ -7,10 +7,10 @@ namespace Msstc4Symfony\SloBundle\Application\Binding;
 /**
  * @internal
  */
-enum MatchOperator: string
+enum MatchOperator
 {
-    case Equals = '=';
-    case NotEquals = '!=';
-    case Regex = '=~';
-    case NotRegex = '!~';
+    case Equals;
+    case NotEquals;
+    case Regex;
+    case NotRegex;
 }

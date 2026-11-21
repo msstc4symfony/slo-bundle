@@ -27,6 +27,7 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\Observation;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Revision;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
+use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MetricsBundleSeriesCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexFile;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouterRouteCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouterRouteReader;
@@ -268,7 +269,7 @@ final class ActionTest extends TestCase
         $catalog = new FailingCatalog($this->paymentCatalog(), ['conflictedNamesFor']);
         $writer = new InMemoryEventWriter();
         $logger = new RecordingLogger();
-        $action = new Action($catalog, new MetricBindingResolver(new InMemoryRouteCatalog([new RouteInfo('payment_create', '/payments', [], self::CONTROLLER)]), $catalog->inner), new RevisionResolver(new RevisionCalculator(), $catalog->inner), new EventClassifier(), $writer, $logger, new FixedPrecomputedRevisions());
+        $action = new Action($catalog, new MetricBindingResolver(new InMemoryRouteCatalog([new RouteInfo('payment_create', '/payments', [], self::CONTROLLER)]), $catalog->inner, new MetricsBundleSeriesCatalog()), new RevisionResolver(new RevisionCalculator(), $catalog->inner), new EventClassifier(), $writer, $logger, new FixedPrecomputedRevisions());
 
         $action->record(new Input($this->point(), Observation::http(200, 0.1)));
 
@@ -293,6 +294,6 @@ final class ActionTest extends TestCase
     {
         $routes ??= new InMemoryRouteCatalog([new RouteInfo('payment_create', '/payments', [], self::CONTROLLER)]);
 
-        return new Action($catalog, new MetricBindingResolver($routes, $catalog), new RevisionResolver(new RevisionCalculator(), $catalog), new EventClassifier(), $writer, $logger, $precomputed ?? new FixedPrecomputedRevisions());
+        return new Action($catalog, new MetricBindingResolver($routes, $catalog, new MetricsBundleSeriesCatalog()), new RevisionResolver(new RevisionCalculator(), $catalog), new EventClassifier(), $writer, $logger, $precomputed ?? new FixedPrecomputedRevisions());
     }
 }

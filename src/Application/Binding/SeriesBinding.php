@@ -17,13 +17,8 @@ use InvalidArgumentException;
  */
 final readonly class SeriesBinding
 {
-    public const KIND_COUNTER = 'counter';
-
-    public const KIND_HISTOGRAM = 'histogram';
-
     /**
      * @param non-empty-string $metric unprefixed metric name, e.g. "http_response"
-     * @param self::KIND_* $kind
      * @param array<non-empty-string, Matcher> $matchers label => matcher, sorted by label
      * @param array<non-empty-string, Matcher> $goodMatchers label => matcher, sorted by label
      * @param array<non-empty-string, Matcher> $badMatchers label => matcher, sorted by label
@@ -31,7 +26,7 @@ final readonly class SeriesBinding
      */
     public function __construct(
         public string $metric,
-        public string $kind,
+        public SeriesKind $kind,
         public array $matchers,
         public array $goodMatchers,
         public array $badMatchers,

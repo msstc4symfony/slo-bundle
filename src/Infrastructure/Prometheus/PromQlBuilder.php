@@ -6,6 +6,7 @@ namespace Msstc4Symfony\SloBundle\Infrastructure\Prometheus;
 
 use Msstc4Symfony\SloBundle\Application\Binding\Matcher;
 use Msstc4Symfony\SloBundle\Application\Binding\SeriesBinding;
+use Msstc4Symfony\SloBundle\Application\Binding\SeriesKind;
 use Msstc4Symfony\SloBundle\Application\Generation\BoundObjective;
 use Msstc4Symfony\SloBundle\Application\Generation\BurnRatePolicy;
 use Msstc4Symfony\SloBundle\Application\Generation\Selector;
@@ -60,7 +61,7 @@ final readonly class PromQlBuilder
     public function sliRatio(Selector $selector, BoundObjective $objective): string
     {
         $series = $this->series($selector, $objective);
-        $window = $objective->definition->window()->toPromQl();
+        $window = PromQlRenderer::window($objective->definition->window());
 
         return \sprintf('1 - (%s / (%s > 0))', $this->bad($series, 'increase', $window), $this->sum('increase', $series['total'], $window));
     }
@@ -158,7 +159,7 @@ final readonly class PromQlBuilder
     {
         $base = [Matcher::equals('application', $selector->application)];
         if ($selector->components !== []) {
-            $base[] = Matcher::regex('component', implode('|', array_map(Matcher::escapeRegex(...), $selector->components)));
+            $base[] = Matcher::regex('component', PromQlRenderer::alternation($selector->components));
         }
 
         $series = $objective->binding->series;
@@ -178,7 +179,7 @@ final readonly class PromQlBuilder
         }
 
         $metric = self::NAMESPACE . $series->metric;
-        $counted = $series->kind === SeriesBinding::KIND_HISTOGRAM ? $metric . '_count' : $metric;
+        $counted = $series->kind === SeriesKind::Histogram ? $metric . '_count' : $metric;
         $total = $counted . $this->matchers([...$base, ...array_values($series->matchers)]);
 
         if ($series->le !== null) {
@@ -234,6 +235,6 @@ final readonly class PromQlBuilder
      */
     private function matchers(array $matchers): string
     {
-        return '{' . implode(',', array_map(static fn (Matcher $matcher): string => $matcher->toPromQl(), $matchers)) . '}';
+        return PromQlRenderer::selector($matchers);
     }
 }

@@ -53,18 +53,4 @@ final readonly class Window
     {
         return $this->declared;
     }
-
-    /**
-     * @return non-empty-string
-     */
-    public function toPromQl(): string
-    {
-        foreach (['w' => 604800, 'd' => 86400] as $unit => $unitSeconds) {
-            if ($this->seconds % $unitSeconds === 0) {
-                return \sprintf('%d%s', intdiv($this->seconds, $unitSeconds), $unit);
-            }
-        }
-
-        return \sprintf('%dh', intdiv($this->seconds, 3600));
-    }
 }

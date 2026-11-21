@@ -1,0 +1,61 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Prometheus;
+
+use Msstc4Symfony\SloBundle\Application\Binding\Matcher;
+use Msstc4Symfony\SloBundle\Domain\ValueObject\StatusSet;
+use Msstc4Symfony\SloBundle\Domain\ValueObject\Window;
+use Msstc4Symfony\SloBundle\Infrastructure\Prometheus\PromQlRenderer;
+use PHPUnit\Framework\Attributes\TestWith;
+use PHPUnit\Framework\TestCase;
+
+final class PromQlRendererTest extends TestCase
+{
+    public function testRendersEveryOperator(): void
+    {
+        self::assertSame('a="x"', PromQlRenderer::matcher(Matcher::equals('a', 'x')));
+        self::assertSame('a!="x"', PromQlRenderer::matcher(Matcher::notEquals('a', 'x')));
+        self::assertSame('a=~"x|y"', PromQlRenderer::matcher(Matcher::regex('a', 'x|y')));
+        self::assertSame('a!~"x|y"', PromQlRenderer::matcher(Matcher::notRegex('a', 'x|y')));
+        self::assertSame('{a="x",b!~"y"}', PromQlRenderer::selector([Matcher::equals('a', 'x'), Matcher::notRegex('b', 'y')]));
+    }
+
+    public function testEscapesBackslashQuoteAndNewlineForPromQlStrings(): void
+    {
+        self::assertSame('a="x\\\\y\\"z\\n"', PromQlRenderer::matcher(Matcher::equals('a', "x\\y\"z\n")));
+    }
+
+    public function testEscapeRegexQuotesRe2Metacharacters(): void
+    {
+        self::assertSame('a\\.b\\+c\\|d\\\\e', PromQlRenderer::escapeRegex('a.b+c|d\\e'));
+        self::assertSame('app_x\\-y\\:z', PromQlRenderer::escapeRegex('app_x-y:z'));
+        self::assertSame('a\\.b|c', PromQlRenderer::alternation(['a.b', 'c']));
+    }
+
+    #[TestWith(['1h', '1h'])]
+    #[TestWith(['36h', '36h'])]
+    #[TestWith(['48h', '2d'])]
+    #[TestWith(['2w', '2w'])]
+    #[TestWith(['14d', '2w'])]
+    #[TestWith(['1mo', '30d'])]
+    #[TestWith(['3mo', '90d'])]
+    #[TestWith(['2160h', '90d'])]
+    public function testWindowUsesTheLargestExactUnit(string $declared, string $promQl): void
+    {
+        self::assertSame($promQl, PromQlRenderer::window(Window::fromString($declared)));
+    }
+
+    /**
+     * @param list<int|string> $items
+     */
+    #[TestWith([['5xx', 429], '429|5..'])]
+    #[TestWith([['500-503'], '500|501|502|503'])]
+    #[TestWith([[100, 599], '100|599'])]
+    #[TestWith([[], ''])]
+    public function testStatusPattern(array $items, string $pattern): void
+    {
+        self::assertSame($pattern, PromQlRenderer::statusPattern(StatusSet::fromList($items)));
+    }
+}

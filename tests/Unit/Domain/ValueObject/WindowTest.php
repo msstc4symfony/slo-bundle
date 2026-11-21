@@ -6,6 +6,7 @@ namespace Msstc4Symfony\SloBundle\Test\Unit\Domain\ValueObject;
 
 use InvalidArgumentException;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Window;
+use Msstc4Symfony\SloBundle\Infrastructure\Prometheus\PromQlRenderer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -26,6 +27,7 @@ final class WindowTest extends TestCase
         yield '1mo' => ['1mo', 2592000, '30d'];
         yield '3mo' => ['3mo', 7776000, '90d'];
         yield '7d' => ['7d', 604800, '1w'];
+        yield 'upper bound in hours' => ['2160h', 7776000, '90d'];
     }
 
     /**
@@ -38,7 +40,7 @@ final class WindowTest extends TestCase
 
         self::assertSame($seconds, $window->seconds());
         self::assertSame($declared, $window->toString());
-        self::assertSame($promQl, $window->toPromQl());
+        self::assertSame($promQl, PromQlRenderer::window($window));
     }
 
     /**
@@ -48,6 +50,7 @@ final class WindowTest extends TestCase
     {
         yield '0h' => ['0h'];
         yield '91d' => ['91d'];
+        yield 'one hour above 90d' => ['2161h'];
         yield '13w' => ['13w'];
         yield '4mo' => ['4mo'];
         yield 'bare number' => ['30'];

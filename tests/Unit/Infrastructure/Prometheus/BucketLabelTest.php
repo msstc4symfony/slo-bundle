@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Msstc4Symfony\SloBundle\Test\Unit\Application\Binding;
+namespace Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Prometheus;
 
-use Msstc4Symfony\SloBundle\Application\Binding\BucketLabel;
+use Msstc4Symfony\SloBundle\Infrastructure\Prometheus\BucketLabel;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 

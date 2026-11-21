@@ -10,6 +10,7 @@ use Msstc4Symfony\SloBundle\Application\Attribute\Slo;
 use Msstc4Symfony\SloBundle\Application\Binding\Binding;
 use Msstc4Symfony\SloBundle\Application\Binding\Matcher;
 use Msstc4Symfony\SloBundle\Application\Binding\SeriesBinding;
+use Msstc4Symfony\SloBundle\Application\Binding\SeriesKind;
 use Msstc4Symfony\SloBundle\Application\Generation\BoundObjective;
 use Msstc4Symfony\SloBundle\Application\Generation\Selector;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
@@ -85,7 +86,7 @@ final class PromQlBuilderTest extends TestCase
     {
         $objective = $this->custom(new SeriesBinding(
             'logic_action_duration_histogram_seconds',
-            SeriesBinding::KIND_HISTOGRAM,
+            SeriesKind::Histogram,
             SeriesBinding::index([Matcher::equals('action', 'refund')]),
             SeriesBinding::index([Matcher::regex('outcome', 'success|expected_failure')]),
             SeriesBinding::index([Matcher::equals('outcome', 'error')]),
@@ -102,7 +103,7 @@ final class PromQlBuilderTest extends TestCase
     {
         $objective = $this->custom(new SeriesBinding(
             'http_response',
-            SeriesBinding::KIND_COUNTER,
+            SeriesKind::Counter,
             SeriesBinding::index([Matcher::regex('route', 'a'), Matcher::notRegex('status', '404')]),
             [],
             SeriesBinding::index([Matcher::regex('status', '5..')]),
@@ -117,7 +118,7 @@ final class PromQlBuilderTest extends TestCase
 
     public function testNoBadMatchersMeansNoBadEvents(): void
     {
-        $objective = $this->custom(new SeriesBinding('http_response', SeriesBinding::KIND_COUNTER, SeriesBinding::index([Matcher::regex('route', 'a')]), [], [], null));
+        $objective = $this->custom(new SeriesBinding('http_response', SeriesKind::Counter, SeriesBinding::index([Matcher::regex('route', 'a')]), [], [], null));
 
         self::assertSame(
             'vector(0) / (sum(rate(symfony_http_response{application="shop",route=~"a"}[5m])) > 0)',

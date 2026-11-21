@@ -16,6 +16,7 @@ use Msstc4Symfony\SloBundle\Domain\Service\RevisionCalculator;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\Logging\FailSafeLogger;
+use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MetricsBundleSeriesCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexFile;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouterRouteReader;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\SloCacheWarmer;
@@ -149,12 +150,13 @@ final class SloCacheWarmerTest extends TestCase
         $catalog = $this->catalog();
 
         return new SloCacheWarmer(
-            new Action($catalog, $catalog, $routes, new MetricBindingResolver($routes, $catalog)),
+            new Action($catalog, $catalog, $routes, new MetricBindingResolver($routes, $catalog, new MetricsBundleSeriesCatalog())),
             new RouterRouteReader($router, $catalog),
             $catalog,
             $logger,
             $catalog,
             new RevisionResolver(new RevisionCalculator(), $catalog),
+            new MetricsBundleSeriesCatalog(),
         );
     }
 

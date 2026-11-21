@@ -21,6 +21,7 @@ use Msstc4Symfony\SloBundle\Domain\Service\RevisionCalculator;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\HttpSloObserver;
+use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MetricsBundleSeriesCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexFile;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RoutePointIndex;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouterRouteCatalog;
@@ -155,7 +156,7 @@ final class HttpSloObserverTest extends TestCase
         $writer = new InMemoryEventWriter();
         $routes = new InMemoryRouteCatalog([new RouteInfo('payment_create', '/payments', ['POST'], self::CONTROLLER)]);
         $failing = new FailingCatalog($this->catalog, ['forPoint']);
-        $record = new Action($failing, new MetricBindingResolver($routes, $this->catalog), new RevisionResolver(new RevisionCalculator(), $this->catalog), new EventClassifier(), $writer, $this->logger, new FixedPrecomputedRevisions());
+        $record = new Action($failing, new MetricBindingResolver($routes, $this->catalog, new MetricsBundleSeriesCatalog()), new RevisionResolver(new RevisionCalculator(), $this->catalog), new EventClassifier(), $writer, $this->logger, new FixedPrecomputedRevisions());
         $observer = new HttpSloObserver($this->index(), $this->catalog, $record, $this->logger);
 
         $observer->onHttpMeasured(new HttpMeasurement('POST', 'payment_create', 200, 0.01, null));
