@@ -17,7 +17,15 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\Window;
  */
 final class PromQlRenderer
 {
-    private const DURATION_UNITS = ['w' => 604800, 'd' => 86400, 'h' => 3600, 'm' => 60];
+    private const SECONDS_PER_MINUTE = 60;
+
+    private const SECONDS_PER_HOUR = 60 * self::SECONDS_PER_MINUTE;
+
+    private const SECONDS_PER_DAY = 24 * self::SECONDS_PER_HOUR;
+
+    private const SECONDS_PER_WEEK = 7 * self::SECONDS_PER_DAY;
+
+    private const DURATION_UNITS = ['w' => self::SECONDS_PER_WEEK, 'd' => self::SECONDS_PER_DAY, 'h' => self::SECONDS_PER_HOUR, 'm' => self::SECONDS_PER_MINUTE];
 
     /**
      * The largest exact unit among w, d and h (PromQL has no month): 1mo → 30d, 2w → 2w, 36h → 36h.

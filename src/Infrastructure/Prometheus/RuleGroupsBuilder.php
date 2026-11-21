@@ -8,6 +8,7 @@ use Closure;
 use Msstc4Symfony\SloBundle\Application\Binding\Strategy;
 use Msstc4Symfony\SloBundle\Application\Generation\BoundObjective;
 use Msstc4Symfony\SloBundle\Application\Generation\BurnRatePolicy;
+use Msstc4Symfony\SloBundle\Application\Generation\BurnRateSeverity;
 use Msstc4Symfony\SloBundle\Application\Generation\BurnRateWindow;
 use Msstc4Symfony\SloBundle\Application\Generation\Selector;
 use Msstc4Symfony\SloBundle\Application\Port\RuleFileBuilderInterface;
@@ -82,19 +83,19 @@ final readonly class RuleGroupsBuilder implements RuleFileBuilderInterface
             $windows = $this->burnRates->windows($objective->definition->window(), $target);
             $rules = [];
 
-            $page = array_map(fn (BurnRateWindow $pair): string => $this->burning($objective, $pair, $selector->application), array_values(array_filter($windows, static fn (BurnRateWindow $pair): bool => $pair->severity === 'page')));
+            $page = array_map(fn (BurnRateWindow $pair): string => $this->burning($objective, $pair, $selector->application), array_values(array_filter($windows, static fn (BurnRateWindow $pair): bool => $pair->severity === BurnRateSeverity::Page)));
             if ($page !== []) {
-                $rules[] = $this->alert('SloErrorBudgetBurn', implode(' or ', $page), $objective, $selector->application, 'page', 'burns its error budget fast');
+                $rules[] = $this->alert('SloErrorBudgetBurn', implode(' or ', $page), $objective, $selector->application, BurnRateSeverity::Page, 'burns its error budget fast');
             }
             foreach ($windows as $pair) {
-                if ($pair->severity === 'ticket') {
+                if ($pair->severity === BurnRateSeverity::Ticket) {
                     // Fast-burn pages need at most 6h of history; the 3d pair waits for a fully covered window.
                     $expr = \sprintf('%s and on() (%s >= 1)', $this->burning($objective, $pair, $selector->application), $this->promQl->latest('slo:window:coverage_ratio', $objective, $selector->application));
-                    $rules[] = $this->alert('SloErrorBudgetBurn', $expr, $objective, $selector->application, 'ticket', 'burns its error budget');
+                    $rules[] = $this->alert('SloErrorBudgetBurn', $expr, $objective, $selector->application, BurnRateSeverity::Ticket, 'burns its error budget');
                 }
             }
             if ($noEventsAlertHours !== null) {
-                $rules[] = $this->alert('SloNoEvents', $this->promQl->noEvents($selector, $objective, $noEventsAlertHours), $objective, $selector->application, 'ticket', \sprintf('recorded no events in %dh', $noEventsAlertHours));
+                $rules[] = $this->alert('SloNoEvents', $this->promQl->noEvents($selector, $objective, $noEventsAlertHours), $objective, $selector->application, BurnRateSeverity::Ticket, \sprintf('recorded no events in %dh', $noEventsAlertHours));
             }
 
             return [self::FAST => $rules];
@@ -177,11 +178,9 @@ final readonly class RuleGroupsBuilder implements RuleFileBuilderInterface
     /**
      * @param non-empty-string $name
      * @param non-empty-string $application
-     * @param 'page'|'ticket' $severity
-     *
      * @return RuleShape
      */
-    private function alert(string $name, string $expr, BoundObjective $objective, string $application, string $severity, string $what): array
+    private function alert(string $name, string $expr, BoundObjective $objective, string $application, BurnRateSeverity $severity, string $what): array
     {
         $slo = $objective->definition->name()->value;
         $kind = $objective->objective->kind->value;
@@ -189,7 +188,7 @@ final readonly class RuleGroupsBuilder implements RuleFileBuilderInterface
         return [
             'alert' => $name,
             'expr' => $expr,
-            'labels' => ['application' => $application, 'severity' => $severity, 'slo' => $slo, 'objective' => $kind],
+            'labels' => ['application' => $application, 'severity' => $severity->value, 'slo' => $slo, 'objective' => $kind],
             'annotations' => ['summary' => \sprintf(
                 'SLO %s %s %s (target %s%%, window %s)',
                 $slo,

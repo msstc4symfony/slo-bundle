@@ -14,12 +14,11 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\Target;
 final readonly class BurnRateWindow
 {
     /**
-     * @param 'page'|'ticket' $severity
      * @param positive-int $longWindowSeconds
      * @param positive-int $shortWindowSeconds
      */
     public function __construct(
-        public string $severity,
+        public BurnRateSeverity $severity,
         public int $longWindowSeconds,
         public int $shortWindowSeconds,
         public float $factor,

@@ -77,6 +77,6 @@ final class BurnRatePolicyTest extends TestCase
      */
     private function describe(array $windows): array
     {
-        return array_map(static fn (BurnRateWindow $w): string => \sprintf('%s %s/%s %s', $w->severity, PromQlRenderer::duration($w->longWindowSeconds), PromQlRenderer::duration($w->shortWindowSeconds), PromQlRenderer::number($w->factor)), $windows);
+        return array_map(static fn (BurnRateWindow $w): string => \sprintf('%s %s/%s %s', $w->severity->value, PromQlRenderer::duration($w->longWindowSeconds), PromQlRenderer::duration($w->shortWindowSeconds), PromQlRenderer::number($w->factor)), $windows);
     }
 }

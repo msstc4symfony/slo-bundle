@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Msstc4Symfony\SloBundle\Infrastructure\Sloth;
 
 use Msstc4Symfony\SloBundle\Application\Generation\BoundObjective;
+use Msstc4Symfony\SloBundle\Application\Generation\BurnRateSeverity;
 use Msstc4Symfony\SloBundle\Application\Generation\Selector;
 use Msstc4Symfony\SloBundle\Application\Port\SlothSpecBuilderInterface;
 use Msstc4Symfony\SloBundle\Infrastructure\Prometheus\PromQlBuilder;
@@ -99,8 +100,8 @@ final readonly class SlothSpecBuilder implements SlothSpecBuilderInterface
             'alerting' => [
                 'name' => 'Slo' . $this->pascal($name) . ucfirst($kind),
                 'labels' => $labels,
-                'page_alert' => ['labels' => ['severity' => 'page']],
-                'ticket_alert' => ['labels' => ['severity' => 'ticket']],
+                'page_alert' => ['labels' => ['severity' => BurnRateSeverity::Page->value]],
+                'ticket_alert' => ['labels' => ['severity' => BurnRateSeverity::Ticket->value]],
             ],
         ];
     }

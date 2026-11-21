@@ -14,16 +14,22 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\Window;
  */
 final readonly class BurnRatePolicy
 {
+    private const MINUTE = 60;
+
+    private const HOUR = 60 * self::MINUTE;
+
+    private const DAY = 24 * self::HOUR;
+
     /**
      * severity, long window seconds, short window seconds, share of the error budget burnt over the long window.
      */
     private const PAIRS = [
-        ['page', 3600, 300, 0.02],
-        ['page', 21600, 1800, 0.05],
-        ['ticket', 259200, 21600, 0.1],
+        [BurnRateSeverity::Page, self::HOUR, 5 * self::MINUTE, 0.02],
+        [BurnRateSeverity::Page, 6 * self::HOUR, 30 * self::MINUTE, 0.05],
+        [BurnRateSeverity::Ticket, 3 * self::DAY, 6 * self::HOUR, 0.1],
     ];
 
-    private const MESSAGE_UNITS = ['d' => 86400, 'h' => 3600, 'm' => 60];
+    private const MESSAGE_UNITS = ['d' => self::DAY, 'h' => self::HOUR, 'm' => self::MINUTE];
 
     /**
      * @return list<BurnRateWindow> the pairs that fit into the window and stay below the whole error budget
@@ -57,7 +63,7 @@ final readonly class BurnRatePolicy
                 'SLO %s %s: %s burn-rate alert %s/%s omitted, factor %s x error budget %s >= 1',
                 $slo,
                 $objective,
-                $pair->severity,
+                $pair->severity->value,
                 self::duration($pair->longWindowSeconds),
                 self::duration($pair->shortWindowSeconds),
                 self::decimal($pair->factor),
