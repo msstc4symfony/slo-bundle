@@ -51,7 +51,7 @@ final class ActionTest extends TestCase
         $after = $this->recording(GenerationFixture::action(GenerationFixture::catalog(98.5))(GenerationFixture::input()));
         $definition = GenerationFixture::catalog()->get(SloName::fromString('checkout.pay'));
         self::assertNotNull($definition);
-        $revision = (new RevisionCalculator())->revision($definition, ObjectiveKind::Latency)->value;
+        $revision = (new RevisionCalculator())->revision($definition, ObjectiveKind::Latency, [])->value;
 
         self::assertStringContainsString('revision="' . $revision . '"', $before);
         self::assertStringContainsString('revision="' . $revision . '"', $after);

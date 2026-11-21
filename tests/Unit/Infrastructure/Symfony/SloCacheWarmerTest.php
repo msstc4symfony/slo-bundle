@@ -7,10 +7,12 @@ namespace Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Symfony;
 use Msstc4Symfony\SloBundle\Application\Attribute\Availability;
 use Msstc4Symfony\SloBundle\Application\Attribute\Slo;
 use Msstc4Symfony\SloBundle\Application\Binding\MetricBindingResolver;
+use Msstc4Symfony\SloBundle\Application\Binding\RevisionResolver;
 use Msstc4Symfony\SloBundle\Application\Catalog\Validate\Action;
 use Msstc4Symfony\SloBundle\Application\Discovery\CatalogExtras;
 use Msstc4Symfony\SloBundle\Application\Port\RouteCatalogInterface;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
+use Msstc4Symfony\SloBundle\Domain\Service\RevisionCalculator;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\Logging\FailSafeLogger;
@@ -88,6 +90,7 @@ final class SloCacheWarmerTest extends TestCase
         self::assertSame(['http_route:A::create'], array_map(static fn (PointId $point): string => $point->toString(), $data->pointsFor('create')));
         self::assertSame([], $data->pointsFor('other'));
         self::assertCount(2, $data->all());
+        self::assertSame(['payment.create|availability' => ''], $data->revisions());
     }
 
     public function testNeverThrowsWhenValidationFails(): void
@@ -150,6 +153,8 @@ final class SloCacheWarmerTest extends TestCase
             new RouterRouteReader($router, $catalog),
             $catalog,
             $logger,
+            $catalog,
+            new RevisionResolver(new RevisionCalculator(), $catalog),
         );
     }
 

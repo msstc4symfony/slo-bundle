@@ -7,6 +7,7 @@ namespace Msstc4Symfony\SloBundle\Domain\Service;
 use InvalidArgumentException;
 use Msstc4Symfony\SloBundle\Domain\Entity\SloDefinition;
 use Msstc4Symfony\SloBundle\Domain\Enum\ObjectiveKind;
+use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Objective;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Revision;
 
@@ -15,7 +16,10 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\Revision;
  */
 final readonly class RevisionCalculator
 {
-    public function revision(SloDefinition $slo, ObjectiveKind $kind): Revision
+    /**
+     * @param list<string> $failureTransports enter the revision of messenger_message SLOs only: changing them changes which deliveries are eligible
+     */
+    public function revision(SloDefinition $slo, ObjectiveKind $kind, array $failureTransports): Revision
     {
         $objective = $slo->objective($kind);
         if (!$objective instanceof Objective) {
@@ -33,6 +37,11 @@ final readonly class RevisionCalculator
             'point_type' => $slo->pointType()->value,
             'threshold_ms' => $objective->threshold?->milliseconds,
         ];
+        if ($slo->pointType() === PointType::MessengerMessage) {
+            $transports = array_values(array_unique($failureTransports));
+            sort($transports, SORT_STRING);
+            $input['failure_transports'] = $transports;
+        }
 
         return Revision::fromHex(substr(hash('sha256', json_encode($input, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)), 0, 8));
     }

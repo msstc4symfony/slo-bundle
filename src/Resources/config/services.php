@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Msstc4Symfony\SloBundle\Application\Binding\MetricBindingResolver;
+use Msstc4Symfony\SloBundle\Application\Binding\RevisionResolver;
 use Msstc4Symfony\SloBundle\Application\Catalog\List\Action as ListAction;
 use Msstc4Symfony\SloBundle\Application\Catalog\Validate\Action as ValidateAction;
 use Msstc4Symfony\SloBundle\Application\Coverage\Analyze\Action as CoverageAction;
@@ -19,6 +20,7 @@ use Msstc4Symfony\SloBundle\Application\Port\EventWriterInterface;
 use Msstc4Symfony\SloBundle\Application\Port\FileWriterInterface;
 use Msstc4Symfony\SloBundle\Application\Port\GrafanaFileBuilderInterface;
 use Msstc4Symfony\SloBundle\Application\Port\OperationMonitorInterface;
+use Msstc4Symfony\SloBundle\Application\Port\PrecomputedRevisionsInterface;
 use Msstc4Symfony\SloBundle\Application\Port\RouteCatalogInterface;
 use Msstc4Symfony\SloBundle\Application\Port\RoutePointIndexInterface;
 use Msstc4Symfony\SloBundle\Application\Port\RuleFileBuilderInterface;
@@ -44,6 +46,7 @@ use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RoutePointIndex;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouterRouteCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouterRouteReader;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\SloCacheWarmer;
+use Msstc4Symfony\SloBundle\Infrastructure\Symfony\WarmedRevisions;
 use Msstc4Symfony\SloBundle\Infrastructure\Yaml\DeterministicYaml;
 use Msstc4Symfony\SloBundle\Presentation\Command\CoverageCommand;
 use Msstc4Symfony\SloBundle\Presentation\Command\GenerateCommand;
@@ -73,8 +76,11 @@ return static function (ContainerConfigurator $container): void {
     ;
     $services->set(RouterRouteCatalog::class);
     $services->alias(RouteCatalogInterface::class, RouterRouteCatalog::class);
+    $services->set(WarmedRevisions::class);
+    $services->alias(PrecomputedRevisionsInterface::class, WarmedRevisions::class);
 
     $services->set(MetricBindingResolver::class);
+    $services->set(RevisionResolver::class);
     $services->set(EventClassifier::class);
 
     $services->set(MetricsEventWriter::class);

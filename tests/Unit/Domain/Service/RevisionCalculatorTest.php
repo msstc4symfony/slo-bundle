@@ -29,10 +29,31 @@ final class RevisionCalculatorTest extends TestCase
         self::assertSame(self::PINNED, $this->revision($this->slo()));
     }
 
+    public function testMessengerRevisionIncludesTheSortedFailureTransports(): void
+    {
+        $calculator = new RevisionCalculator();
+        $slo = $this->slo(pointId: 'App\\Message\\Pay', type: PointType::MessengerMessage);
+
+        $none = $calculator->revision($slo, ObjectiveKind::Availability, [])->value;
+        $failed = $calculator->revision($slo, ObjectiveKind::Availability, ['failed', 'dead'])->value;
+
+        self::assertSame('a098f2a6', $failed);
+        self::assertNotSame($none, $failed);
+        self::assertSame($failed, $calculator->revision($slo, ObjectiveKind::Availability, ['dead', 'failed'])->value);
+        self::assertNotSame($failed, $calculator->revision($slo, ObjectiveKind::Availability, ['failed'])->value);
+    }
+
+    public function testFailureTransportsDoNotChangeOtherPointTypes(): void
+    {
+        $calculator = new RevisionCalculator();
+
+        self::assertSame(self::PINNED, $calculator->revision($this->slo(), ObjectiveKind::Latency, ['failed'])->value);
+    }
+
     public function testUndeclaredKindIsRejected(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        (new RevisionCalculator())->revision($this->slo(), ObjectiveKind::Combined);
+        (new RevisionCalculator())->revision($this->slo(), ObjectiveKind::Combined, []);
     }
 
     public function testThresholdChangesRevision(): void
@@ -46,8 +67,8 @@ final class RevisionCalculatorTest extends TestCase
         $calculator = new RevisionCalculator();
 
         self::assertNotSame(
-            $calculator->revision($slo, ObjectiveKind::Latency)->value,
-            $calculator->revision($slo, ObjectiveKind::Availability)->value,
+            $calculator->revision($slo, ObjectiveKind::Latency, [])->value,
+            $calculator->revision($slo, ObjectiveKind::Availability, [])->value,
         );
     }
 
@@ -103,8 +124,8 @@ final class RevisionCalculatorTest extends TestCase
         $calculator = new RevisionCalculator();
 
         self::assertSame(
-            $calculator->revision($this->slo(), ObjectiveKind::Availability)->value,
-            $calculator->revision($this->slo(threshold: '100ms'), ObjectiveKind::Availability)->value,
+            $calculator->revision($this->slo(), ObjectiveKind::Availability, [])->value,
+            $calculator->revision($this->slo(threshold: '100ms'), ObjectiveKind::Availability, [])->value,
         );
     }
 
@@ -118,7 +139,7 @@ final class RevisionCalculatorTest extends TestCase
 
     private function revision(SloDefinition $slo): string
     {
-        return (new RevisionCalculator())->revision($slo, ObjectiveKind::Latency)->value;
+        return (new RevisionCalculator())->revision($slo, ObjectiveKind::Latency, [])->value;
     }
 
     /**

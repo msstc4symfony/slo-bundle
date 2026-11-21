@@ -8,6 +8,7 @@ use Msstc4Symfony\SloBundle\Application\Attribute\Availability;
 use Msstc4Symfony\SloBundle\Application\Attribute\Latency;
 use Msstc4Symfony\SloBundle\Application\Attribute\Slo;
 use Msstc4Symfony\SloBundle\Application\Binding\MetricBindingResolver;
+use Msstc4Symfony\SloBundle\Application\Binding\RevisionResolver;
 use Msstc4Symfony\SloBundle\Application\Coverage\Analyze\Action as CoverageAction;
 use Msstc4Symfony\SloBundle\Application\Discovery\CatalogAssembler;
 use Msstc4Symfony\SloBundle\Application\Discovery\CatalogExtras;
@@ -76,7 +77,7 @@ final class GenerationFixture
 
     public static function collector(CompiledSloCatalog $catalog): BoundObjectiveCollector
     {
-        return new BoundObjectiveCollector($catalog, new MetricBindingResolver(self::routes(), $catalog), new RevisionCalculator());
+        return new BoundObjectiveCollector($catalog, new MetricBindingResolver(self::routes(), $catalog), new RevisionResolver(new RevisionCalculator(), $catalog));
     }
 
     public static function action(CompiledSloCatalog $catalog): Action

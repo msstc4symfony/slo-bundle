@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Msstc4Symfony\SloBundle\Application\Generation;
 
 use Msstc4Symfony\SloBundle\Application\Binding\MetricBindingResolver;
+use Msstc4Symfony\SloBundle\Application\Binding\RevisionResolver;
 use Msstc4Symfony\SloBundle\Domain\Enum\ObjectiveKind;
 use Msstc4Symfony\SloBundle\Domain\Repository\SloCatalogInterface;
-use Msstc4Symfony\SloBundle\Domain\Service\RevisionCalculator;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Objective;
 
 /**
@@ -18,7 +18,7 @@ final readonly class BoundObjectiveCollector
     public function __construct(
         private SloCatalogInterface $catalog,
         private MetricBindingResolver $bindings,
-        private RevisionCalculator $revisions,
+        private RevisionResolver $revisions,
     ) {
     }
 

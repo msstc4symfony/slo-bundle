@@ -10,6 +10,7 @@ use Msstc4Symfony\SloBundle\Application\Attribute\Availability;
 use Msstc4Symfony\SloBundle\Application\Attribute\Latency;
 use Msstc4Symfony\SloBundle\Application\Attribute\Slo;
 use Msstc4Symfony\SloBundle\Application\Binding\MetricBindingResolver;
+use Msstc4Symfony\SloBundle\Application\Binding\RevisionResolver;
 use Msstc4Symfony\SloBundle\Application\Discovery\CatalogAssembler;
 use Msstc4Symfony\SloBundle\Application\Evaluation\RecordEvent\Action;
 use Msstc4Symfony\SloBundle\Application\Port\EventWriterInterface;
@@ -22,6 +23,7 @@ use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\Operation\OperationMonitor;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\CatalogFixture;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\InMemoryRouteCatalog;
+use Msstc4Symfony\SloBundle\Test\Unit\Application\Evaluation\RecordEvent\FixedPrecomputedRevisions;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Evaluation\RecordEvent\InMemoryEventWriter;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Evaluation\RecordEvent\ThrowingEventWriter;
 use Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Symfony\RecordingLogger;
@@ -301,7 +303,7 @@ final class OperationMonitorTest extends TestCase
 
     private function action(EventWriterInterface $writer, CompiledSloCatalog $catalog): Action
     {
-        return new Action($catalog, new MetricBindingResolver(new InMemoryRouteCatalog([]), $catalog), new RevisionCalculator(), new EventClassifier(), $writer, $this->logger);
+        return new Action($catalog, new MetricBindingResolver(new InMemoryRouteCatalog([]), $catalog), new RevisionResolver(new RevisionCalculator(), $catalog), new EventClassifier(), $writer, $this->logger, new FixedPrecomputedRevisions());
     }
 
     private function monitor(EventWriterInterface $writer): OperationMonitor

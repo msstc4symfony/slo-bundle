@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace Msstc4Symfony\SloBundle\Application\Catalog\List;
 
 use Msstc4Symfony\SloBundle\Application\Binding\MetricBindingResolver;
+use Msstc4Symfony\SloBundle\Application\Binding\RevisionResolver;
 use Msstc4Symfony\SloBundle\Application\Port\CatalogDiagnosticsInterface;
 use Msstc4Symfony\SloBundle\Application\Port\RouteCatalogInterface;
 use Msstc4Symfony\SloBundle\Application\Port\RouteInfo;
 use Msstc4Symfony\SloBundle\Domain\Entity\SloDefinition;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
 use Msstc4Symfony\SloBundle\Domain\Repository\SloCatalogInterface;
-use Msstc4Symfony\SloBundle\Domain\Service\RevisionCalculator;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Objective;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 
@@ -24,7 +24,7 @@ final readonly class Action
         private SloCatalogInterface $catalog,
         private CatalogDiagnosticsInterface $diagnostics,
         private RouteCatalogInterface $routes,
-        private RevisionCalculator $revisions,
+        private RevisionResolver $revisions,
         private MetricBindingResolver $bindings,
     ) {
     }
