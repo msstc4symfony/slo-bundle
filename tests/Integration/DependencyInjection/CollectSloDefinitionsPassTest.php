@@ -29,13 +29,17 @@ use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\RepeatedSloController;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\ReportController;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\SharedSloController;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Handler\AuditPaymentHandler;
+use Msstc4Symfony\SloBundle\Test\Fixtures\Handler\Invalid\AbstractMessageHandler;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Handler\Invalid\IncludeErrorsReceiptHandler;
+use Msstc4Symfony\SloBundle\Test\Fixtures\Handler\Invalid\InterfaceMessageHandler;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Handler\Invalid\LegacyPaymentHandler;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Handler\Invalid\SecondSloPaymentHandler;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Handler\LegacyAuditHandler;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Handler\ProcessPaymentHandler;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Handler\ReceiptHandler;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Handler\RefundPaymentHandler;
+use Msstc4Symfony\SloBundle\Test\Fixtures\Message\Contract\AbstractPaymentMessage;
+use Msstc4Symfony\SloBundle\Test\Fixtures\Message\Contract\PaymentMessageInterface;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Message\Legacy\ProcessPayment as LegacyProcessPayment;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Message\ProcessPayment;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Message\SendReceipt;
@@ -361,6 +365,14 @@ final class CollectSloDefinitionsPassTest extends TestCase
             $container->register(ProcessPaymentHandler::class, ProcessPaymentHandler::class)->addTag('messenger.message_handler');
             $container->register(LegacyPaymentHandler::class, LegacyPaymentHandler::class)->addTag('messenger.message_handler');
         }, [], 'messenger_message:' . ProcessPayment::class . ': short class name "ProcessPayment" is also used by SLO message'];
+        yield 'slo on a handler of an interface message' => [[], static function (ContainerBuilder $container): void {
+            $container->register(InterfaceMessageHandler::class, InterfaceMessageHandler::class)->addTag('messenger.message_handler');
+        }, [], 'messenger_message:' . PaymentMessageInterface::class . ': #[Slo] on ' . InterfaceMessageHandler::class . '::__invoke handles an interface'];
+        yield 'slo on a handler of an abstract message' => [[], static function (ContainerBuilder $container): void {
+            $container->register(AbstractMessageHandler::class, AbstractMessageHandler::class)
+                ->addTag('messenger.message_handler', ['handles' => AbstractPaymentMessage::class, 'method' => 'handle'])
+            ;
+        }, [], 'messenger_message:' . AbstractPaymentMessage::class . ': #[Slo] on ' . AbstractMessageHandler::class . '::handle handles an abstract class'];
         yield 'invalid tagged point type' => [[], static function (ContainerBuilder $container): void {
             $container->register(RefundAction::class, RefundAction::class)->addTag(PointTag::TAG, [PointTag::TYPE => 'job', PointTag::ID => 'refund']);
         }, [], 'service "' . RefundAction::class . '": tag "msstc4symfony_slo.point" needs attribute "type"'];

@@ -61,6 +61,9 @@ final readonly class HandlerReader
                     $onMethod = $this->attributes->apply($point, $reflection);
                     $onClass = $this->attributes->apply($point, $class);
                     $byMessage[$message][$handlerKey] = $onMethod || $onClass;
+                    if ($onMethod || $onClass) {
+                        $this->checkConcrete($message, $handlerKey);
+                    }
                     $handlers[] = new HandlerInfo($class->getName(), $message, $routing->isAsync($message), $this->nonEmptyString($tag['from_transport'] ?? null), $method);
                 }
             }
@@ -110,6 +113,28 @@ final readonly class HandlerReader
         }
 
         return $warnings;
+    }
+
+    /**
+     * Runtime looks the point up by the dispatched message's concrete class, so an SLO on an interface or abstract
+     * class would never record an event.
+     *
+     * @param non-empty-string $message
+     */
+    private function checkConcrete(string $message, string $handlerKey): void
+    {
+        if (!class_exists($message) && !interface_exists($message)) {
+            return;
+        }
+        $reflection = new ReflectionClass($message);
+        $kind = match (true) {
+            $reflection->isInterface() => 'an interface',
+            $reflection->isAbstract() => 'an abstract class',
+            default => null,
+        };
+        if ($kind !== null) {
+            $this->errors->add(\sprintf('%s: #[Slo] on %s handles %s; SLO events are matched by the concrete message class, declare the SLO on a handler of each concrete message instead.', PointType::MessengerMessage->value . ':' . $message, $handlerKey, $kind));
+        }
     }
 
     /**
