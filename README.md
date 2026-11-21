@@ -340,7 +340,9 @@ unique across services), optional `metric_label` (the label value of the existin
 characters, `{{` or `}}`).
 slo-bundle never depends on logic-bundle: the `slo-bridge-logic` package tags `msstc4symfony_logic.action` services and
 records their events through `Application\Port\EventRecorderInterface` (inject it, call
-`record(new RecordEvent\Input($point, $observation))`).
+`record(new RecordEvent\Input($point, $observation))`). `record()` never throws, but building its argument does:
+`Observation::http()` / `outcome()` and `Input` reject invalid values (`InvalidArgumentException`), so a bridge builds the
+`Input` inside its own `try` to stay fail-open.
 
 **A bridge that adds the tag from its own compiler pass must register that pass with `PassConfig::TYPE_BEFORE_OPTIMIZATION`
 and a priority of 10 or higher**: discovery runs at priority 0, after the attribute autoconfiguration (100) has tagged

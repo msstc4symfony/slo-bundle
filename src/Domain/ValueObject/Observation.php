@@ -24,6 +24,9 @@ final readonly class Observation
         }
     }
 
+    /**
+     * @throws InvalidArgumentException for a status outside 100..599 or a negative or non-finite duration
+     */
     public static function http(int $status, float $durationSeconds): self
     {
         if ($status < 100 || $status > 599) {
@@ -33,11 +36,17 @@ final readonly class Observation
         return new self(PointType::HttpRoute, $status, null, false, null, $durationSeconds);
     }
 
+    /**
+     * @throws InvalidArgumentException for a negative or non-finite duration
+     */
     public static function delivery(DeliveryStatus $status, bool $onFailureTransport, ?float $durationSeconds): self
     {
         return new self(PointType::MessengerMessage, null, $status, $onFailureTransport, null, $durationSeconds);
     }
 
+    /**
+     * @throws InvalidArgumentException for a point type without outcomes or a negative or non-finite duration
+     */
     public static function outcome(PointType $type, Outcome $outcome, float $durationSeconds): self
     {
         if ($type !== PointType::LogicAction && $type !== PointType::Operation) {
