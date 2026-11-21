@@ -14,14 +14,14 @@ use InvalidArgumentException;
 final class SortedKeys
 {
     /**
-     * Lists keep their order, maps are sorted by key (as strings). Maps are meant to be string-keyed: one keyed exactly
-     * 0..n-1 out of order would become a list (a JSON array instead of an object) and is rejected.
+     * Lists keep their order, maps are sorted by key (as strings). A map keyed exactly 0..n-1 out of order is rejected
+     * whatever its size: sorted it would be a list (a JSON array instead of an object) below 11 keys and a map above.
      *
      * @param array<array-key, mixed> $data
      *
      * @return array<array-key, mixed>
      *
-     * @throws InvalidArgumentException for a map that sorting would turn into a list
+     * @throws InvalidArgumentException for a map keyed like a list out of order
      */
     public static function of(array $data): array
     {
@@ -31,12 +31,27 @@ final class SortedKeys
             }
         }
         if (!array_is_list($data)) {
-            ksort($data, SORT_STRING);
-            if (array_is_list($data)) {
+            if (self::hasListKeys($data)) {
                 throw new InvalidArgumentException(\sprintf('A map with the keys 0..%d would serialise as a list: deterministic output needs string-keyed maps.', \count($data) - 1));
             }
+            ksort($data, SORT_STRING);
         }
 
         return $data;
+    }
+
+    /**
+     * @param array<array-key, mixed> $data
+     */
+    private static function hasListKeys(array $data): bool
+    {
+        $count = \count($data);
+        foreach (array_keys($data) as $key) {
+            if (!\is_int($key) || $key < 0 || $key >= $count) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

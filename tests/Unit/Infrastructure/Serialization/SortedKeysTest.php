@@ -6,6 +6,7 @@ namespace Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Serialization;
 
 use InvalidArgumentException;
 use Msstc4Symfony\SloBundle\Infrastructure\Serialization\SortedKeys;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class SortedKeysTest extends TestCase
@@ -18,11 +19,32 @@ final class SortedKeysTest extends TestCase
         );
     }
 
-    public function testRejectsAMapThatSortingWouldTurnIntoAList(): void
+    /**
+     * @return iterable<string, array{array<array-key, mixed>, non-negative-int}>
+     */
+    public static function provideListKeyedMaps(): iterable
+    {
+        yield 'nested' => [['outer' => [1 => 'b', 0 => 'a']], 1];
+        yield 'top level' => [[1 => 'b', 0 => 'a'], 1];
+        yield 'eleven keys, which string sorting would not turn into a list' => [array_reverse(range(0, 10), true), 10];
+    }
+
+    /**
+     * @param array<array-key, mixed> $map
+     * @param non-negative-int $last
+     */
+    #[DataProvider('provideListKeyedMaps')]
+    public function testRejectsAMapKeyedLikeAListOutOfOrderWhateverItsSize(array $map, int $last): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('keys 0..1');
+        $this->expectExceptionMessage('keys 0..' . $last);
 
-        SortedKeys::of(['outer' => [1 => 'b', 0 => 'a']]);
+        SortedKeys::of($map);
+    }
+
+    public function testSparseIntegerKeysStayAMap(): void
+    {
+        self::assertSame([0 => 'b', 2 => 'a'], SortedKeys::of([2 => 'a', 0 => 'b']));
+        self::assertSame('{"0":"b","2":"a"}', json_encode(SortedKeys::of([2 => 'a', 0 => 'b'])));
     }
 }
