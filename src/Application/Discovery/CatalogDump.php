@@ -49,16 +49,22 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\Window;
  *     has_http_points: bool,
  * }
  * @phpstan-type CatalogShape array{
+ *     format: positive-int,
  *     definitions: list<DefinitionShape>,
  *     conflicts: array<non-empty-string, non-empty-list<DefinitionShape>>,
  *     ignored: array<non-empty-string, non-empty-string>,
  *     extras: ExtrasShape,
+ *     point_index: array<non-empty-string, non-empty-list<non-negative-int>>,
+ *     conflicted_points: array<non-empty-string, non-empty-list<non-empty-string>>,
  * }
  *
  * @internal
  */
 final class CatalogDump
 {
+    /** Bumped whenever CatalogShape changes, so a dump left in a stale cache is detected instead of misread. */
+    public const FORMAT = 2;
+
     /**
      * @return CatalogShape
      */
@@ -66,7 +72,23 @@ final class CatalogDump
     {
         $extras = $contents->extras;
 
+        $pointIndex = [];
+        foreach ($contents->definitions as $index => $definition) {
+            foreach ($definition->points() as $point) {
+                $pointIndex[$point->toString()][] = $index;
+            }
+        }
+        ksort($pointIndex, SORT_STRING);
+        $conflictedPoints = [];
+        foreach ($contents->conflicts as $name => $declarations) {
+            foreach ($declarations as $declaration) {
+                $conflictedPoints[$declaration->point->toString()][$name] = $name;
+            }
+        }
+        ksort($conflictedPoints, SORT_STRING);
+
         return [
+            'format' => self::FORMAT,
             'definitions' => array_map(self::definitionToArray(...), $contents->definitions),
             'conflicts' => array_map(
                 static fn (array $declarations): array => array_map(static fn (SloDeclaration $d): array => self::definitionToArray($d->definition), $declarations),
@@ -94,6 +116,8 @@ final class CatalogDump
                 'controller_services' => $extras->controllerServices,
                 'has_http_points' => $extras->hasHttpPoints,
             ],
+            'point_index' => $pointIndex,
+            'conflicted_points' => array_map(array_values(...), $conflictedPoints),
         ];
     }
 
@@ -102,13 +126,16 @@ final class CatalogDump
      */
     public static function fromArray(array $catalog): CatalogContents
     {
+        if ($catalog['format'] !== self::FORMAT) {
+            throw new InvalidArgumentException(\sprintf('Unsupported SLO catalog dump format %d, expected %d.', $catalog['format'], self::FORMAT));
+        }
         $extras = $catalog['extras'];
 
         return new CatalogContents(
-            array_map(self::definitionFromArray(...), $catalog['definitions']),
+            array_map(self::definition(...), $catalog['definitions']),
             array_map(
                 static fn (array $declarations): array => array_map(static function (array $shape): SloDeclaration {
-                    $definition = self::definitionFromArray($shape);
+                    $definition = self::definition($shape);
 
                     return new SloDeclaration($definition->points()[0], $definition);
                 }, $declarations),
@@ -144,6 +171,27 @@ final class CatalogDump
     }
 
     /**
+     * @param DefinitionShape $shape
+     */
+    public static function definition(array $shape): SloDefinition
+    {
+        return new SloDefinition(
+            SloName::fromString($shape['name']),
+            PointType::from($shape['point_type']),
+            array_map(self::point(...), $shape['points']),
+            array_map(self::objectiveFromArray(...), $shape['objectives']),
+            Window::fromString($shape['window']),
+            new Classification(
+                StatusSet::fromList($shape['bad_statuses']),
+                StatusSet::fromList($shape['ineligible_statuses']),
+                $shape['expected_failure_is_good'],
+                $shape['count_attempts'],
+            ),
+            StrategyPreference::from($shape['strategy']),
+        );
+    }
+
+    /**
      * @return DefinitionShape
      */
     private static function definitionToArray(SloDefinition $definition): array
@@ -167,27 +215,6 @@ final class CatalogDump
             'count_attempts' => $classification->countAttempts,
             'strategy' => $definition->strategy()->value,
         ];
-    }
-
-    /**
-     * @param DefinitionShape $shape
-     */
-    private static function definitionFromArray(array $shape): SloDefinition
-    {
-        return new SloDefinition(
-            SloName::fromString($shape['name']),
-            PointType::from($shape['point_type']),
-            array_map(self::point(...), $shape['points']),
-            array_map(self::objectiveFromArray(...), $shape['objectives']),
-            Window::fromString($shape['window']),
-            new Classification(
-                StatusSet::fromList($shape['bad_statuses']),
-                StatusSet::fromList($shape['ineligible_statuses']),
-                $shape['expected_failure_is_good'],
-                $shape['count_attempts'],
-            ),
-            StrategyPreference::from($shape['strategy']),
-        );
     }
 
     /**

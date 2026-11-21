@@ -30,4 +30,16 @@ interface CatalogDiagnosticsInterface
     public function shared(): array;
 
     public function extras(): CatalogExtras;
+
+    /**
+     * Cheap runtime read of CatalogExtras::$hasHttpPoints, without hydrating the CLI-only data.
+     */
+    public function hasHttpPoints(): bool;
+
+    /**
+     * Cheap runtime read of CatalogExtras::$failureTransports.
+     *
+     * @return list<non-empty-string>
+     */
+    public function failureTransports(): array;
 }

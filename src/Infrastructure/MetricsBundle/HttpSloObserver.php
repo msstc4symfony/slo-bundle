@@ -38,7 +38,7 @@ final readonly class HttpSloObserver implements HttpMeasurementObserverInterface
         }
 
         try {
-            if (!$this->diagnostics->extras()->hasHttpPoints) {
+            if (!$this->diagnostics->hasHttpPoints()) {
                 return;
             }
             $points = $this->index->pointsFor($measurement->route);

@@ -48,7 +48,7 @@ final readonly class MessengerSloObserver implements MessengerMeasurementObserve
             }
             $observation = Observation::delivery(
                 $status,
-                \in_array($measurement->transport, $this->diagnostics->extras()->failureTransports, true),
+                \in_array($measurement->transport, $this->diagnostics->failureTransports(), true),
                 $measurement->durationSeconds,
             );
             ($this->record)(new Input($point, $observation));

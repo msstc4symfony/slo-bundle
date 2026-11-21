@@ -60,6 +60,7 @@ return static function (ContainerConfigurator $container): void {
 
     $services->set(CompiledSloCatalog::class)
         ->arg('$catalog', abstract_arg('catalog dump, set by CollectSloDefinitionsPass'))
+        ->arg('$logger', service(FailSafeLogger::class))
     ;
     $services->alias(SloCatalogInterface::class, CompiledSloCatalog::class);
     $services->alias(CatalogDiagnosticsInterface::class, CompiledSloCatalog::class);
