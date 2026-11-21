@@ -1,0 +1,51 @@
+labels:
+  application: shop
+service: shop
+slos:
+  - alerting:
+      labels:
+        application: shop
+        objective: availability
+        slo: payment.process
+      name: SloPaymentProcessAvailability
+      page_alert:
+        labels:
+          severity: page
+      ticket_alert:
+        labels:
+          severity: ticket
+    description: 'SLO payment.process availability, target 99.5%'
+    labels:
+      application: shop
+      objective: availability
+      slo: payment.process
+    name: payment.process-availability
+    objective: 99.5
+    sli:
+      events:
+        error_query: '(sum(rate(symfony_messenger_message_handled{application="shop",component=~"web|worker",message="ProcessPayment",status="failed",transport!~"failed"}[{{.window}}])) or vector(0))'
+        total_query: 'sum(rate(symfony_messenger_message_handled{application="shop",component=~"web|worker",message="ProcessPayment",status=~"handled|failed",transport!~"failed"}[{{.window}}]))'
+  - alerting:
+      labels:
+        application: shop
+        objective: latency
+        slo: payment.process
+      name: SloPaymentProcessLatency
+      page_alert:
+        labels:
+          severity: page
+      ticket_alert:
+        labels:
+          severity: ticket
+    description: 'SLO payment.process latency, target 99%'
+    labels:
+      application: shop
+      objective: latency
+      slo: payment.process
+    name: payment.process-latency
+    objective: 99.0
+    sli:
+      events:
+        error_query: '(sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[{{.window}}])) - sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_bucket{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed",le="1"}[{{.window}}])))'
+        total_query: 'sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[{{.window}}]))'
+version: prometheus/v1

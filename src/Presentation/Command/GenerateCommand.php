@@ -8,6 +8,8 @@ use Msstc4Symfony\SloBundle\Application\Generation\GenerateDashboards\Action as 
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateDashboards\Input as DashboardsInput;
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateRules\Action as GenerateRules;
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateRules\Input as RulesInput;
+use Msstc4Symfony\SloBundle\Application\Generation\GenerateSloth\Action as GenerateSloth;
+use Msstc4Symfony\SloBundle\Application\Generation\GenerateSloth\Input as SlothInput;
 use Msstc4Symfony\SloBundle\Application\Generation\Selector;
 use Msstc4Symfony\SloBundle\Application\Generation\SyncFiles\Action as SyncFiles;
 use Msstc4Symfony\SloBundle\Application\Generation\SyncFiles\Input as SyncInput;
@@ -20,7 +22,7 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\ConsoleOutputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
-#[AsCommand(name: 'slo:generate', description: 'Generate Prometheus rules and Grafana dashboards from the SLO catalog; --check exits 1 when the files on disk are out of date')]
+#[AsCommand(name: 'slo:generate', description: 'Generate Prometheus rules, Grafana dashboards and optional Sloth specs from the SLO catalog; --check exits 1 when the files on disk are out of date')]
 final class GenerateCommand extends Command
 {
     /**
@@ -33,6 +35,7 @@ final class GenerateCommand extends Command
     public function __construct(
         private readonly GenerateRules $rules,
         private readonly GenerateDashboards $dashboards,
+        private readonly GenerateSloth $sloth,
         private readonly SyncFiles $sync,
         private readonly ?string $application,
         private readonly array $components,
@@ -43,6 +46,7 @@ final class GenerateCommand extends Command
         private readonly string $datasourceUid,
         private readonly string $folder,
         private readonly array $ignoredRoutes,
+        private readonly bool $slothEnabled = false,
     ) {
         parent::__construct();
     }
@@ -87,7 +91,12 @@ final class GenerateCommand extends Command
 
         $dashboards = ($this->dashboards)(new DashboardsInput($selector, $this->datasourceUid, $this->folder, $this->ignoredRoutes));
 
-        $result = ($this->sync)(new SyncInput($generated->files->merge($dashboards->files), $root, $check));
+        $sloth = ($this->sloth)(new SlothInput($selector, $this->slothEnabled));
+        foreach ($sloth->warnings as $warning) {
+            $errors->writeln('WARNING ' . OutputFormatter::escape($warning));
+        }
+
+        $result = ($this->sync)(new SyncInput($generated->files->merge($dashboards->files)->merge($sloth->files), $root, $check));
 
         if ($check) {
             if ($result->isUpToDate()) {

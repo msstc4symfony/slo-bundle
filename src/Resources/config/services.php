@@ -11,6 +11,7 @@ use Msstc4Symfony\SloBundle\Application\Generation\BoundObjectiveCollector;
 use Msstc4Symfony\SloBundle\Application\Generation\BurnRatePolicy;
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateDashboards\Action as GenerateDashboardsAction;
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateRules\Action as GenerateRulesAction;
+use Msstc4Symfony\SloBundle\Application\Generation\GenerateSloth\Action as GenerateSlothAction;
 use Msstc4Symfony\SloBundle\Application\Generation\SyncFiles\Action as SyncFilesAction;
 use Msstc4Symfony\SloBundle\Application\Port\CatalogDiagnosticsInterface;
 use Msstc4Symfony\SloBundle\Application\Port\ClockInterface;
@@ -21,6 +22,7 @@ use Msstc4Symfony\SloBundle\Application\Port\OperationMonitorInterface;
 use Msstc4Symfony\SloBundle\Application\Port\RouteCatalogInterface;
 use Msstc4Symfony\SloBundle\Application\Port\RoutePointIndexInterface;
 use Msstc4Symfony\SloBundle\Application\Port\RuleFileBuilderInterface;
+use Msstc4Symfony\SloBundle\Application\Port\SlothSpecBuilderInterface;
 use Msstc4Symfony\SloBundle\Domain\Repository\SloCatalogInterface;
 use Msstc4Symfony\SloBundle\Domain\Service\EventClassifier;
 use Msstc4Symfony\SloBundle\Domain\Service\RevisionCalculator;
@@ -35,6 +37,7 @@ use Msstc4Symfony\SloBundle\Infrastructure\Operation\HrtimeClock;
 use Msstc4Symfony\SloBundle\Infrastructure\Operation\OperationMonitor;
 use Msstc4Symfony\SloBundle\Infrastructure\Prometheus\PromQlBuilder;
 use Msstc4Symfony\SloBundle\Infrastructure\Prometheus\RuleGroupsBuilder;
+use Msstc4Symfony\SloBundle\Infrastructure\Sloth\SlothSpecBuilder;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RoutePointIndex;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouterRouteCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\SloCacheWarmer;
@@ -109,7 +112,10 @@ return static function (ContainerConfigurator $container): void {
     $services->alias(GrafanaFileBuilderInterface::class, GrafanaFileBuilder::class);
     $services->set(FileWriter::class);
     $services->alias(FileWriterInterface::class, FileWriter::class);
+    $services->set(SlothSpecBuilder::class);
+    $services->alias(SlothSpecBuilderInterface::class, SlothSpecBuilder::class);
     $services->set(GenerateRulesAction::class);
+    $services->set(GenerateSlothAction::class);
     $services->set(GenerateDashboardsAction::class);
     $services->set(SyncFilesAction::class);
     $services->set(GenerateCommand::class)
@@ -122,6 +128,7 @@ return static function (ContainerConfigurator $container): void {
         ->arg('$datasourceUid', param('msstc4symfony_slo.generation.grafana.datasource_uid'))
         ->arg('$folder', param('msstc4symfony_slo.generation.grafana.folder'))
         ->arg('$ignoredRoutes', param('msstc4symfony_slo.coverage.http_routes.ignored_routes'))
+        ->arg('$slothEnabled', param('msstc4symfony_slo.generation.sloth'))
     ;
     $services->set(ListCommand::class);
     $services->set(ValidateCommand::class);

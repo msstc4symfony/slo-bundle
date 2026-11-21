@@ -35,6 +35,14 @@ final readonly class PromQlBuilder
     /**
      * @param non-empty-string $range
      */
+    public function badRate(Selector $selector, BoundObjective $objective, string $range): string
+    {
+        return $this->bad($this->series($selector, $objective), 'rate', $range);
+    }
+
+    /**
+     * @param non-empty-string $range
+     */
     public function errorRatio(Selector $selector, BoundObjective $objective, string $range): string
     {
         $series = $this->series($selector, $objective);

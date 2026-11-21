@@ -18,6 +18,7 @@ use Msstc4Symfony\SloBundle\Application\Generation\GenerateDashboards\Action as 
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateDashboards\Input as DashboardsInput;
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateRules\Action;
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateRules\Input;
+use Msstc4Symfony\SloBundle\Application\Generation\GenerateSloth\Action as SlothAction;
 use Msstc4Symfony\SloBundle\Application\Generation\Selector;
 use Msstc4Symfony\SloBundle\Application\Port\RouteInfo;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
@@ -27,6 +28,7 @@ use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\Grafana\GrafanaFileBuilder;
 use Msstc4Symfony\SloBundle\Infrastructure\Prometheus\PromQlBuilder;
 use Msstc4Symfony\SloBundle\Infrastructure\Prometheus\RuleGroupsBuilder;
+use Msstc4Symfony\SloBundle\Infrastructure\Sloth\SlothSpecBuilder;
 use Msstc4Symfony\SloBundle\Infrastructure\Yaml\DeterministicYaml;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Handler\AuditPaymentHandler;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Handler\ProcessPaymentHandler;
@@ -80,6 +82,11 @@ final class GenerationFixture
     public static function action(CompiledSloCatalog $catalog): Action
     {
         return new Action(self::collector($catalog), new RuleGroupsBuilder(new PromQlBuilder(), new BurnRatePolicy(), new DeterministicYaml()), new BurnRatePolicy(), $catalog);
+    }
+
+    public static function slothAction(CompiledSloCatalog $catalog): SlothAction
+    {
+        return new SlothAction(self::collector($catalog), new SlothSpecBuilder(new PromQlBuilder(), new DeterministicYaml()));
     }
 
     public static function dashboardsAction(CompiledSloCatalog $catalog): DashboardsAction

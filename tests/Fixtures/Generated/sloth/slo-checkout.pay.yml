@@ -1,0 +1,51 @@
+labels:
+  application: shop
+service: shop
+slos:
+  - alerting:
+      labels:
+        application: shop
+        objective: availability
+        slo: checkout.pay
+      name: SloCheckoutPayAvailability
+      page_alert:
+        labels:
+          severity: page
+      ticket_alert:
+        labels:
+          severity: ticket
+    description: 'SLO checkout.pay availability, target 99.9%'
+    labels:
+      application: shop
+      objective: availability
+      slo: checkout.pay
+    name: checkout.pay-availability
+    objective: 99.9
+    sli:
+      events:
+        error_query: '(sum(rate(symfony_http_response{application="shop",component=~"web|worker",route=~"checkout_pay",status=~"5.."}[{{.window}}])) or vector(0))'
+        total_query: 'sum(rate(symfony_http_response{application="shop",component=~"web|worker",route=~"checkout_pay"}[{{.window}}]))'
+  - alerting:
+      labels:
+        application: shop
+        objective: latency
+        slo: checkout.pay
+      name: SloCheckoutPayLatency
+      page_alert:
+        labels:
+          severity: page
+      ticket_alert:
+        labels:
+          severity: ticket
+    description: 'SLO checkout.pay latency, target 99%'
+    labels:
+      application: shop
+      objective: latency
+      slo: checkout.pay
+    name: checkout.pay-latency
+    objective: 99.0
+    sli:
+      events:
+        error_query: '(sum(rate(symfony_slo_events_total{application="shop",component=~"web|worker",slo="checkout.pay",objective="latency",revision="bd652502",result="bad"}[{{.window}}])) or vector(0))'
+        total_query: 'sum(rate(symfony_slo_events_total{application="shop",component=~"web|worker",slo="checkout.pay",objective="latency",revision="bd652502"}[{{.window}}]))'
+version: prometheus/v1

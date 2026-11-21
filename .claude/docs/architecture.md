@@ -193,3 +193,17 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
   `last_over_time(...[10m])`, чтобы запоздавшая оценка не давала дыр;
   пороги — готовые числа `factor × (1 - target)`; `SloNoEvents` (severity ticket) = `(sum(increase(<total>[Nh])) or vector(0)) == 0`.
   Аннотация только `summary` (имя, objective, target, окно), без runbook.
+
+## Спецификации Sloth (Task 14)
+
+- `GenerateSloth\{Action,Input,Output}` + порт `SlothSpecBuilderInterface{supports, spec}` (адаптер `Infrastructure/Sloth/SlothSpecBuilder`).
+  Файл на SLO: `sloth/slo-<slo name>.yml` (`OWNED_FILES['sloth']`), внутри `slos[]` по одной записи на цель.
+- Формат `prometheus/v1`: `version`, `service` (= `selector.application`), `labels`, `slos[].{name: <slo>-<kind>, objective: <target %>,
+  description, labels{application,objective,slo}, sli.events.{error_query,total_query}, alerting.{name: Slo<PascalName><Kind>, labels,
+  page_alert.labels.severity=page, ticket_alert.labels.severity=ticket}}`. Запросы — `PromQlBuilder::badRate()/eventsRate()` с диапазоном
+  `[{{.window}}]` (application-scoped, фильтр revision для Strategy B).
+- Окно SLO в spec не выражается: Sloth берёт период из своей конфигурации (`--default-slo-period`), `window` декларации игнорируется.
+- `generation.sloth: false` (по умолчанию): файлов нет, но каталог `sloth/` остаётся управляемым (устаревшие `slo-*.yml` удаляются).
+  `supports()` сейчас всегда true; false → warning в stderr `slo:generate` и цель пропускается (хук §5.6).
+- Имена полей spec сверены по примеру sloth.dev (name/labels/annotations/page_alert/ticket_alert); остальные (`version`, `service`, `slos`,
+  `sli.events.error_query/total_query`, `objective`, `description`) взяты по схеме `prometheus/v1` из памяти — не проверены `sloth validate`.

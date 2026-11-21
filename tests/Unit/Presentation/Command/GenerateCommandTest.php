@@ -86,20 +86,37 @@ final class GenerateCommandTest extends TestCase
         self::assertStringNotContainsString('WARNING', $tester->getDisplay());
     }
 
+    public function testSlothSpecsAreWrittenOnlyWhenEnabledAndStaleOnesAreRemoved(): void
+    {
+        $stale = ['/project/observability/sloth/slo-removed.yml' => "old\n"];
+
+        $off = new InMemoryFileWriter($stale);
+        self::assertSame(Command::SUCCESS, (new CommandTester($this->command($off)))->execute([]));
+        self::assertSame([], array_filter(array_keys($off->files), static fn (string $path): bool => str_contains($path, '/sloth/')));
+
+        $on = new InMemoryFileWriter($stale);
+        $tester = new CommandTester($this->command($on, sloth: true));
+        self::assertSame(Command::SUCCESS, $tester->execute([]));
+        self::assertArrayHasKey('/project/observability/sloth/slo-checkout.pay.yml', $on->files);
+        self::assertArrayNotHasKey('/project/observability/sloth/slo-removed.yml', $on->files);
+        self::assertSame(Command::SUCCESS, (new CommandTester($this->command($on, sloth: true)))->execute(['--check' => true]));
+    }
+
     public function testCommandIsRegisteredWithTheGenerationParameters(): void
     {
         $container = TestContainer::compile();
         $definition = $container->getDefinition(GenerateCommand::class);
 
-        self::assertSame([null, [], sys_get_temp_dir() . '/infrastructure/observability', true, true, null, 'prometheus', 'SLO', []], \array_slice(array_values($definition->getArguments()), 3));
+        self::assertSame([null, [], sys_get_temp_dir() . '/infrastructure/observability', true, true, null, 'prometheus', 'SLO', [], false], \array_slice(array_values($definition->getArguments()), 4));
         self::assertSame('slo:generate', $this->command(new InMemoryFileWriter())->getName());
     }
 
-    private function command(InMemoryFileWriter $writer, ?string $application = 'shop', float $availabilityTarget = 99.9): GenerateCommand
+    private function command(InMemoryFileWriter $writer, ?string $application = 'shop', float $availabilityTarget = 99.9, bool $sloth = false): GenerateCommand
     {
         return new GenerateCommand(
             GenerationFixture::action(GenerationFixture::catalog(checkoutAvailabilityTarget: $availabilityTarget)),
             GenerationFixture::dashboardsAction(GenerationFixture::catalog(checkoutAvailabilityTarget: $availabilityTarget)),
+            GenerationFixture::slothAction(GenerationFixture::catalog(checkoutAvailabilityTarget: $availabilityTarget)),
             new SyncAction($writer),
             $application,
             ['web', 'worker'],
@@ -110,6 +127,7 @@ final class GenerateCommandTest extends TestCase
             'prometheus',
             'SLO',
             [],
+            $sloth,
         );
     }
 }
