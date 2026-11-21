@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Operation;
 
+use LogicException;
 use Msstc4Symfony\LogicBundle\Application\Action\ActionOutcome;
 use Msstc4Symfony\LogicBundle\Application\Action\ExpectedFailureInterface;
 use Msstc4Symfony\SloBundle\Application\Attribute\Availability;
@@ -20,6 +21,7 @@ use Msstc4Symfony\SloBundle\Domain\Service\EventClassifier;
 use Msstc4Symfony\SloBundle\Domain\Service\RevisionCalculator;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
+use Msstc4Symfony\SloBundle\Infrastructure\Operation\NoopOperationHandle;
 use Msstc4Symfony\SloBundle\Infrastructure\Operation\OperationMonitor;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\CatalogFixture;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\InMemoryRouteCatalog;
@@ -273,6 +275,54 @@ final class OperationMonitorTest extends TestCase
 
         self::assertSame(3, $monitor->measure('payment.validation', static fn (): int => 3));
         self::assertSame([], $this->writer->writes);
+    }
+
+    public function testFailingClockAtStartYieldsANoopHandleAndAWarning(): void
+    {
+        $catalog = $this->catalog();
+        $monitor = new OperationMonitor($catalog, $this->action($this->writer, $catalog), new ThrowingClock(), $this->logger);
+
+        $handle = $monitor->start('payment.validation');
+        $handle->end();
+
+        self::assertInstanceOf(NoopOperationHandle::class, $handle);
+        self::assertSame([], $this->writer->writes);
+        self::assertSame([['warning', 'SLO operation cannot be monitored, nothing is recorded.']], $this->logger->records);
+    }
+
+    public function testFailingClockAtEndIsLoggedNotThrown(): void
+    {
+        $catalog = $this->catalog();
+        $monitor = new OperationMonitor($catalog, $this->action($this->writer, $catalog), new ThrowingClock(1), $this->logger);
+
+        self::assertSame(7, $monitor->measure('payment.validation', static fn (): int => 7));
+        self::assertSame([], $this->writer->writes);
+        self::assertSame([['warning', 'SLO operation event was not recorded.']], $this->logger->records);
+        self::assertSame('payment.validation', $this->logger->contexts[0]['operation']);
+    }
+
+    public function testFailingClassificationKeepsTheUserExceptionAndCountsAnError(): void
+    {
+        $catalog = $this->catalog();
+        $monitor = new OperationMonitor($catalog, $this->action($this->writer, $catalog), $this->clock, $this->logger, static function (): bool {
+            throw new LogicException('classifier broken');
+        });
+        $thrown = new ExpectedFailure('declined');
+
+        $caught = null;
+        try {
+            $monitor->measure('payment.validation', static function () use ($thrown): never {
+                throw $thrown;
+            });
+        } catch (ExpectedFailure $exception) {
+            $caught = $exception;
+        }
+
+        self::assertSame($thrown, $caught);
+
+        self::assertSame([['payment.validation', 'availability', 'bad']], $this->availabilityWrites());
+        self::assertSame('SLO operation exception could not be classified, it counts as an error.', $this->logger->records[0][1]);
+        self::assertInstanceOf(LogicException::class, $this->logger->contexts[0]['exception']);
     }
 
     /**

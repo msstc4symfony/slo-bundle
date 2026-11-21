@@ -37,12 +37,20 @@ final class OperationMonitor implements OperationMonitorInterface, ResetInterfac
 
     private bool $suppressionWarned = false;
 
+    /** @var Closure(Throwable): bool */
+    private readonly Closure $isExpectedFailure;
+
+    /**
+     * @param (Closure(Throwable): bool)|null $isExpectedFailure classification of exceptions thrown by measure(); defaults to logic-bundle's
+     */
     public function __construct(
         private readonly SloCatalogInterface $catalog,
         private readonly RecordEvent $record,
         private readonly ClockInterface $clock,
         private readonly LoggerInterface $logger,
+        ?Closure $isExpectedFailure = null,
     ) {
+        $this->isExpectedFailure = $isExpectedFailure ?? $this->isExpectedFailure(...);
     }
 
     #[Override]
@@ -78,12 +86,7 @@ final class OperationMonitor implements OperationMonitorInterface, ResetInterfac
         try {
             $result = $operation();
         } catch (Throwable $e) {
-            if ($this->isExpectedFailure($e)) {
-                $handle->failExpected($e);
-            } else {
-                $handle->fail($e);
-            }
-            $handle->end();
+            $this->recordFailure($handle, $e);
 
             throw $e;
         }
@@ -98,6 +101,26 @@ final class OperationMonitor implements OperationMonitorInterface, ResetInterfac
     {
         $this->warned = [];
         $this->suppressionWarned = false;
+    }
+
+    /**
+     * Never replaces the exception of the measured operation: a failing classification counts it as an error.
+     */
+    private function recordFailure(OperationHandleInterface $handle, Throwable $e): void
+    {
+        try {
+            $expected = ($this->isExpectedFailure)($e);
+        } catch (Throwable $classificationFailure) {
+            $expected = false;
+            $this->logger->warning('SLO operation exception could not be classified, it counts as an error.', ['exception' => $classificationFailure]);
+        }
+
+        if ($expected) {
+            $handle->failExpected($e);
+        } else {
+            $handle->fail($e);
+        }
+        $handle->end();
     }
 
     /**
