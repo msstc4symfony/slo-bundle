@@ -15,10 +15,11 @@ use Psr\Log\NullLogger;
 use Throwable;
 
 /**
- * The route index as a PHP file in the cache directory (opcache-friendly), written by SloCacheWarmer: FrameworkBundle's Router reloads the whole
- * route collection on every getRouteCollection() call, i.e. once per request under PHP-FPM. Ignored in debug mode,
- * where routes may change without a cache clear. Outside debug mode a missing or unreadable file is logged once per
- * process and the index the request path builds is persisted, so the rebuild happens once per deploy.
+ * The route index as a PHP file in the cache directory (opcache-friendly), written by SloCacheWarmer or, outside debug
+ * mode, by the request path (persist()): FrameworkBundle's Router reloads the whole route collection on every
+ * getRouteCollection() call, i.e. once per request under PHP-FPM. Ignored in debug mode, where routes may change
+ * without a cache clear. Outside debug mode a missing or unreadable file is logged once per process and the index the
+ * request path builds is stored when the cache directory is writable, so the rebuild happens once per deploy.
  *
  * @internal
  */
@@ -36,6 +37,8 @@ final class RouteIndexFile implements RouteIndexStoreInterface
     private ?RouteIndexData $data = null;
 
     private bool $persisted = false;
+
+    private ?bool $writable = null;
 
     /** @var array<string, list<PointId>|null> */
     private array $points = [];
@@ -97,21 +100,20 @@ final class RouteIndexFile implements RouteIndexStoreInterface
     #[Override]
     public function persist(Closure $build): void
     {
-        if ($this->debug || $this->persisted || $this->raw() !== null) {
+        if ($this->debug || $this->persisted || $this->load() instanceof RouteIndexData) {
             return;
         }
         $this->persisted = true;
-        try {
-            $data = $build();
-        } catch (Throwable $e) {
-            $this->logger->warning('SLO route index built on the request path could not be stored.', ['exception' => $e]);
-
+        if (!$this->isWritable()) {
             return;
         }
+        if ($this->raw() !== null) {
+            $this->logger->warning('SLO route index is malformed, it is replaced by the index built from the router; run cache:warmup.', ['file' => $this->file()]);
+        }
         try {
-            $this->write($this->cacheDir, $data);
-        } catch (Throwable) {
-            // A read-only cache directory: every process keeps building its own index, the degraded-mode warning says so.
+            $this->write($this->cacheDir, $build());
+        } catch (Throwable $e) {
+            $this->logger->warning('SLO route index built on the request path could not be stored.', ['exception' => $e]);
         }
     }
 
@@ -138,7 +140,7 @@ final class RouteIndexFile implements RouteIndexStoreInterface
             return null;
         }
 
-        $file = $this->cacheDir . '/' . self::PATH;
+        $file = $this->file();
         try {
             $raw = is_file($file) ? $this->include($file) : null;
         } catch (Throwable) {
@@ -146,12 +148,39 @@ final class RouteIndexFile implements RouteIndexStoreInterface
         }
 
         if (!RouteIndexParser::isCurrentVersion($raw)) {
-            $this->logger->warning('SLO route index is not warmed, HTTP SLOs read the routes from the router in this process and store the index for the next ones (degraded mode); run cache:warmup.', ['file' => $file]);
+            $this->logger->warning($this->isWritable()
+                ? 'SLO route index is not warmed, HTTP SLOs read the routes from the router in this process and try to store the index for the next ones (degraded mode); run cache:warmup.'
+                : 'SLO route index is not warmed and the cache directory is not writable, HTTP SLOs read the routes from the router in every process (degraded mode); run cache:warmup.', ['file' => $file]);
 
             return null;
         }
 
         return $this->raw = $raw;
+    }
+
+    private function file(): string
+    {
+        return $this->cacheDir . '/' . self::PATH;
+    }
+
+    /**
+     * Checked before the index is built, so a read-only cache directory costs a few stat calls, not a whole build.
+     */
+    private function isWritable(): bool
+    {
+        if ($this->writable !== null) {
+            return $this->writable;
+        }
+        $directory = \dirname($this->file());
+        while (!file_exists($directory)) {
+            $parent = \dirname($directory);
+            if ($parent === $directory) {
+                return $this->writable = false;
+            }
+            $directory = $parent;
+        }
+
+        return $this->writable = is_dir($directory) && is_writable($directory);
     }
 
     private function include(string $file): mixed

@@ -12,7 +12,8 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\SloName;
 use Override;
 
 /**
- * Reads the revisions SloCacheWarmer stored in the route index; nothing in debug mode or without a warmed index.
+ * Reads the revisions stored in the route index (by SloCacheWarmer or the request path); nothing in debug mode or
+ * without a stored index.
  *
  * @internal
  */

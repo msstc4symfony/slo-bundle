@@ -12,7 +12,8 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\Revision;
 use RuntimeException;
 
 /**
- * Where SloCacheWarmer keeps the route index for the request path. Reads never throw: a missing or malformed index
+ * Where SloCacheWarmer (or, outside debug mode, the request path through persist()) keeps the route index for the
+ * request path. Reads never throw: a missing or malformed index
  * (or entry) reads as null and the callers fall back to the router. The per-key reads validate only the entry they
  * return, so the request path never pays for the whole index.
  *
@@ -45,8 +46,9 @@ interface RouteIndexStoreInterface
 
     /**
      * Stores an index the request path had to build itself where this store reads it, so the following processes do
-     * not read the router again. Does nothing in debug mode or when a current index was read. Never throws: a cache
-     * directory that cannot be written is skipped.
+     * not read the router again. Does nothing in debug mode, after the first call of the process or when a current,
+     * well-formed index was read; a malformed one is replaced. Never throws: a failing build or write is logged, a
+     * cache directory that cannot be written is skipped before anything is built.
      *
      * @param Closure(): RouteIndexData $build called only when the index is going to be stored
      */

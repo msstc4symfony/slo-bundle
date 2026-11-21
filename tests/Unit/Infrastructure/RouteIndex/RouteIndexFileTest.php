@@ -32,13 +32,17 @@ final class RouteIndexFileTest extends TestCase
     #[Override]
     protected function setUp(): void
     {
-        $this->dir = sys_get_temp_dir() . '/msstc4symfony-slo-route-index-' . getmypid();
-        (new Filesystem())->remove($this->dir);
+        $this->dir = sys_get_temp_dir() . '/msstc4symfony-slo-route-index-' . getmypid() . '-' . bin2hex(random_bytes(6));
     }
 
     #[Override]
     protected function tearDown(): void
     {
+        foreach ([$this->dir, \dirname($this->dir . '/' . RouteIndexFile::PATH)] as $dir) {
+            if (is_dir($dir)) {
+                chmod($dir, 0o755);
+            }
+        }
         (new Filesystem())->remove($this->dir);
     }
 
@@ -180,7 +184,7 @@ final class RouteIndexFileTest extends TestCase
         self::assertNull($file->revisionOf(ObjectiveKey::of(SloName::fromString('pay.create'), ObjectiveKind::Availability)));
         self::assertNull($file->routesFor('A::b'));
         self::assertNull($file->load());
-        self::assertSame([['warning', 'SLO route index is not warmed, HTTP SLOs read the routes from the router in this process and store the index for the next ones (degraded mode); run cache:warmup.']], $logger->records);
+        self::assertSame([['warning', 'SLO route index is not warmed, HTTP SLOs read the routes from the router in this process and try to store the index for the next ones (degraded mode); run cache:warmup.']], $logger->records);
         self::assertSame(['file' => $this->dir . '/' . RouteIndexFile::PATH], $logger->contexts[0]);
     }
 
@@ -219,15 +223,104 @@ final class RouteIndexFileTest extends TestCase
         self::assertEquals($warmed, (new RouteIndexFile($this->dir, false))->load());
     }
 
-    public function testAnUnwritableCacheDirectoryIsSkippedSilently(): void
+    public function testPersistReplacesAnIndexOfAnotherVersion(): void
     {
-        (new Filesystem())->dumpFile($this->dir, 'a file, not a directory');
-        $logger = new RecordingLogger();
-        $file = new RouteIndexFile($this->dir, false, $logger);
+        (new Filesystem())->dumpFile($this->dir . '/' . RouteIndexFile::PATH, '<?php return ' . var_export(['version' => RouteIndexData::VERSION - 1] + $this->data()->toArray(), true) . ';');
+        $file = new RouteIndexFile($this->dir, false);
+        self::assertNull($file->pointsFor('pay_create'));
 
         $file->persist(fn (): RouteIndexData => $this->data());
 
-        self::assertCount(1, $logger->records, 'only the degraded-mode warning');
+        self::assertEquals($this->data(), (new RouteIndexFile($this->dir, false))->load());
+    }
+
+    public function testPersistRepairsAMalformedIndexOfTheCurrentVersionAndSaysSo(): void
+    {
+        $broken = $this->data()->toArray();
+        $broken['points']['pay_create'] = ['nope'];
+        (new Filesystem())->dumpFile($this->dir . '/' . RouteIndexFile::PATH, '<?php return ' . var_export($broken, true) . ';');
+        $logger = new RecordingLogger();
+        $file = new RouteIndexFile($this->dir, false, $logger);
+        self::assertNull($file->pointsFor('pay_create'));
+
+        $file->persist(fn (): RouteIndexData => $this->data());
+
+        self::assertSame(['file' => $this->dir . '/' . RouteIndexFile::PATH], $this->contextOf($logger, 'SLO route index is malformed, it is replaced by the index built from the router; run cache:warmup.'));
+        self::assertEquals($this->data(), (new RouteIndexFile($this->dir, false))->load());
+    }
+
+    public function testConcurrentWritersLeaveOneCompleteIndexAndNoTemporaryFile(): void
+    {
+        $first = new RouteIndexFile($this->dir, false);
+        $second = new RouteIndexFile($this->dir, false);
+        self::assertNull($first->pointsFor('pay_create'));
+        self::assertNull($second->pointsFor('pay_create'));
+
+        $first->persist(fn (): RouteIndexData => $this->data());
+        $second->persist(fn (): RouteIndexData => $this->data());
+
+        self::assertEquals($this->data(), (new RouteIndexFile($this->dir, false))->load());
+        self::assertSame([], glob(\dirname($this->dir . '/' . RouteIndexFile::PATH) . '/.*.tmp'));
+    }
+
+    public function testAFailedWriteIsLoggedOnceAndNotRetriedInTheProcess(): void
+    {
+        (new Filesystem())->mkdir($this->dir . '/' . RouteIndexFile::PATH);
+        $logger = new RecordingLogger();
+        $file = new RouteIndexFile($this->dir, false, $logger);
+        $builds = 0;
+        $build = function () use (&$builds): RouteIndexData {
+            $builds++;
+
+            return $this->data();
+        };
+
+        $file->persist($build);
+        $file->persist($build);
+
+        self::assertSame(1, $builds);
+        self::assertInstanceOf(RuntimeException::class, $this->contextOf($logger, 'SLO route index built on the request path could not be stored.')['exception'] ?? null);
+        self::assertCount(2, $logger->records, 'the degraded-mode warning and one write failure');
+    }
+
+    /**
+     * @return iterable<string, array{bool}>
+     */
+    public static function readOnlyProvider(): iterable
+    {
+        yield 'read-only cache directory' => [false];
+        yield 'read-only index directory' => [true];
+    }
+
+    #[DataProvider('readOnlyProvider')]
+    public function testAnUnwritableTargetIsDetectedBeforeTheIndexIsBuilt(bool $indexDirectoryExists): void
+    {
+        $readOnly = $indexDirectoryExists ? \dirname($this->dir . '/' . RouteIndexFile::PATH) : $this->dir;
+        (new Filesystem())->mkdir($readOnly);
+        chmod($readOnly, 0o555);
+        if (is_writable($readOnly)) {
+            self::markTestSkipped('The process can write into read-only directories (root).');
+        }
+        $builds = 0;
+
+        (new RouteIndexFile($this->dir, false))->persist(function () use (&$builds): RouteIndexData {
+            $builds++;
+
+            return $this->data();
+        });
+
+        self::assertSame(0, $builds);
+        self::assertFileDoesNotExist($this->dir . '/' . RouteIndexFile::PATH);
+    }
+
+    public function testACacheDirectoryThatIsAFileIsDetectedBeforeTheIndexIsBuilt(): void
+    {
+        (new Filesystem())->dumpFile($this->dir, 'a file, not a directory');
+        $logger = new RecordingLogger();
+
+        (new RouteIndexFile($this->dir, false, $logger))->persist(static fn (): RouteIndexData => throw new LogicException('must not build'));
+
+        self::assertSame(['SLO route index is not warmed and the cache directory is not writable, HTTP SLOs read the routes from the router in every process (degraded mode); run cache:warmup.'], array_column($logger->records, 1));
         self::assertSame('a file, not a directory', file_get_contents($this->dir));
     }
 
@@ -237,8 +330,7 @@ final class RouteIndexFileTest extends TestCase
 
         (new RouteIndexFile($this->dir, false, $logger))->persist(static fn (): RouteIndexData => throw new RuntimeException('catalog broken'));
 
-        self::assertSame('SLO route index built on the request path could not be stored.', $logger->records[1][1] ?? null);
-        self::assertInstanceOf(RuntimeException::class, $logger->contexts[1]['exception'] ?? null);
+        self::assertInstanceOf(RuntimeException::class, $this->contextOf($logger, 'SLO route index built on the request path could not be stored.')['exception'] ?? null);
         self::assertFileDoesNotExist($this->dir . '/' . RouteIndexFile::PATH);
     }
 
@@ -298,6 +390,17 @@ final class RouteIndexFileTest extends TestCase
             ['one' => [PointId::of(PointType::HttpRoute, 'A::one')], 'pay_create' => [PointId::of(PointType::HttpRoute, 'App\Pay::create')], 'pay_create_v2' => [PointId::of(PointType::HttpRoute, 'App\Pay::create')]],
             RouteIndexData::pointsOf($routes, $catalog),
         );
+    }
+
+    /**
+     * @return array<array-key, mixed>
+     */
+    private function contextOf(RecordingLogger $logger, string $message): array
+    {
+        $index = array_search($message, array_column($logger->records, 1), true);
+        self::assertIsInt($index, $message . ' was not logged');
+
+        return $logger->contexts[$index];
     }
 
     private function data(): RouteIndexData

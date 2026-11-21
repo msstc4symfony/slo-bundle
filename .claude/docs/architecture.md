@@ -93,7 +93,7 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
   routesEntry`, мемо по ключу), `parse()` — всё; вне debug отсутствующий/чужой версии файл логируется один раз на процесс
   («degraded mode»); запись — `Filesystem/AtomicFile` (эксклюзивный tmp + rename, общий с `FileWriter`);
   `RouteIndexData` — чистый VO, конструктор проверяет, что controllers ссылаются на известные маршруты); в debug файл игнорируется
-  (маршруты меняются без cache:clear, а опциональные warmer'ы при пересборке контейнера в dev не запускаются).
+  (маршруты меняются без cache:clear).
 - Сборка индекса — `RouteIndexBuilder::build(list<RouteInfo>)` (точки + ревизии через `resolver->withRoutes()`; сбой ревизий/цели
   логируется и пропускается). Им пользуются warmer и `RoutePointIndex`: если прогретого файла нет, `RoutePointIndex` строит точки сам и
   отдаёт `RouteIndexStoreInterface::persist(Closure)`; `RouteIndexFile` вызывает замыкание и пишет файл только вне debug, один раз за процесс
