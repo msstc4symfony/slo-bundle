@@ -22,6 +22,7 @@ use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\CatalogFixture;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\FailingCatalog;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\InMemoryRouteCatalog;
 use Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\RouteIndex\InMemoryRouteIndexStore;
+use Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\RouteIndex\RouteIndexFixture;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Symfony\Component\Routing\Route;
@@ -32,7 +33,7 @@ final class RoutePointIndexTest extends TestCase
 {
     public function testMapsRoutesToTheirSloPoints(): void
     {
-        $index = new RoutePointIndex($this->routes(), $this->catalog(), $this->noFile(), new RecordingLogger());
+        $index = new RoutePointIndex($this->routes(), $this->catalog(), $this->noFile(), new RecordingLogger(), RouteIndexFixture::builder($this->catalog(), $this->catalog()));
 
         self::assertSame(['http_route:App\Pay::create'], $this->strings($index->pointsFor('pay_create')));
         self::assertSame(['http_route:App\Pay::create'], $this->strings($index->pointsFor('pay_create_v2')));
@@ -47,7 +48,7 @@ final class RoutePointIndexTest extends TestCase
             $assembler->declare(PointId::of(PointType::HttpRoute, 'A::one'), new Slo('dup.slo', [new Availability(99.9)]));
             $assembler->declare(PointId::of(PointType::HttpRoute, 'A::two'), new Slo('dup.slo', [new Availability(99.5)]));
         });
-        $index = new RoutePointIndex(new InMemoryRouteCatalog([new RouteInfo('one', '/one', [], 'A::one')]), $catalog, $this->noFile(), new RecordingLogger());
+        $index = new RoutePointIndex(new InMemoryRouteCatalog([new RouteInfo('one', '/one', [], 'A::one')]), $catalog, $this->noFile(), new RecordingLogger(), RouteIndexFixture::builder($catalog, $catalog));
 
         self::assertSame(['http_route:A::one'], $this->strings($index->pointsFor('one')));
     }
@@ -56,7 +57,7 @@ final class RoutePointIndexTest extends TestCase
     {
         $routes = $this->createMock(RouteCatalogInterface::class);
         $routes->expects(self::once())->method('all')->willReturn([new RouteInfo('pay_create', '/pay', [], 'App\Pay::create')]);
-        $index = new RoutePointIndex($routes, $this->catalog(), $this->noFile(), new RecordingLogger());
+        $index = new RoutePointIndex($routes, $this->catalog(), $this->noFile(), new RecordingLogger(), RouteIndexFixture::builder($this->catalog(), $this->catalog()));
 
         for ($i = 0; $i < 3; $i++) {
             self::assertCount(1, $index->pointsFor('pay_create'));
@@ -69,7 +70,7 @@ final class RoutePointIndexTest extends TestCase
         $routes = $this->createMock(RouteCatalogInterface::class);
         $routes->expects(self::once())->method('all')->willThrowException(new RuntimeException('router broken'));
         $logger = new RecordingLogger();
-        $index = new RoutePointIndex($routes, $this->catalog(), $this->noFile(), $logger);
+        $index = new RoutePointIndex($routes, $this->catalog(), $this->noFile(), $logger, RouteIndexFixture::builder($this->catalog(), $this->catalog()));
 
         for ($i = 0; $i < 2; $i++) {
             self::assertSame([], $index->pointsFor('pay_create'));
@@ -92,7 +93,7 @@ final class RoutePointIndexTest extends TestCase
         }, new CatalogExtras(controllerServices: ['app.pay' => PaymentController::class]));
         $failing = new FailingCatalog($catalog, ['extras', 'all']);
         $logger = new RecordingLogger();
-        $index = new RoutePointIndex(new RouterRouteCatalog(new RouterRouteReader($router, $failing), $this->noFile()), $failing, $this->noFile(), $logger);
+        $index = new RoutePointIndex(new RouterRouteCatalog(new RouterRouteReader($router, $failing), $this->noFile()), $failing, $this->noFile(), $logger, RouteIndexFixture::builder($failing, $failing));
 
         self::assertSame(['http_route:' . PaymentController::class . '::create'], $this->strings($index->pointsFor('pay_create')));
         self::assertSame([], $logger->records);
@@ -103,7 +104,7 @@ final class RoutePointIndexTest extends TestCase
         $routes = $this->createMock(RouteCatalogInterface::class);
         $routes->expects(self::exactly(3))->method('all')->willThrowException(new RuntimeException('router broken'));
         $logger = new RecordingLogger();
-        $index = new RoutePointIndex($routes, $this->catalog(), $this->noFile(), $logger);
+        $index = new RoutePointIndex($routes, $this->catalog(), $this->noFile(), $logger, RouteIndexFixture::builder($this->catalog(), $this->catalog()));
 
         for ($i = 0; $i < 3; $i++) {
             self::assertSame([], $index->pointsFor('pay_create'));
@@ -115,7 +116,7 @@ final class RoutePointIndexTest extends TestCase
 
     public function testNumericRouteNameIsIndexed(): void
     {
-        $index = new RoutePointIndex(new InMemoryRouteCatalog([new RouteInfo('404', '/pay', [], 'App\Pay::create')]), $this->catalog(), $this->noFile(), new RecordingLogger());
+        $index = new RoutePointIndex(new InMemoryRouteCatalog([new RouteInfo('404', '/pay', [], 'App\Pay::create')]), $this->catalog(), $this->noFile(), new RecordingLogger(), RouteIndexFixture::builder($this->catalog(), $this->catalog()));
 
         self::assertSame(['http_route:App\Pay::create'], $this->strings($index->pointsFor('404')));
     }
@@ -127,7 +128,7 @@ final class RoutePointIndexTest extends TestCase
             self::throwException(new RuntimeException('router broken')),
             [new RouteInfo('pay_create', '/pay', [], 'App\Pay::create')],
         );
-        $index = new RoutePointIndex($routes, $this->catalog(), $this->noFile(), new RecordingLogger());
+        $index = new RoutePointIndex($routes, $this->catalog(), $this->noFile(), new RecordingLogger(), RouteIndexFixture::builder($this->catalog(), $this->catalog()));
 
         self::assertSame([], $index->pointsFor('pay_create'));
         $index->reset();
@@ -142,10 +143,36 @@ final class RoutePointIndexTest extends TestCase
         $routes = $this->createMock(RouteCatalogInterface::class);
         $routes->expects(self::never())->method('all');
 
-        $index = new RoutePointIndex($routes, $this->catalog(), $store, new RecordingLogger());
+        $index = new RoutePointIndex($routes, $this->catalog(), $store, new RecordingLogger(), RouteIndexFixture::builder($this->catalog(), $this->catalog()));
 
         self::assertSame(['http_route:App\Pay::create'], $this->strings($index->pointsFor('pay_create')));
         self::assertSame([], $index->pointsFor('pay_list'));
+    }
+
+    public function testAnIndexBuiltFromTheRoutesIsPersistedOnceWithItsRevisions(): void
+    {
+        $store = $this->noFile();
+        $catalog = $this->catalog();
+        $index = new RoutePointIndex($this->routes(), $catalog, $store, new RecordingLogger(), RouteIndexFixture::builder($catalog, $catalog));
+
+        $index->pointsFor('pay_create');
+        $index->pointsFor('pay_list');
+
+        self::assertCount(1, $store->persisted);
+        self::assertSame(['http_route:App\Pay::create'], $this->strings($store->persisted[0]->pointsFor('pay_create_v2')));
+        self::assertCount(4, $store->persisted[0]->all());
+        self::assertSame(['pay.create|availability' => ''], $store->persisted[0]->revisions());
+    }
+
+    public function testAFailedBuildPersistsNothing(): void
+    {
+        $routes = self::createStub(RouteCatalogInterface::class);
+        $routes->method('all')->willThrowException(new RuntimeException('router broken'));
+        $store = $this->noFile();
+
+        (new RoutePointIndex($routes, $this->catalog(), $store, new RecordingLogger(), RouteIndexFixture::builder($this->catalog(), $this->catalog())))->pointsFor('pay_create');
+
+        self::assertSame([], $store->persisted);
     }
 
     private function noFile(): InMemoryRouteIndexStore

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Infrastructure\RouteIndex;
 
+use Closure;
 use Msstc4Symfony\SloBundle\Application\Binding\ObjectiveKey;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Revision;
@@ -16,8 +17,8 @@ use Throwable;
 /**
  * The route index as a PHP file in the cache directory (opcache-friendly), written by SloCacheWarmer: FrameworkBundle's Router reloads the whole
  * route collection on every getRouteCollection() call, i.e. once per request under PHP-FPM. Ignored in debug mode,
- * where routes may change without a cache clear; outside debug mode a missing or unreadable file is logged once per
- * process, because every request then pays the route load.
+ * where routes may change without a cache clear. Outside debug mode a missing or unreadable file is logged once per
+ * process and the index the request path builds is persisted, so the rebuild happens once per deploy.
  *
  * @internal
  */
@@ -33,6 +34,8 @@ final class RouteIndexFile implements RouteIndexStoreInterface
     private bool $loaded = false;
 
     private ?RouteIndexData $data = null;
+
+    private bool $persisted = false;
 
     /** @var array<string, list<PointId>|null> */
     private array $points = [];
@@ -92,6 +95,27 @@ final class RouteIndexFile implements RouteIndexStoreInterface
     }
 
     #[Override]
+    public function persist(Closure $build): void
+    {
+        if ($this->debug || $this->persisted || $this->raw() !== null) {
+            return;
+        }
+        $this->persisted = true;
+        try {
+            $data = $build();
+        } catch (Throwable $e) {
+            $this->logger->warning('SLO route index built on the request path could not be stored.', ['exception' => $e]);
+
+            return;
+        }
+        try {
+            $this->write($this->cacheDir, $data);
+        } catch (Throwable) {
+            // A read-only cache directory: every process keeps building its own index, the degraded-mode warning says so.
+        }
+    }
+
+    #[Override]
     public function write(string $cacheDir, RouteIndexData $data): void
     {
         $file = $cacheDir . '/' . self::PATH;
@@ -122,7 +146,7 @@ final class RouteIndexFile implements RouteIndexStoreInterface
         }
 
         if (!RouteIndexParser::isCurrentVersion($raw)) {
-            $this->logger->warning('SLO route index is not warmed, HTTP SLOs read the routes from the router in this process (degraded mode); run cache:warmup.', ['file' => $file]);
+            $this->logger->warning('SLO route index is not warmed, HTTP SLOs read the routes from the router in this process and store the index for the next ones (degraded mode); run cache:warmup.', ['file' => $file]);
 
             return null;
         }

@@ -97,6 +97,31 @@ final class HttpSloKernelTest extends KernelTestCase
         self::assertSame(['checkout.page|combined|good' => 1, 'checkout.page|latency|good' => 1], $this->counts());
     }
 
+    public function testWithoutDebugAnIndexBuiltOnTheRequestPathIsStoredForTheNextProcess(): void
+    {
+        self::ensureKernelShutdown();
+        $kernel = self::bootKernel(['debug' => false]);
+        $file = $kernel->getCacheDir() . '/' . RouteIndexFile::PATH;
+        if (is_file($file)) {
+            unlink($file);
+        }
+
+        self::ensureKernelShutdown();
+        self::bootKernel(['debug' => false]);
+        self::assertFileDoesNotExist($file, 'the cached container is reused: no warm-up ran');
+        self::assertSame(200, $this->serve('/checkout/ok')->getStatusCode());
+        self::assertSame(['checkout.page|combined|good' => 1, 'checkout.page|latency|good' => 1], $this->counts());
+        self::assertFileExists($file);
+
+        self::ensureKernelShutdown();
+        self::bootKernel(['debug' => false]);
+        $index = self::getContainer()->get(RouteIndexFile::class);
+        self::assertInstanceOf(RouteIndexFile::class, $index);
+        $stored = $index->load();
+        self::assertNotNull($stored);
+        self::assertNotSame([], $stored->revisions());
+    }
+
     #[Override]
     protected static function getKernelClass(): string
     {

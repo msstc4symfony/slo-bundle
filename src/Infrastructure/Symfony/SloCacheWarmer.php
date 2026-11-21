@@ -4,15 +4,8 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Infrastructure\Symfony;
 
-use Msstc4Symfony\SloBundle\Application\Binding\MetricBindingResolver;
-use Msstc4Symfony\SloBundle\Application\Binding\ObjectiveKey;
-use Msstc4Symfony\SloBundle\Application\Binding\RevisionResolver;
 use Msstc4Symfony\SloBundle\Application\Catalog\Validate\Action;
-use Msstc4Symfony\SloBundle\Application\Port\CatalogDiagnosticsInterface;
-use Msstc4Symfony\SloBundle\Application\Port\RouteCatalogInterface;
-use Msstc4Symfony\SloBundle\Application\Port\SeriesCatalogInterface;
-use Msstc4Symfony\SloBundle\Domain\Repository\SloCatalogInterface;
-use Msstc4Symfony\SloBundle\Infrastructure\RouteIndex\RouteIndexData;
+use Msstc4Symfony\SloBundle\Infrastructure\RouteIndex\RouteIndexBuilder;
 use Msstc4Symfony\SloBundle\Infrastructure\RouteIndex\RouteIndexStoreInterface;
 use Override;
 use Psr\Log\LoggerInterface;
@@ -30,11 +23,8 @@ final readonly class SloCacheWarmer implements CacheWarmerInterface
     public function __construct(
         private Action $validate,
         private RouterRouteReader $routes,
-        private SloCatalogInterface $catalog,
+        private RouteIndexBuilder $builder,
         private LoggerInterface $logger,
-        private CatalogDiagnosticsInterface $diagnostics,
-        private RevisionResolver $revisions,
-        private SeriesCatalogInterface $series,
         private RouteIndexStoreInterface $store,
     ) {
     }
@@ -51,8 +41,7 @@ final readonly class SloCacheWarmer implements CacheWarmerInterface
         $this->reportCatalogProblems();
 
         try {
-            $routes = $this->routes->read();
-            $points = RouteIndexData::pointsOf($routes, $this->catalog);
+            $data = $this->builder->build($this->routes->read());
         } catch (Throwable $e) {
             $this->logger->warning('SLO route index could not be built during cache warm-up, routes are read on first use.', ['exception' => $e]);
 
@@ -60,14 +49,7 @@ final readonly class SloCacheWarmer implements CacheWarmerInterface
         }
 
         try {
-            $revisions = $this->revisionsOf(RouteIndexData::fromRoutes($routes, $points));
-        } catch (Throwable $e) {
-            $revisions = [];
-            $this->logger->warning('SLO objective revisions could not be precomputed during cache warm-up, they are resolved on first use.', ['exception' => $e]);
-        }
-
-        try {
-            $this->store->write($cacheDir, RouteIndexData::fromRoutes($routes, $points, $revisions));
+            $this->store->write($cacheDir, $data);
         } catch (Throwable $e) {
             $this->logger->warning('SLO route index could not be written during cache warm-up, routes are read on first use.', ['exception' => $e]);
         }
@@ -88,30 +70,5 @@ final readonly class SloCacheWarmer implements CacheWarmerInterface
         } catch (Throwable $e) {
             $this->logger->warning('SLO catalog validation failed during cache warm-up.', ['exception' => $e]);
         }
-    }
-
-    /**
-     * Resolved against the routes just read, not the router service's cache; an objective that fails to resolve is left
-     * out and resolved at runtime.
-     *
-     * @return array<non-empty-string, string>
-     */
-    private function revisionsOf(RouteCatalogInterface $routes): array
-    {
-        $resolver = new MetricBindingResolver($routes, $this->diagnostics, $this->series);
-        $revisions = [];
-        foreach ($this->catalog->all() as $definition) {
-            foreach ($definition->objectives() as $objective) {
-                try {
-                    $revisions[ObjectiveKey::of($definition->name(), $objective->kind)->value] = $resolver->isDedicated($definition, $objective->kind)
-                        ? $this->revisions->revision($definition, $objective->kind)->value
-                        : '';
-                } catch (Throwable $e) {
-                    $this->logger->warning('SLO objective could not be resolved during cache warm-up, it is resolved on first use.', ['slo' => $definition->name()->value, 'objective' => $objective->kind->value, 'exception' => $e]);
-                }
-            }
-        }
-
-        return $revisions;
     }
 }

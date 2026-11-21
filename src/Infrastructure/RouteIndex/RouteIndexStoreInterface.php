@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Infrastructure\RouteIndex;
 
+use Closure;
 use Msstc4Symfony\SloBundle\Application\Binding\ObjectiveKey;
 use Msstc4Symfony\SloBundle\Application\Port\RouteInfo;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
@@ -41,6 +42,15 @@ interface RouteIndexStoreInterface
      * @return list<RouteInfo>|null the routes of the controller sorted by name, null when not warmed
      */
     public function routesFor(string $controller): ?array;
+
+    /**
+     * Stores an index the request path had to build itself where this store reads it, so the following processes do
+     * not read the router again. Does nothing in debug mode or when a current index was read. Never throws: a cache
+     * directory that cannot be written is skipped.
+     *
+     * @param Closure(): RouteIndexData $build called only when the index is going to be stored
+     */
+    public function persist(Closure $build): void;
 
     /**
      * @param string $cacheDir the directory being warmed, which may differ from the one the store reads

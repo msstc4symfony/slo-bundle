@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\RouteIndex;
 
+use Closure;
 use Msstc4Symfony\SloBundle\Application\Binding\ObjectiveKey;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Revision;
 use Msstc4Symfony\SloBundle\Infrastructure\RouteIndex\RouteIndexData;
@@ -15,6 +16,9 @@ final class InMemoryRouteIndexStore implements RouteIndexStoreInterface
 {
     /** @var array<string, RouteIndexData> cache dir => written index */
     public array $written = [];
+
+    /** @var list<RouteIndexData> indexes stored by persist() */
+    public array $persisted = [];
 
     public int $reads = 0;
 
@@ -59,6 +63,16 @@ final class InMemoryRouteIndexStore implements RouteIndexStoreInterface
         $this->reads++;
 
         return $this->data?->routesFor($controller);
+    }
+
+    #[Override]
+    public function persist(Closure $build): void
+    {
+        if ($this->data instanceof RouteIndexData) {
+            return;
+        }
+        $this->data = $build();
+        $this->persisted[] = $this->data;
     }
 
     #[Override]

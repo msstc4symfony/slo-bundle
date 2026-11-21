@@ -31,6 +31,7 @@ use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\InMemoryRouteCatalog;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Evaluation\RecordEvent\FixedPrecomputedRevisions;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Evaluation\RecordEvent\InMemoryEventWriter;
 use Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\RouteIndex\InMemoryRouteIndexStore;
+use Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\RouteIndex\RouteIndexFixture;
 use Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Symfony\RecordingLogger;
 use Override;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -64,7 +65,7 @@ final class HttpSloObserverTest extends TestCase
         $this->writer = new InMemoryEventWriter();
         $this->logger = new RecordingLogger();
         $this->observer = new HttpSloObserver(
-            new RoutePointIndex($routes, $catalog, new InMemoryRouteIndexStore(), $this->logger),
+            new RoutePointIndex($routes, $catalog, new InMemoryRouteIndexStore(), $this->logger, RouteIndexFixture::builder($catalog, $catalog)),
             $catalog,
             ObserverFixture::action($catalog, $routes, $this->writer, $this->logger),
             $this->logger,
@@ -176,7 +177,7 @@ final class HttpSloObserverTest extends TestCase
         $routes = new RouterRouteCatalog(new RouterRouteReader($router, $catalog), new InMemoryRouteIndexStore());
         $writer = new InMemoryEventWriter();
         $observer = new HttpSloObserver(
-            new RoutePointIndex($routes, $catalog, new InMemoryRouteIndexStore(), $this->logger),
+            new RoutePointIndex($routes, $catalog, new InMemoryRouteIndexStore(), $this->logger, RouteIndexFixture::builder($catalog, $catalog)),
             $catalog,
             ObserverFixture::action($catalog, $routes, $writer, $this->logger),
             $this->logger,
@@ -192,7 +193,7 @@ final class HttpSloObserverTest extends TestCase
     {
         $routes = new InMemoryRouteCatalog([new RouteInfo('payment_create', '/payments', ['POST'], self::CONTROLLER)]);
 
-        return new RoutePointIndex($routes, $this->catalog, new InMemoryRouteIndexStore(), $this->logger);
+        return new RoutePointIndex($routes, $this->catalog, new InMemoryRouteIndexStore(), $this->logger, RouteIndexFixture::builder($this->catalog, $this->catalog));
     }
 
     private function action(): Action

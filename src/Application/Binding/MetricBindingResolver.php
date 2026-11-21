@@ -32,6 +32,14 @@ final readonly class MetricBindingResolver
     ) {
     }
 
+    /**
+     * The same resolver over other routes, e.g. the ones just read for the route index rather than the router's.
+     */
+    public function withRoutes(RouteCatalogInterface $routes): self
+    {
+        return new self($routes, $this->diagnostics, $this->series);
+    }
+
     public function resolve(SloDefinition $definition, Objective $objective): Binding
     {
         $build = $this->existingSeries($definition, $objective);

@@ -26,6 +26,7 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\Logging\FailSafeLogger;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MetricsBundleSeriesCatalog;
+use Msstc4Symfony\SloBundle\Infrastructure\RouteIndex\RouteIndexBuilder;
 use Msstc4Symfony\SloBundle\Infrastructure\RouteIndex\WarmedRevisions;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouterRouteReader;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\SloCacheWarmer;
@@ -154,11 +155,8 @@ final class SloCacheWarmerTest extends TestCase
         $warmer = new SloCacheWarmer(
             new Action($catalog, $catalog, new InMemoryRouteCatalog(), new MetricBindingResolver(new InMemoryRouteCatalog(), $catalog, new MetricsBundleSeriesCatalog())),
             new RouterRouteReader($router, $catalog),
-            new AllFailingCatalog($catalog),
+            new RouteIndexBuilder(new AllFailingCatalog($catalog), new MetricBindingResolver(new InMemoryRouteCatalog(), $catalog, new MetricsBundleSeriesCatalog()), new RevisionResolver(new RevisionCalculator(), $catalog), $logger),
             $logger,
-            $catalog,
-            new RevisionResolver(new RevisionCalculator(), $catalog),
-            new MetricsBundleSeriesCatalog(),
             $store,
         );
 
@@ -167,7 +165,7 @@ final class SloCacheWarmerTest extends TestCase
         self::assertNotNull($data);
         self::assertSame(['http_route:A::create'], array_map(static fn (PointId $point): string => $point->toString(), $data->pointsFor('create')));
         self::assertSame([], $data->revisions());
-        self::assertContains('SLO objective revisions could not be precomputed during cache warm-up, they are resolved on first use.', array_column($logger->records, 1));
+        self::assertContains('SLO objective revisions could not be precomputed for the route index, they are resolved on first use.', array_column($logger->records, 1));
     }
 
     public function testWarmedRevisionsEqualTheRuntimeFallback(): void
@@ -187,7 +185,7 @@ final class SloCacheWarmerTest extends TestCase
         $routes = new InMemoryRouteCatalog([new RouteInfo('create', '/create', [], 'A::create')]);
         $resolver = new MetricBindingResolver($routes, $catalog, new MetricsBundleSeriesCatalog());
         $revisions = new RevisionResolver(new RevisionCalculator(), $catalog);
-        (new SloCacheWarmer(new Action($catalog, $catalog, $routes, $resolver), new RouterRouteReader($router, $catalog), $catalog, $this->logger(), $catalog, $revisions, new MetricsBundleSeriesCatalog(), $store))->warmUp(self::CACHE_DIR);
+        (new SloCacheWarmer(new Action($catalog, $catalog, $routes, $resolver), new RouterRouteReader($router, $catalog), new RouteIndexBuilder($catalog, new MetricBindingResolver(new InMemoryRouteCatalog(), $catalog, new MetricsBundleSeriesCatalog()), $revisions, $this->logger()), $this->logger(), $store))->warmUp(self::CACHE_DIR);
 
         $writes = [];
         foreach ([new WarmedRevisions($store), new FixedPrecomputedRevisions()] as $precomputed) {
@@ -222,16 +220,13 @@ final class SloCacheWarmerTest extends TestCase
         (new SloCacheWarmer(
             new Action($catalog, $catalog, $routes, new MetricBindingResolver($routes, $catalog, new MetricsBundleSeriesCatalog())),
             new RouterRouteReader($router, $catalog),
-            $catalog,
+            new RouteIndexBuilder($catalog, new MetricBindingResolver(new InMemoryRouteCatalog(), $diagnostics, new MetricsBundleSeriesCatalog()), new RevisionResolver(new RevisionCalculator(), $catalog), $logger),
             $logger,
-            $diagnostics,
-            new RevisionResolver(new RevisionCalculator(), $catalog),
-            new MetricsBundleSeriesCatalog(),
             $store,
         ))->warmUp(self::CACHE_DIR);
 
         self::assertSame(['payment.create|availability' => ''], ($store->written[self::CACHE_DIR] ?? null)?->revisions());
-        $context = $this->contextOf($logger, 'SLO objective could not be resolved during cache warm-up, it is resolved on first use.');
+        $context = $this->contextOf($logger, 'SLO objective could not be resolved for the route index, it is resolved on first use.');
         self::assertSame('payment.process', $context['slo'] ?? null);
         self::assertSame('availability', $context['objective'] ?? null);
     }
@@ -259,11 +254,8 @@ final class SloCacheWarmerTest extends TestCase
         return new SloCacheWarmer(
             new Action($catalog, $catalog, $routes, new MetricBindingResolver($routes, $catalog, new MetricsBundleSeriesCatalog())),
             new RouterRouteReader($router, $catalog),
-            $catalog,
+            new RouteIndexBuilder($catalog, new MetricBindingResolver(new InMemoryRouteCatalog(), $catalog, new MetricsBundleSeriesCatalog()), new RevisionResolver(new RevisionCalculator(), $catalog), $logger),
             $logger,
-            $catalog,
-            new RevisionResolver(new RevisionCalculator(), $catalog),
-            new MetricsBundleSeriesCatalog(),
             $store ?? new InMemoryRouteIndexStore(),
         );
     }

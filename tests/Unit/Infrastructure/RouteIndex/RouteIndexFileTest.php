@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\RouteIndex;
 
+use LogicException;
 use Msstc4Symfony\SloBundle\Application\Attribute\Availability;
 use Msstc4Symfony\SloBundle\Application\Attribute\Slo;
 use Msstc4Symfony\SloBundle\Application\Binding\ObjectiveKey;
@@ -179,8 +180,66 @@ final class RouteIndexFileTest extends TestCase
         self::assertNull($file->revisionOf(ObjectiveKey::of(SloName::fromString('pay.create'), ObjectiveKind::Availability)));
         self::assertNull($file->routesFor('A::b'));
         self::assertNull($file->load());
-        self::assertSame([['warning', 'SLO route index is not warmed, HTTP SLOs read the routes from the router in this process (degraded mode); run cache:warmup.']], $logger->records);
+        self::assertSame([['warning', 'SLO route index is not warmed, HTTP SLOs read the routes from the router in this process and store the index for the next ones (degraded mode); run cache:warmup.']], $logger->records);
         self::assertSame(['file' => $this->dir . '/' . RouteIndexFile::PATH], $logger->contexts[0]);
+    }
+
+    public function testAnIndexBuiltOnTheRequestPathIsStoredOnceSoTheNextProcessIsNotDegraded(): void
+    {
+        $logger = new RecordingLogger();
+        $first = new RouteIndexFile($this->dir, false, $logger);
+        self::assertNull($first->pointsFor('pay_create'));
+
+        $builds = 0;
+        $build = function () use (&$builds): RouteIndexData {
+            $builds++;
+
+            return $this->data();
+        };
+        $first->persist($build);
+        $first->persist($build);
+
+        $next = new RouteIndexFile($this->dir, false, $logger);
+        self::assertSame(1, $builds);
+        self::assertEquals([PointId::of(PointType::HttpRoute, 'App\Pay::create')], $next->pointsFor('pay_create'));
+        self::assertEquals($this->data(), $next->load());
+        self::assertCount(1, $logger->records, 'only the first process is degraded');
+    }
+
+    public function testNothingIsStoredInDebugModeOrOverACurrentIndex(): void
+    {
+        $build = static fn (): RouteIndexData => throw new LogicException('must not build');
+
+        (new RouteIndexFile($this->dir, true))->persist($build);
+        self::assertFileDoesNotExist($this->dir . '/' . RouteIndexFile::PATH);
+
+        $warmed = RouteIndexData::fromRoutes([new RouteInfo('warmed', '/w', [], null)], []);
+        (new RouteIndexFile($this->dir, false))->write($this->dir, $warmed);
+        (new RouteIndexFile($this->dir, false))->persist($build);
+        self::assertEquals($warmed, (new RouteIndexFile($this->dir, false))->load());
+    }
+
+    public function testAnUnwritableCacheDirectoryIsSkippedSilently(): void
+    {
+        (new Filesystem())->dumpFile($this->dir, 'a file, not a directory');
+        $logger = new RecordingLogger();
+        $file = new RouteIndexFile($this->dir, false, $logger);
+
+        $file->persist(fn (): RouteIndexData => $this->data());
+
+        self::assertCount(1, $logger->records, 'only the degraded-mode warning');
+        self::assertSame('a file, not a directory', file_get_contents($this->dir));
+    }
+
+    public function testAFailingBuildIsLoggedAndNotStored(): void
+    {
+        $logger = new RecordingLogger();
+
+        (new RouteIndexFile($this->dir, false, $logger))->persist(static fn (): RouteIndexData => throw new RuntimeException('catalog broken'));
+
+        self::assertSame('SLO route index built on the request path could not be stored.', $logger->records[1][1] ?? null);
+        self::assertInstanceOf(RuntimeException::class, $logger->contexts[1]['exception'] ?? null);
+        self::assertFileDoesNotExist($this->dir . '/' . RouteIndexFile::PATH);
     }
 
     public function testDegradedModeIsNotLoggedInDebugOrWithAWarmedIndex(): void

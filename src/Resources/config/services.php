@@ -46,6 +46,7 @@ use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MetricsBundleSeriesCata
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MetricsEventWriter;
 use Msstc4Symfony\SloBundle\Infrastructure\Prometheus\PromQlBuilder;
 use Msstc4Symfony\SloBundle\Infrastructure\Prometheus\RuleGroupsBuilder;
+use Msstc4Symfony\SloBundle\Infrastructure\RouteIndex\RouteIndexBuilder;
 use Msstc4Symfony\SloBundle\Infrastructure\RouteIndex\RouteIndexFile;
 use Msstc4Symfony\SloBundle\Infrastructure\RouteIndex\RouteIndexStoreInterface;
 use Msstc4Symfony\SloBundle\Infrastructure\RouteIndex\WarmedRevisions;
@@ -174,6 +175,7 @@ return static function (ContainerConfigurator $container): void {
     $services->set(GenerateCommand::class);
     $services->set(ListCommand::class);
     $services->set(ValidateCommand::class);
+    $services->set(RouteIndexBuilder::class)->arg('$logger', service(FailSafeLogger::class));
     $services->set(SloCacheWarmer::class)
         ->arg('$logger', service(FailSafeLogger::class))
         ->tag('kernel.cache_warmer')
