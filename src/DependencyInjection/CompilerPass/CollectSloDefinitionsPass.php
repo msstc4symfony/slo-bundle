@@ -41,7 +41,8 @@ final class CollectSloDefinitionsPass implements CompilerPassInterface
         $assembler = new CatalogAssembler();
         $attributes = new AttributeReader($assembler, $errors);
 
-        $controllers = (new ControllerReader($attributes))->read($container);
+        $controllerReader = new ControllerReader($attributes);
+        $controllers = $controllerReader->read($container);
         [$handlers, $warnings] = (new HandlerReader($attributes, $errors))->read($container, MessengerRouting::fromContainer($container));
         $taggedPoints = (new TaggedPointReader($attributes, $errors))->read($container);
         $operations = (new OperationReader($assembler))->read($this->parameter($container, 'operations'));
@@ -55,6 +56,7 @@ final class CollectSloDefinitionsPass implements CompilerPassInterface
             MetricsParameters::buckets($container),
             MetricsParameters::httpIgnoredRoutes($container),
             $warnings,
+            $controllerReader->serviceIds($container),
         );
         $contents = $assembler->assemble($this->factory($container), $errors, $extras);
 

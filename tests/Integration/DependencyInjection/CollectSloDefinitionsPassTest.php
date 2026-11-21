@@ -381,6 +381,15 @@ final class CollectSloDefinitionsPassTest extends TestCase
         }
     }
 
+    public function testControllerServiceIdsDifferingFromTheClassAreMapped(): void
+    {
+        $catalog = $this->catalog([PaymentController::class], static function (ContainerBuilder $container): void {
+            $container->register('app.refund', InvokableController::class)->addTag('controller.service_arguments');
+        });
+
+        self::assertSame(['app.refund' => InvokableController::class], $catalog->extras()->controllerServices);
+    }
+
     /**
      * @param list<class-string> $controllers
      * @param (Closure(ContainerBuilder): void)|null $configure

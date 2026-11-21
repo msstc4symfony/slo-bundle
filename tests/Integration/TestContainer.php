@@ -7,9 +7,14 @@ namespace Msstc4Symfony\SloBundle\Test\Integration;
 use Closure;
 use LogicException;
 use Msstc4Symfony\SloBundle\SloBundle;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use Symfony\Component\DependencyInjection\Compiler\PassConfig;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBag;
+use Symfony\Component\Routing\Router;
+use Symfony\Component\Routing\RouterInterface;
 
 /**
  * Raw msstc4symfony_slo configuration used by the tests.
@@ -38,6 +43,10 @@ final class TestContainer
         $extension = $bundle->getContainerExtension() ?? throw new LogicException('SloBundle has no extension.');
         $container->registerExtension($extension);
         $container->loadFromExtension($extension->getAlias(), $config);
+
+        // Services of FrameworkBundle that the bundle's own services autowire; never instantiated by these tests.
+        $container->setDefinition(RouterInterface::class, new Definition(Router::class));
+        $container->setDefinition(LoggerInterface::class, new Definition(NullLogger::class));
 
         $bundle->build($container);
         if ($configure instanceof Closure) {

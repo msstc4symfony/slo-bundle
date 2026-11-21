@@ -18,6 +18,7 @@ final readonly class CatalogExtras
      * @param array<non-empty-string, list<float>> $metricBuckets histogram name => buckets, only for declared histograms
      * @param list<string> $httpIgnoredRoutes
      * @param list<non-empty-string> $warnings
+     * @param array<non-empty-string, class-string> $controllerServices controller service id => class, only ids that differ from the class name
      */
     public function __construct(
         public array $controllers = [],
@@ -28,6 +29,7 @@ final readonly class CatalogExtras
         public array $metricBuckets = [],
         public array $httpIgnoredRoutes = [],
         public array $warnings = [],
+        public array $controllerServices = [],
     ) {
     }
 }

@@ -49,3 +49,22 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
   Точка в дампе — строка `PointId::toString()`, разбирается по первому `:` (`CatalogDump::point()`).
 - Все ошибки компиляции копятся в `DiscoveryErrors` и бросаются одним `InvalidConfigurationException`
   ("SLO discovery found N errors:"), сообщения отсортированы и начинаются с точки (`http_route:Class::method: ...`).
+
+## Привязка к маршрутам, CLI и warmer (Task 6)
+
+- Порты в `src/Application/Port/`: `RouteCatalogInterface` (`routesFor('Class::method')`, `all()`; `RouteInfo{name, path, methods,
+  controller}`) и `CatalogDiagnosticsInterface` (`conflicts()`, `shared()`, `extras()`), его реализует `CompiledSloCatalog`.
+  Application не зависит от Infrastructure (deptrac) — Validate/List получают диагностику только через порт.
+- `Infrastructure/Symfony/RouterRouteCatalog` — ленивый индекс по `RouterInterface::getRouteCollection()`, строится один раз
+  (ruling 7). `_controller`: `Class::method`, `service_id::method`, invokable `Class`/`service_id` (→ `::__invoke`), массив
+  `[Class|object, method]`; без `_controller` / Closure → `controller = null`. Service id, не равный имени класса,
+  переводится через `CatalogExtras::controllerServices` (id => класс; заполняет `ControllerReader::serviceIds()`).
+- `Application/Catalog/List/{Action,Output,Row,ObjectiveRow,PointRow}`: строка на SLO (на каждое объявление для
+  дубликата), цели отсортированы по kind, точки по строке, имена маршрутов отсортированы. Колонки strategy нет (Task 7).
+- `Application/Catalog/Validate/{Action,Output,DeclarationDiff,FieldDifference}`: `Output{errors, warnings, notices}`.
+  Ошибка конфликта многострочная: первая строка по ruling 1, дальше `  <поле> A vs B` для каждого отличающегося поля.
+- Команды `slo:list [--format=text|json]` и `slo:validate` — `Presentation/Command/`. JSON: массив по имени, ключи
+  `name,status(ok|duplicate),point_type,window,objectives[kind,target,threshold,revision],points[point,routes],shared_points`.
+  `slo:validate`: код 0 — нет ошибок (предупреждения и notice печатаются), 1 — есть ошибки.
+- `SloCacheWarmer`: `isOptional() = true`, тег `kernel.cache_warmer`, канал логов `slo_bundle`; ошибки и предупреждения
+  валидации логирует как warning, исключения глушит.

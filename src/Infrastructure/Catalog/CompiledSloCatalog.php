@@ -7,6 +7,7 @@ namespace Msstc4Symfony\SloBundle\Infrastructure\Catalog;
 use Msstc4Symfony\SloBundle\Application\Discovery\CatalogDump;
 use Msstc4Symfony\SloBundle\Application\Discovery\CatalogExtras;
 use Msstc4Symfony\SloBundle\Application\Discovery\SloDeclaration;
+use Msstc4Symfony\SloBundle\Application\Port\CatalogDiagnosticsInterface;
 use Msstc4Symfony\SloBundle\Domain\Entity\SloDefinition;
 use Msstc4Symfony\SloBundle\Domain\Repository\SloCatalogInterface;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
@@ -16,7 +17,7 @@ use Override;
 /**
  * @phpstan-import-type CatalogShape from CatalogDump
  */
-final readonly class CompiledSloCatalog implements SloCatalogInterface
+final readonly class CompiledSloCatalog implements SloCatalogInterface, CatalogDiagnosticsInterface
 {
     /** @var list<SloDefinition> */
     private array $definitions;
@@ -100,21 +101,13 @@ final readonly class CompiledSloCatalog implements SloCatalogInterface
         return $this->conflictedByPoint[$point->toString()] ?? [];
     }
 
-    /**
-     * Names declared differently on several points (ruling 1); absent from all(), get() and forPoint().
-     *
-     * @return array<non-empty-string, non-empty-list<SloDeclaration>>
-     */
+    #[Override]
     public function conflicts(): array
     {
         return $this->conflicts;
     }
 
-    /**
-     * SLOs merged from identical declarations on more than one point.
-     *
-     * @return array<non-empty-string, non-empty-list<PointId>>
-     */
+    #[Override]
     public function shared(): array
     {
         $shared = [];
@@ -127,6 +120,7 @@ final readonly class CompiledSloCatalog implements SloCatalogInterface
         return $shared;
     }
 
+    #[Override]
     public function extras(): CatalogExtras
     {
         return $this->extras;

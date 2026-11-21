@@ -45,6 +45,7 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\Window;
  *     metric_buckets: array<non-empty-string, list<float>>,
  *     http_ignored_routes: list<string>,
  *     warnings: list<non-empty-string>,
+ *     controller_services: array<non-empty-string, class-string>,
  * }
  * @phpstan-type CatalogShape array{
  *     definitions: list<DefinitionShape>,
@@ -86,6 +87,7 @@ final class CatalogDump
                 'metric_buckets' => $extras->metricBuckets,
                 'http_ignored_routes' => $extras->httpIgnoredRoutes,
                 'warnings' => $extras->warnings,
+                'controller_services' => $extras->controllerServices,
             ],
         ];
     }
@@ -117,6 +119,7 @@ final class CatalogDump
                 $extras['metric_buckets'],
                 $extras['http_ignored_routes'],
                 $extras['warnings'],
+                $extras['controller_services'],
             ),
         );
     }

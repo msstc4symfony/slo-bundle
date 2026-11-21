@@ -63,6 +63,25 @@ final readonly class ControllerReader
     }
 
     /**
+     * Service ids of controllers that are not named after their class, for routes written as "service_id::method".
+     *
+     * @return array<non-empty-string, class-string>
+     */
+    public function serviceIds(ContainerBuilder $container): array
+    {
+        $services = [];
+        foreach (array_keys($container->findTaggedServiceIds(self::TAG)) as $id) {
+            $class = ServiceClass::reflect($container, $id);
+            if ($class instanceof ReflectionClass && $id !== '' && $id !== $class->getName()) {
+                $services[$id] = $class->getName();
+            }
+        }
+        ksort($services, SORT_STRING);
+
+        return $services;
+    }
+
+    /**
      * @param ReflectionClass<object> $class
      *
      * @return array<non-empty-string, ReflectionMethod> sorted by name

@@ -44,3 +44,14 @@
   в тестах discovery (исключение статических методов проверяется публичным static-методом).
 - Тесты ошибок discovery кладут фикстуры в `tests/Fixtures/*/Invalid/`; в одном контейнере нельзя регистрировать
   `ProcessPaymentHandler` вместе с `Invalid\LegacyPaymentHandler` — это и есть ошибка коллизии коротких имён.
+
+## Маршруты и CLI (Task 6)
+
+- `TestContainer` (голый `ContainerBuilder`) регистрирует заглушки `RouterInterface` и `LoggerInterface`: сервисы бандла
+  (`RouterRouteCatalog`, `SloCacheWarmer`) автовайрят их из FrameworkBundle, без заглушек компиляция падает.
+- `tests/Integration/Kernel/RoutedTestKernel` — ядро с произвольным набором контроллеров и маршрутов (`add()->controller([Class,
+  method])`); кеш-каталог зависит от хеша сценария, иначе ядра с разными маршрутами в одном процессе делят кеш.
+- Правило `slo:validate` про `httpIgnoredRoutes` сравнивает имя маршрута точно, как `RequestEventListener` metrics-bundle.
+- Сервис контроллера с id, не равным классу, и маршрутом `service_id::method` разрешается только через тег
+  `controller.service_arguments` (так их находит discovery); контроллеры без этого тега в `controllerServices` не попадут.
+- Пространство имён `Application\Catalog\List` допустимо (`List` — зарезервированное слово только как имя класса).
