@@ -5,23 +5,35 @@ declare(strict_types=1);
 namespace Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Symfony;
 
 use Msstc4Symfony\SloBundle\Application\Attribute\Availability;
+use Msstc4Symfony\SloBundle\Application\Attribute\Latency;
 use Msstc4Symfony\SloBundle\Application\Attribute\Slo;
 use Msstc4Symfony\SloBundle\Application\Binding\MetricBindingResolver;
 use Msstc4Symfony\SloBundle\Application\Binding\RevisionResolver;
 use Msstc4Symfony\SloBundle\Application\Catalog\Validate\Action;
+use Msstc4Symfony\SloBundle\Application\Discovery\CatalogAssembler;
 use Msstc4Symfony\SloBundle\Application\Discovery\CatalogExtras;
+use Msstc4Symfony\SloBundle\Application\Evaluation\RecordEvent\Action as RecordEvent;
+use Msstc4Symfony\SloBundle\Application\Evaluation\RecordEvent\Input;
 use Msstc4Symfony\SloBundle\Application\Port\RouteCatalogInterface;
+use Msstc4Symfony\SloBundle\Application\Port\RouteInfo;
+use Msstc4Symfony\SloBundle\Domain\Enum\DeliveryStatus;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
+use Msstc4Symfony\SloBundle\Domain\Enum\StrategyPreference;
+use Msstc4Symfony\SloBundle\Domain\Service\EventClassifier;
 use Msstc4Symfony\SloBundle\Domain\Service\RevisionCalculator;
+use Msstc4Symfony\SloBundle\Domain\ValueObject\Observation;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\Logging\FailSafeLogger;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MetricsBundleSeriesCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouterRouteReader;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\SloCacheWarmer;
+use Msstc4Symfony\SloBundle\Infrastructure\Symfony\WarmedRevisions;
 use Msstc4Symfony\SloBundle\Test\Integration\TestContainer;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\CatalogFixture;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\InMemoryRouteCatalog;
+use Msstc4Symfony\SloBundle\Test\Unit\Application\Evaluation\RecordEvent\FixedPrecomputedRevisions;
+use Msstc4Symfony\SloBundle\Test\Unit\Application\Evaluation\RecordEvent\InMemoryEventWriter;
 use Override;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\AbstractLogger;
@@ -156,6 +168,39 @@ final class SloCacheWarmerTest extends TestCase
         self::assertSame(['http_route:A::create'], array_map(static fn (PointId $point): string => $point->toString(), $data->pointsFor('create')));
         self::assertSame([], $data->revisions());
         self::assertContains('SLO objective revisions could not be precomputed during cache warm-up, they are resolved on first use.', array_column($logger->records, 1));
+    }
+
+    public function testWarmedRevisionsEqualTheRuntimeFallback(): void
+    {
+        $http = PointId::of(PointType::HttpRoute, 'A::create');
+        $messenger = PointId::of(PointType::MessengerMessage, 'App\Message\Pay');
+        $catalog = CatalogFixture::build(static function (CatalogAssembler $assembler) use ($http, $messenger): void {
+            $assembler->declare($http, new Slo('payment.create', [new Latency('300ms', 99)], strategy: StrategyPreference::Dedicated));
+            $assembler->declare($messenger, new Slo('payment.process', [new Latency('2s', 95)], strategy: StrategyPreference::Dedicated));
+        }, new CatalogExtras(failureTransports: ['failed']));
+        $collection = new RouteCollection();
+        $collection->add('create', new Route('/create', ['_controller' => 'A::create']));
+
+        $router = self::createStub(RouterInterface::class);
+        $router->method('getRouteCollection')->willReturn($collection);
+        $store = new InMemoryRouteIndexStore();
+        $routes = new InMemoryRouteCatalog([new RouteInfo('create', '/create', [], 'A::create')]);
+        $resolver = new MetricBindingResolver($routes, $catalog, new MetricsBundleSeriesCatalog());
+        $revisions = new RevisionResolver(new RevisionCalculator(), $catalog);
+        (new SloCacheWarmer(new Action($catalog, $catalog, $routes, $resolver), new RouterRouteReader($router, $catalog), $catalog, $this->logger(), $catalog, $revisions, new MetricsBundleSeriesCatalog(), $store))->warmUp(self::CACHE_DIR);
+
+        $writes = [];
+        foreach ([new WarmedRevisions($store), new FixedPrecomputedRevisions()] as $precomputed) {
+            $writer = new InMemoryEventWriter();
+            $recorder = new RecordEvent($catalog, $resolver, $revisions, new EventClassifier(), $writer, $this->logger(), $precomputed);
+            $recorder->record(new Input($http, Observation::http(200, 0.1)));
+            $recorder->record(new Input($messenger, Observation::delivery(DeliveryStatus::Handled, false, 0.1)));
+            $writes[] = $writer->writes;
+        }
+
+        self::assertCount(2, $writes[0]);
+        self::assertSame(['payment.create|latency', 'payment.process|latency'], array_keys($store->revisions() ?? []));
+        self::assertSame($writes[1], $writes[0]);
     }
 
     public function testNeverThrowsWhenTheLoggerFails(): void
