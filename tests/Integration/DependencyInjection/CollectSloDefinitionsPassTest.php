@@ -25,6 +25,7 @@ use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\Invalid\SloAndIgnoreControl
 use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\Invalid\WrongOptionsController;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\InvokableController;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\PaymentController;
+use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\PercentController;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\RepeatedSloController;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\ReportController;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\SharedSloController;
@@ -325,6 +326,18 @@ final class CollectSloDefinitionsPassTest extends TestCase
         self::assertSame([], $catalog->extras()->httpIgnoredRoutes);
     }
 
+    public function testPercentSignsInDumpedStringsSurviveCompilation(): void
+    {
+        $reason = 'A/B split 50%/50%, measured by %experiment%';
+        $catalog = $this->catalog([PercentController::class], static function (ContainerBuilder $container): void {
+            $container->register('percent_action', RefundAction::class)->addTag(PointTag::TAG, [PointTag::TYPE => 'logic_action', PointTag::ID => 'refund', PointTag::METRIC_LABEL => 'Refund%done%']);
+        });
+
+        self::assertSame($reason, $catalog->ignored()[$this->http(PercentController::class, 'split')]);
+        self::assertSame('Refund%done%', $catalog->extras()->taggedPoints[0]->metricLabel);
+        self::assertCount(1, $catalog->forPoint(PointId::of(PointType::HttpRoute, PercentController::class . '::pay')));
+    }
+
     public function testCatalogIsAvailableThroughTheInterface(): void
     {
         $container = $this->container([PaymentController::class], static function (ContainerBuilder $container): void {
@@ -373,6 +386,9 @@ final class CollectSloDefinitionsPassTest extends TestCase
                 ->addTag('messenger.message_handler', ['handles' => AbstractPaymentMessage::class, 'method' => 'handle'])
             ;
         }, [], 'messenger_message:' . AbstractPaymentMessage::class . ': #[Slo] on ' . AbstractMessageHandler::class . '::handle handles an abstract class'];
+        yield 'percent in a tagged point id' => [[], static function (ContainerBuilder $container): void {
+            $container->register(RefundAction::class, RefundAction::class)->addTag(PointTag::TAG, [PointTag::TYPE => 'logic_action', PointTag::ID => 'refund%done%']);
+        }, [], 'service "' . RefundAction::class . '": tag "msstc4symfony_slo.point" needs attribute "type" (one of http_route|messenger_message|logic_action|operation) and a non-empty "id" without "%".'];
         yield 'invalid tagged point type' => [[], static function (ContainerBuilder $container): void {
             $container->register(RefundAction::class, RefundAction::class)->addTag(PointTag::TAG, [PointTag::TYPE => 'job', PointTag::ID => 'refund']);
         }, [], 'service "' . RefundAction::class . '": tag "msstc4symfony_slo.point" needs attribute "type"'];

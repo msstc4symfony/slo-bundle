@@ -61,12 +61,12 @@ final readonly class TaggedPointReader
         $type = \is_string($type) ? PointType::tryFrom($type) : null;
 
         $pointId = $tag[PointTag::ID] ?? null;
-        if ($type instanceof PointType && \is_string($pointId) && $pointId !== '') {
+        if ($type instanceof PointType && \is_string($pointId) && $pointId !== '' && !str_contains($pointId, '%')) {
             return PointId::of($type, $pointId);
         }
 
         $this->errors->add(\sprintf(
-            'service "%s": tag "%s" needs attribute "%s" (one of %s) and a non-empty "%s".',
+            'service "%s": tag "%s" needs attribute "%s" (one of %s) and a non-empty "%s" without "%%".',
             $id,
             PointTag::TAG,
             PointTag::TYPE,

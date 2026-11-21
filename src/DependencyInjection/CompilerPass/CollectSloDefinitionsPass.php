@@ -66,7 +66,25 @@ final class CollectSloDefinitionsPass implements CompilerPassInterface
             throw new InvalidConfigurationException($errors->summary());
         }
 
-        $container->getDefinition(CompiledSloCatalog::class)->setArgument('$catalog', CatalogDump::toArray($contents));
+        $container->getDefinition(CompiledSloCatalog::class)->setArgument('$catalog', self::escape(CatalogDump::toArray($contents)));
+    }
+
+    /**
+     * String values of a service argument are parameter-resolved ("%name%") and the dump holds user strings
+     * (IgnoreMonitoring reasons, tag attributes): every "%" is doubled, the container turns "%%" back into "%".
+     * Keys are not unescaped by ContainerBuilder, so none may contain "%" (TaggedPointReader rejects it in point ids).
+     *
+     * @param array<array-key, mixed> $value
+     *
+     * @return array<array-key, mixed>
+     */
+    private static function escape(array $value): array
+    {
+        return array_map(static fn (mixed $item): mixed => match (true) {
+            \is_string($item) => str_replace('%', '%%', $item),
+            \is_array($item) => self::escape($item),
+            default => $item,
+        }, $value);
     }
 
     private function factory(ContainerBuilder $container): DefinitionFactory
