@@ -24,6 +24,14 @@ final readonly class Action
 {
     private const IGNORED_BY_METRICS_BUNDLE = 'route is in the ignored routes of metrics-bundle (http.ignored_routes), it is never measured';
 
+    private const SYSTEM_ROUTE = 'system route';
+
+    private const IGNORED_BY_COVERAGE_CONFIG = 'configured in coverage.http_routes.ignored_routes';
+
+    private const SYNC_HANDLER = 'sync handling is not measured';
+
+    private const CONFLICT = 'SLO %s is declared differently on several points';
+
     public function __construct(
         private SloCatalogInterface $catalog,
         private CatalogDiagnosticsInterface $diagnostics,
@@ -41,10 +49,10 @@ final readonly class Action
             ...$this->logicPoints($extras),
             ...$this->operationPoints($extras),
         ];
-        usort($points, static fn (PointCoverage $a, PointCoverage $b): int => [$a->kind->position(), $a->point] <=> [$b->kind->position(), $b->point]);
+        usort($points, PointCoverage::compare(...));
 
         $kinds = array_map(fn (CoverageKind $kind): KindCoverage => $this->summarise($kind, $points), CoverageKind::cases());
-        $invalid = \count(array_filter($points, static fn (PointCoverage $p): bool => $p->status === CoverageStatus::Invalid));
+        $invalid = \count(array_filter($points, static fn (PointCoverage $point): bool => $point->status === CoverageStatus::Invalid));
 
         return new Output($points, $kinds, $invalid);
     }
@@ -85,7 +93,7 @@ final readonly class Action
 
             $verdict = CoverageVerdict::decide(
                 covered: $definitions !== [],
-                invalid: ($point instanceof PointId ? $this->conflictReason($point) : null) ?? ($definitions !== [] && $ignoredByMetricsBundle ? self::IGNORED_BY_METRICS_BUNDLE : null),
+                invalid: $this->httpInvalidReason($point, $definitions !== [], $ignoredByMetricsBundle),
                 ignored: $this->httpIgnoreReason($route, $point, $systemRoute, $input),
             );
             $points[] = PointCoverage::judged($route->name, CoverageKind::HttpRoute, $verdict, $this->names($definitions), !$systemRoute);
@@ -97,11 +105,24 @@ final readonly class Action
     /**
      * @return non-empty-string|null
      */
+    private function httpInvalidReason(?PointId $point, bool $covered, bool $ignoredByMetricsBundle): ?string
+    {
+        $conflict = $point instanceof PointId ? $this->conflictReason($point) : null;
+        if ($conflict !== null) {
+            return $conflict;
+        }
+
+        return $covered && $ignoredByMetricsBundle ? self::IGNORED_BY_METRICS_BUNDLE : null;
+    }
+
+    /**
+     * @return non-empty-string|null
+     */
     private function httpIgnoreReason(RouteInfo $route, ?PointId $point, bool $systemRoute, Input $input): ?string
     {
         return match (true) {
-            $systemRoute => 'system route',
-            \in_array($route->name, $input->ignoredRoutes, true) => 'configured in coverage.http_routes.ignored_routes',
+            $systemRoute => self::SYSTEM_ROUTE,
+            \in_array($route->name, $input->ignoredRoutes, true) => self::IGNORED_BY_COVERAGE_CONFIG,
             default => $point instanceof PointId ? $this->ignoreReason($point) : null,
         };
     }
@@ -120,7 +141,7 @@ final readonly class Action
                 covered: $definitions !== [],
                 invalid: $this->conflictReason($message),
                 ignored: $this->ignoreReason($message),
-                unsupported: $handler->async ? null : 'sync handling is not measured',
+                unsupported: $handler->async ? null : self::SYNC_HANDLER,
             );
             $points[] = PointCoverage::judged($handler->handlerClass . '::' . $handler->method, CoverageKind::MessengerHandler, $verdict, $this->names($definitions), $handler->async);
         }
@@ -172,7 +193,7 @@ final readonly class Action
     {
         $names = $this->catalog->conflictedNamesFor($point);
 
-        return $names === [] ? null : \sprintf('SLO %s is declared differently on several points', implode(', ', $names));
+        return $names === [] ? null : \sprintf(self::CONFLICT, implode(', ', $names));
     }
 
     /**
@@ -190,7 +211,7 @@ final readonly class Action
      */
     private function names(array $definitions): array
     {
-        $names = array_map(static fn (SloDefinition $d): string => $d->name()->value, $definitions);
+        $names = array_map(static fn (SloDefinition $definition): string => $definition->name()->value, $definitions);
         sort($names, SORT_STRING);
 
         return array_values(array_unique($names));

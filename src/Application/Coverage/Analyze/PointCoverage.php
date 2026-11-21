@@ -26,6 +26,14 @@ final readonly class PointCoverage
     }
 
     /**
+     * Report order: by kind, then by point.
+     */
+    public static function compare(self $left, self $right): int
+    {
+        return [$left->kind->position(), $left->point] <=> [$right->kind->position(), $right->point];
+    }
+
+    /**
      * @param non-empty-string $point
      * @param list<non-empty-string> $slos
      */
