@@ -102,9 +102,11 @@ final class HttpSloKernelTest extends KernelTestCase
         self::ensureKernelShutdown();
         $kernel = self::bootKernel(['debug' => false]);
         $file = $kernel->getCacheDir() . '/' . RouteIndexFile::PATH;
-        if (is_file($file)) {
-            unlink($file);
-        }
+        $warmedFile = self::getContainer()->get(RouteIndexFile::class);
+        self::assertInstanceOf(RouteIndexFile::class, $warmedFile);
+        $warmed = $warmedFile->load();
+        self::assertNotNull($warmed, 'the fresh container was warmed');
+        unlink($file);
 
         self::ensureKernelShutdown();
         self::bootKernel(['debug' => false]);
@@ -120,6 +122,8 @@ final class HttpSloKernelTest extends KernelTestCase
         $stored = $index->load();
         self::assertNotNull($stored);
         self::assertNotSame([], $stored->revisions());
+        self::assertNotSame([], $stored->pointsFor('checkout_page'));
+        self::assertEquals($warmed, $stored, 'the request path stores what the warmer would');
     }
 
     #[Override]
