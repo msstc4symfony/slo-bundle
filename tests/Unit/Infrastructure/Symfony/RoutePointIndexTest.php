@@ -73,6 +73,29 @@ final class RoutePointIndexTest extends TestCase
         self::assertInstanceOf(RuntimeException::class, $logger->contexts[0]['exception']);
     }
 
+    public function testNumericRouteNameIsIndexed(): void
+    {
+        $index = new RoutePointIndex(new InMemoryRouteCatalog([new RouteInfo('404', '/pay', [], 'App\Pay::create')]), $this->catalog(), $this->noFile(), new RecordingLogger());
+
+        self::assertSame(['http_route:App\Pay::create'], $this->strings($index->pointsFor('404')));
+    }
+
+    public function testResetRetriesAFailedBuildButKeepsASuccessfulOne(): void
+    {
+        $routes = $this->createMock(RouteCatalogInterface::class);
+        $routes->expects(self::exactly(2))->method('all')->willReturnOnConsecutiveCalls(
+            self::throwException(new RuntimeException('router broken')),
+            [new RouteInfo('pay_create', '/pay', [], 'App\Pay::create')],
+        );
+        $index = new RoutePointIndex($routes, $this->catalog(), $this->noFile(), new RecordingLogger());
+
+        self::assertSame([], $index->pointsFor('pay_create'));
+        $index->reset();
+        self::assertCount(1, $index->pointsFor('pay_create'));
+        $index->reset();
+        self::assertCount(1, $index->pointsFor('pay_create'));
+    }
+
     public function testWarmedIndexIsUsedWithoutReadingRoutes(): void
     {
         $dir = sys_get_temp_dir() . '/msstc4symfony-slo-point-index-' . getmypid();

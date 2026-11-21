@@ -10,19 +10,22 @@ use Msstc4Symfony\SloBundle\Domain\Repository\SloCatalogInterface;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Override;
 use Psr\Log\LoggerInterface;
+use Symfony\Contracts\Service\ResetInterface;
 use Throwable;
 
 /**
  * Read from the warmed RouteIndexFile, else built from the routes on first use; memoised for the process, routes are
  * fixed per container (ruling 7). A failed build is memoised as an empty index: logged once, HTTP SLOs then record
- * nothing until the process restarts.
+ * nothing until the next kernel.reset retries it; a successful build survives resets.
  *
  * @internal
  */
-final class RoutePointIndex implements RoutePointIndexInterface
+final class RoutePointIndex implements RoutePointIndexInterface, ResetInterface
 {
-    /** @var array<non-empty-string, list<PointId>>|null */
+    /** @var array<array-key, list<PointId>>|null */
     private ?array $index = null;
+
+    private bool $failed = false;
 
     public function __construct(
         private readonly RouteCatalogInterface $routes,
@@ -40,15 +43,25 @@ final class RoutePointIndex implements RoutePointIndexInterface
         return $this->index[$route] ?? [];
     }
 
+    #[Override]
+    public function reset(): void
+    {
+        if ($this->failed) {
+            $this->failed = false;
+            $this->index = null;
+        }
+    }
+
     /**
-     * @return array<non-empty-string, list<PointId>>
+     * @return array<array-key, list<PointId>>
      */
     private function build(): array
     {
         try {
-            return $this->file->load()?->points() ?? RouteIndexData::pointsOf($this->routes->all(), $this->catalog);
+            return $this->file->points() ?? RouteIndexData::pointsOf($this->routes->all(), $this->catalog);
         } catch (Throwable $e) {
-            $this->logger->warning('SLO route index could not be built, HTTP SLO events are not recorded.', ['exception' => $e]);
+            $this->failed = true;
+            $this->logger->warning('SLO route index could not be built, HTTP SLO events are not recorded until reset.', ['exception' => $e]);
 
             return [];
         }

@@ -86,7 +86,10 @@ return static function (ContainerConfigurator $container): void {
     ;
 
     // Observers are tagged by metrics-bundle autoconfiguration.
-    $services->set(RoutePointIndex::class)->arg('$logger', service(FailSafeLogger::class));
+    $services->set(RoutePointIndex::class)
+        ->arg('$logger', service(FailSafeLogger::class))
+        ->tag('kernel.reset', ['method' => 'reset'])
+    ;
     $services->alias(RoutePointIndexInterface::class, RoutePointIndex::class);
     $services->set(HttpSloObserver::class)->arg('$logger', service(FailSafeLogger::class));
     $services->set(DeliveryStatusMapper::class)

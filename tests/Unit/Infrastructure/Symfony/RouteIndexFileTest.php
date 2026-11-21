@@ -51,6 +51,25 @@ final class RouteIndexFileTest extends TestCase
         self::assertStringStartsWith("<?php\n\nreturn ", (string) file_get_contents($this->dir . '/' . RouteIndexFile::PATH));
     }
 
+    public function testNumericRouteNamesSurviveBuildingWritingAndLoading(): void
+    {
+        $point = PointId::of(PointType::HttpRoute, 'App\Error::show');
+        $routes = [new RouteInfo('404', '/404', ['GET'], 'App\Error::show'), new RouteInfo('500', '/500', [], 'App\Error::show'), new RouteInfo('home', '/', [], null)];
+        $built = RouteIndexData::fromRoutes($routes, ['404' => [$point]]);
+
+        self::assertSame(['404', '500', 'home'], array_map(static fn (RouteInfo $r): string => $r->name, $built->all()));
+        self::assertSame(['404', '500'], array_map(static fn (RouteInfo $r): string => $r->name, $built->routesFor('App\Error::show')));
+
+        RouteIndexFile::write($this->dir, $built);
+        $file = new RouteIndexFile($this->dir, false);
+        $loaded = $file->load();
+
+        self::assertInstanceOf(RouteIndexData::class, $loaded);
+        self::assertSame(['404', '500', 'home'], array_map(static fn (RouteInfo $r): string => $r->name, $loaded->all()));
+        self::assertEquals([$point], $loaded->pointsFor('404'));
+        self::assertEquals(['404' => [$point]], $file->points());
+    }
+
     public function testRewritingReplacesTheIndex(): void
     {
         RouteIndexFile::write($this->dir, $this->data());
@@ -78,21 +97,28 @@ final class RouteIndexFileTest extends TestCase
     {
         yield 'not an array' => ['<?php return 42;'];
         yield 'other version' => ["<?php return ['version' => 0, 'routes' => [], 'controllers' => [], 'points' => []];"];
-        yield 'route without path' => ["<?php return ['version' => 1, 'routes' => ['a' => ['methods' => [], 'controller' => null]], 'controllers' => [], 'points' => []];"];
-        yield 'bad method list' => ["<?php return ['version' => 1, 'routes' => ['a' => ['path' => '/a', 'methods' => [1], 'controller' => null]], 'controllers' => [], 'points' => []];"];
-        yield 'bad controller' => ["<?php return ['version' => 1, 'routes' => ['a' => ['path' => '/a', 'methods' => [], 'controller' => '']], 'controllers' => [], 'points' => []];"];
-        yield 'empty route name' => ["<?php return ['version' => 1, 'routes' => ['' => ['path' => '/a', 'methods' => [], 'controller' => null]], 'controllers' => [], 'points' => []];"];
-        yield 'controller of an unknown route' => ["<?php return ['version' => 1, 'routes' => [], 'controllers' => ['A::b' => ['a']], 'points' => []];"];
-        yield 'invalid point' => ["<?php return ['version' => 1, 'routes' => [], 'controllers' => [], 'points' => ['a' => ['nope']]];"];
-        yield 'point list not a list' => ["<?php return ['version' => 1, 'routes' => [], 'controllers' => [], 'points' => ['a' => 'http_route:A::b']];"];
-        yield 'routes not an array' => ["<?php return ['version' => 1, 'routes' => 'a', 'controllers' => [], 'points' => []];"];
-        yield 'controllers not an array' => ["<?php return ['version' => 1, 'routes' => [], 'controllers' => 'a', 'points' => []];"];
-        yield 'points not an array' => ["<?php return ['version' => 1, 'routes' => [], 'controllers' => [], 'points' => 'a'];"];
-        yield 'route not an array' => ["<?php return ['version' => 1, 'routes' => ['a' => '/a'], 'controllers' => [], 'points' => []];"];
-        yield 'methods not a list' => ["<?php return ['version' => 1, 'routes' => ['a' => ['path' => '/a', 'methods' => ['x' => 'GET'], 'controller' => null]], 'controllers' => [], 'points' => []];"];
-        yield 'empty controller key' => ["<?php return ['version' => 1, 'routes' => ['a' => ['path' => '/a', 'methods' => [], 'controller' => null]], 'controllers' => ['' => ['a']], 'points' => []];"];
-        yield 'empty route list' => ["<?php return ['version' => 1, 'routes' => [], 'controllers' => [], 'points' => ['a' => []]];"];
-        yield 'empty route name in a list' => ["<?php return ['version' => 1, 'routes' => ['a' => ['path' => '/a', 'methods' => [], 'controller' => 'A::b']], 'controllers' => ['A::b' => ['a', '']], 'points' => []];"];
+        yield 'route without path' => ["<?php return ['version' => 2, 'revisions' => [], 'routes' => ['a' => ['methods' => [], 'controller' => null]], 'controllers' => [], 'points' => []];"];
+        yield 'bad method list' => ["<?php return ['version' => 2, 'revisions' => [], 'routes' => ['a' => ['path' => '/a', 'methods' => [1], 'controller' => null]], 'controllers' => [], 'points' => []];"];
+        yield 'bad controller' => ["<?php return ['version' => 2, 'revisions' => [], 'routes' => ['a' => ['path' => '/a', 'methods' => [], 'controller' => '']], 'controllers' => [], 'points' => []];"];
+        yield 'empty route name' => ["<?php return ['version' => 2, 'revisions' => [], 'routes' => ['' => ['path' => '/a', 'methods' => [], 'controller' => null]], 'controllers' => [], 'points' => []];"];
+        yield 'controller of an unknown route' => ["<?php return ['version' => 2, 'revisions' => [], 'routes' => [], 'controllers' => ['A::b' => ['a']], 'points' => []];"];
+        yield 'invalid point' => ["<?php return ['version' => 2, 'revisions' => [], 'routes' => [], 'controllers' => [], 'points' => ['a' => ['nope']]];"];
+        yield 'point list not a list' => ["<?php return ['version' => 2, 'revisions' => [], 'routes' => [], 'controllers' => [], 'points' => ['a' => 'http_route:A::b']];"];
+        yield 'routes not an array' => ["<?php return ['version' => 2, 'revisions' => [], 'routes' => 'a', 'controllers' => [], 'points' => []];"];
+        yield 'controllers not an array' => ["<?php return ['version' => 2, 'revisions' => [], 'routes' => [], 'controllers' => 'a', 'points' => []];"];
+        yield 'points not an array' => ["<?php return ['version' => 2, 'revisions' => [], 'routes' => [], 'controllers' => [], 'points' => 'a'];"];
+        yield 'route not an array' => ["<?php return ['version' => 2, 'revisions' => [], 'routes' => ['a' => '/a'], 'controllers' => [], 'points' => []];"];
+        yield 'methods not a list' => ["<?php return ['version' => 2, 'revisions' => [], 'routes' => ['a' => ['path' => '/a', 'methods' => ['x' => 'GET'], 'controller' => null]], 'controllers' => [], 'points' => []];"];
+        yield 'empty controller key' => ["<?php return ['version' => 2, 'revisions' => [], 'routes' => ['a' => ['path' => '/a', 'methods' => [], 'controller' => null]], 'controllers' => ['' => ['a']], 'points' => []];"];
+        yield 'empty route list' => ["<?php return ['version' => 2, 'revisions' => [], 'routes' => [], 'controllers' => [], 'points' => ['a' => []]];"];
+        yield 'empty route name in a list' => ["<?php return ['version' => 2, 'revisions' => [], 'routes' => ['a' => ['path' => '/a', 'methods' => [], 'controller' => 'A::b']], 'controllers' => ['A::b' => ['a', '']], 'points' => []];"];
+        yield 'version 1 index' => ["<?php return ['version' => 1, 'routes' => [], 'controllers' => [], 'points' => []];"];
+        yield 'revisions missing' => ["<?php return ['version' => 2, 'routes' => [], 'controllers' => [], 'points' => []];"];
+        yield 'revisions not an array' => ["<?php return ['version' => 2, 'revisions' => 'a', 'routes' => [], 'controllers' => [], 'points' => []];"];
+        yield 'bad revision key' => ["<?php return ['version' => 2, 'revisions' => ['Pay|availability' => ''], 'routes' => [], 'controllers' => [], 'points' => []];"];
+        yield 'bad revision objective' => ["<?php return ['version' => 2, 'revisions' => ['pay|speed' => ''], 'routes' => [], 'controllers' => [], 'points' => []];"];
+        yield 'bad revision value' => ["<?php return ['version' => 2, 'revisions' => ['pay|availability' => 'ABCDEF12'], 'routes' => [], 'controllers' => [], 'points' => []];"];
+        yield 'numeric controller key' => ["<?php return ['version' => 2, 'revisions' => [], 'routes' => ['a' => ['path' => '/a', 'methods' => [], 'controller' => null]], 'controllers' => [7 => ['a']], 'points' => []];"];
         yield 'throws' => ["<?php throw new \\RuntimeException('broken');"];
     }
 
@@ -102,6 +128,16 @@ final class RouteIndexFileTest extends TestCase
         (new Filesystem())->dumpFile($this->dir . '/' . RouteIndexFile::PATH, $contents);
 
         self::assertNull((new RouteIndexFile($this->dir, false))->load());
+    }
+
+    public function testHotPathSectionsAreValidatedIndependentlyOfTheRoutes(): void
+    {
+        (new Filesystem())->dumpFile($this->dir . '/' . RouteIndexFile::PATH, "<?php return ['version' => 2, 'routes' => 'not validated on the hot path', 'controllers' => [], 'points' => ['pay' => ['http_route:A::b']], 'revisions' => ['pay.create|availability' => 'abcdef12', 'pay.create|latency' => '']];");
+        $file = new RouteIndexFile($this->dir, false);
+
+        self::assertEquals(['pay' => [PointId::of(PointType::HttpRoute, 'A::b')]], $file->points());
+        self::assertSame(['pay.create|availability' => 'abcdef12', 'pay.create|latency' => ''], $file->revisions());
+        self::assertNull($file->load());
     }
 
     public function testLoadIsMemoised(): void

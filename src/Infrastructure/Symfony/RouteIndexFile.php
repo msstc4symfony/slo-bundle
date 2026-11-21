@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Infrastructure\Symfony;
 
+use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use RuntimeException;
 use Throwable;
 
@@ -18,9 +19,23 @@ final class RouteIndexFile
 {
     public const PATH = 'msstc4symfony_slo/route_index.php';
 
+    private bool $included = false;
+
+    private mixed $raw = null;
+
     private bool $loaded = false;
 
     private ?RouteIndexData $data = null;
+
+    private bool $pointsLoaded = false;
+
+    /** @var array<array-key, non-empty-list<PointId>>|null */
+    private ?array $points = null;
+
+    private bool $revisionsLoaded = false;
+
+    /** @var array<non-empty-string, string>|null */
+    private ?array $revisions = null;
 
     public function __construct(
         private readonly string $cacheDir,
@@ -29,26 +44,47 @@ final class RouteIndexFile
     }
 
     /**
-     * Never throws: a missing, unreadable or malformed file loads nothing and the callers fall back to the router.
+     * The whole index, validated. Never throws: a missing, unreadable or malformed file loads nothing and the callers
+     * fall back to the router.
      */
     public function load(): ?RouteIndexData
     {
-        if ($this->loaded) {
-            return $this->data;
-        }
-        $this->loaded = true;
-        if ($this->debug) {
-            return null;
-        }
-
-        $file = $this->cacheDir . '/' . self::PATH;
-        try {
-            $this->data = is_file($file) ? RouteIndexData::fromArray($this->include($file)) : null;
-        } catch (Throwable) {
-            $this->data = null;
+        if (!$this->loaded) {
+            $this->loaded = true;
+            $this->data = RouteIndexData::fromArray($this->raw());
         }
 
         return $this->data;
+    }
+
+    /**
+     * Route name => SLO points, validating only that section (hot path). Never throws.
+     *
+     * @return array<array-key, non-empty-list<PointId>>|null
+     */
+    public function points(): ?array
+    {
+        if (!$this->pointsLoaded) {
+            $this->pointsLoaded = true;
+            $this->points = RouteIndexData::pointsFromArray($this->raw());
+        }
+
+        return $this->points;
+    }
+
+    /**
+     * "<slo>|<objective>" => revision of a dedicated objective or '' (hot path). Never throws.
+     *
+     * @return array<non-empty-string, string>|null
+     */
+    public function revisions(): ?array
+    {
+        if (!$this->revisionsLoaded) {
+            $this->revisionsLoaded = true;
+            $this->revisions = RouteIndexData::revisionsFromArray($this->raw());
+        }
+
+        return $this->revisions;
     }
 
     /**
@@ -72,6 +108,26 @@ final class RouteIndexFile
         if (\function_exists('opcache_invalidate')) {
             @opcache_invalidate($file, true);
         }
+    }
+
+    private function raw(): mixed
+    {
+        if ($this->included) {
+            return $this->raw;
+        }
+        $this->included = true;
+        if ($this->debug) {
+            return null;
+        }
+
+        $file = $this->cacheDir . '/' . self::PATH;
+        try {
+            $this->raw = is_file($file) ? $this->include($file) : null;
+        } catch (Throwable) {
+            $this->raw = null;
+        }
+
+        return $this->raw;
     }
 
     private function include(string $file): mixed
