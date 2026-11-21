@@ -4,18 +4,21 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\Validate;
 
+use ArrayObject;
 use Msstc4Symfony\SloBundle\Application\Attribute\Availability;
 use Msstc4Symfony\SloBundle\Application\Attribute\Latency;
 use Msstc4Symfony\SloBundle\Application\Attribute\Slo;
 use Msstc4Symfony\SloBundle\Application\Binding\MetricBindingResolver;
 use Msstc4Symfony\SloBundle\Application\Catalog\Validate\Action;
 use Msstc4Symfony\SloBundle\Application\Discovery\CatalogExtras;
+use Msstc4Symfony\SloBundle\Application\Discovery\HandlerInfo;
 use Msstc4Symfony\SloBundle\Application\Port\RouteInfo;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\CatalogFixture;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\InMemoryRouteCatalog;
 use PHPUnit\Framework\TestCase;
+use stdClass;
 
 final class ActionTest extends TestCase
 {
@@ -117,6 +120,28 @@ final class ActionTest extends TestCase
 
         self::assertTrue($output->isValid());
         self::assertSame(['SLO report.export availability: page burn-rate alert 1h/5m omitted, factor 14.4 x error budget 0.1 >= 1'], $output->warnings);
+    }
+
+    public function testSloOnASyncOnlyHandlerIsAWarning(): void
+    {
+        $sync = 'App\Message\Sync';
+        $async = 'App\Message\Async';
+        $catalog = CatalogFixture::build(
+            static function ($assembler) use ($sync, $async): void {
+                $assembler->declare(PointId::of(PointType::MessengerMessage, $sync), new Slo('sync.handle', [new Availability(99)]));
+                $assembler->declare(PointId::of(PointType::MessengerMessage, $async), new Slo('async.handle', [new Availability(99)]));
+            },
+            new CatalogExtras(handlers: [
+                new HandlerInfo(stdClass::class, $sync, false, null),
+                new HandlerInfo(stdClass::class, $async, true, null),
+                new HandlerInfo(ArrayObject::class, $async, false, null),
+            ]),
+        );
+
+        $output = (new Action($catalog, $catalog, new InMemoryRouteCatalog(), new MetricBindingResolver(new InMemoryRouteCatalog(), $catalog)))();
+
+        self::assertTrue($output->isValid());
+        self::assertSame(['SLO sync.handle: messenger_message:App\Message\Sync is handled synchronously only (not routed to a transport); sync handling is not measured, the SLO never records events'], $output->warnings);
     }
 
     public function testAlertsWithoutRecordingRulesAreAWarning(): void

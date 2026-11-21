@@ -74,6 +74,8 @@ final readonly class Action
             }
         }
 
+        array_push($warnings, ...$this->syncOnlyWarnings());
+
         $ignored = $this->diagnostics->extras()->httpIgnoredRoutes;
         foreach ($this->catalog->all() as $definition) {
             if ($definition->pointType() !== PointType::HttpRoute) {
@@ -98,6 +100,32 @@ final readonly class Action
             $this->sorted($warnings),
             $this->sorted($notices),
         );
+    }
+
+    /**
+     * metrics-bundle measures worker deliveries only, so an SLO on a message that is never routed to a transport is dead.
+     *
+     * @return list<non-empty-string>
+     */
+    private function syncOnlyWarnings(): array
+    {
+        $async = [];
+        foreach ($this->diagnostics->extras()->handlers as $handler) {
+            $async[$handler->messageClass] = ($async[$handler->messageClass] ?? false) || $handler->async;
+        }
+        $warnings = [];
+        foreach ($this->catalog->all() as $definition) {
+            if ($definition->pointType() !== PointType::MessengerMessage) {
+                continue;
+            }
+            foreach ($definition->points() as $point) {
+                if (($async[$point->id] ?? true) === false) {
+                    $warnings[] = \sprintf('SLO %s: %s is handled synchronously only (not routed to a transport); sync handling is not measured, the SLO never records events', $definition->name()->value, $point->toString());
+                }
+            }
+        }
+
+        return $warnings;
     }
 
     /**
