@@ -94,6 +94,7 @@
   warning); one service tagged twice for the same point with different `metric_label` values is a compilation error.
 - `slo:coverage` sorts points by name as strings (numeric route names no longer make the order depend on the input) and
   prints the exact fraction of a kind below its required percent (`BELOW (2 of 3 eligible points have an SLO)`).
+- `slo:generate` validates the resolved `generation.selector.application` and `components` (e.g. from an env placeholder) with the same label-value pattern as the configuration tree and fails with a clear message.
 - An empty `generation.selector.application` (an env placeholder resolved to nothing) is reported by `slo:generate` as
   not configured instead of failing the service construction.
 - Deterministic JSON and YAML output rejects a map keyed exactly `0..n-1` out of order at any size.

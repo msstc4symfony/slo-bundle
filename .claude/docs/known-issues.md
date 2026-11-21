@@ -249,8 +249,8 @@
   (`CatalogDump::definition()`: инварианты `Classification`/`StatusSet`, перебор кодов в `intersects()`). С батча E `intersects()` —
   пересечение интервалов: ~70 мкс против ~115 мкс старого кода в том же прогоне (машина шумит, сравнивать только в одном прогоне).
   Запрос пишет одно событие: HTTP availability по умолчанию — Strategy A (ряд metrics-bundle), dedicated только latency.
-- **Runtime-индекс сохраняется** (`RouteIndexFile::persist()`): вне debug, один раз за процесс, только если текущего индекса нет
-  (прогретый файл не перезаписывается); read-only кеш с батча E проверяется до сборки (см. батч E). Kernel-тест: удалить файл после первой загрузки, контейнер из кеша не перезапускает warmer.
+- **Runtime-индекс сохраняется** (`RouteIndexFile::persist()`): вне debug, один раз за процесс, только если нет корректного индекса своего каталога
+  (корректный прогретый файл не перезаписывается; битый и с чужим отпечатком заменяются; чужой отпечаток логируется отдельной формулировкой, не «не прогрет»); read-only кеш с батча E проверяется до сборки (см. батч E). Kernel-тест: удалить файл после первой загрузки, контейнер из кеша не перезапускает warmer.
 - **`SortedKeys` отвергает map, который после `ksort` стал бы списком** (ключи ровно 0..n-1 не по порядку): JSON поменял бы объект на
   массив. Смешанные числовые ключи (`'10'`, `'9'`) допустимы.
 - **`%` в ключах дампа** отвергается централизованно в `CollectSloDefinitionsPass::escape()` (LogicException); `TaggedPointReader` по-прежнему
@@ -275,7 +275,8 @@
   компиляции: имена действий logic-bundle могут совпадать (короткие имена классов).
 - **Порядок coverage** — `strcmp` по точке внутри вида: `<=>` массивов сравнивал числовые имена маршрутов как числа и был нетранзитивен
   (R3-008). Строка вида ниже порога печатает точную дробь `BELOW (m of e eligible points have an SLO)`; JSON и дашборд не менялись (R3-009).
-- **`GenerationConfig`**: `application = ''` (env-плейсхолдер) = не настроено → `InvalidGenerationSettings::missingApplication()` (R3-017).
+- **`GenerationConfig`**: `application = ''` (env-плейсхолдер) = не настроено → `InvalidGenerationSettings::missingApplication()` (R3-017). Резолвленные `application`/`components` проверяются в `GenerationConfig::selector()` тем же `LABEL_VALUE` (константа живёт в `GenerationConfig`, дерево конфигурации её переиспользует): env-значение вне шаблона даёт `InvalidGenerationSettings` → `slo:generate` завершается с понятным сообщением, а не трейсом (R4-001).
+- **Discovery-ридеры** (`HandlerReader`, `TaggedPointReader`) возвращают `Discovery\ReadResult<T>` (`items` + `warnings`); повторный идентичный тег с невалидным `metric_label` даёт ошибку компиляции один раз (R4-004/005).
 - **`SortedKeys`** отвергает map с ключами ровно 0..n-1 не по порядку при любом размере (раньше только n ≤ 10, R3-021); разреженные
   int-ключи остаются map.
 - **Связка series catalog** — `CollectSloDefinitionsPass` строит индекс меток `new MetricsBundleSeriesCatalog()`; что runtime-алиас тот же,

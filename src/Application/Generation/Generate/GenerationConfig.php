@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Msstc4Symfony\SloBundle\Application\Generation\Generate;
 
 use InvalidArgumentException;
+use Msstc4Symfony\SloBundle\Application\Generation\Generate\Exception\InvalidGenerationSettings;
+use Msstc4Symfony\SloBundle\Application\Generation\Selector;
 
 /**
  * The msstc4symfony_slo.generation settings slo:generate works with; the Grafana options belong to the Grafana adapter.
@@ -13,6 +15,8 @@ use InvalidArgumentException;
  */
 final readonly class GenerationConfig
 {
+    public const LABEL_VALUE = '/^[A-Za-z0-9_.:-]{1,128}$/D';
+
     /** @var non-empty-string|null value of the `application` label, null until configured (slo:generate then refuses to run) */
     public ?string $application;
 
@@ -48,5 +52,27 @@ final readonly class GenerationConfig
         if ($noEventsAlertHours !== null && $noEventsAlertHours < 1) {
             throw new InvalidArgumentException(\sprintf('generation.prometheus.no_events_alert_hours must be at least 1, got %d.', $noEventsAlertHours));
         }
+    }
+
+    /**
+     * Env placeholders pass the configuration tree unresolved, so the resolved values are checked here.
+     *
+     * @throws InvalidGenerationSettings
+     */
+    public function selector(): Selector
+    {
+        if ($this->application === null) {
+            throw InvalidGenerationSettings::missingApplication();
+        }
+        if (preg_match(self::LABEL_VALUE, $this->application) !== 1) {
+            throw InvalidGenerationSettings::invalidLabelValue('application', $this->application);
+        }
+        foreach ($this->components as $component) {
+            if (preg_match(self::LABEL_VALUE, $component) !== 1) {
+                throw InvalidGenerationSettings::invalidLabelValue('component', $component);
+            }
+        }
+
+        return new Selector($this->application, $this->components);
     }
 }

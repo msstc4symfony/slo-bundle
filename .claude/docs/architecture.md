@@ -106,7 +106,7 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
   старого процесса, который при in-place `cache:clear --no-warmup` сохранил бы старые точки/ревизии в новый кеш.
 - Ключ ревизий — `Application/Binding/ObjectiveKey::of(SloName, ObjectiveKind)->value` (`"<slo>|<kind>"`), общий для warmer,
   `WarmedRevisions`, `RouteIndexStoreInterface::revisionOf()` и мемо `RecordEvent\Action` (R2-034-F).
-  Битый/чужой версии/отсутствующий файл → `null` → ленивый fallback (`RouterRouteReader`, `RouteIndexData::pointsOf`).
+  Битый/чужой версии/чужой отпечаток каталога/отсутствующий файл → `null` → ленивый fallback (`RouterRouteReader`, `RouteIndexData::pointsOf`).
 - `CatalogExtras::hasHttpPoints` (ставит `CatalogAssembler`, в дампе `has_http_points`): `HttpSloObserver` выходит сразу,
   если нет ни одного http_route SLO/конфликта, — приложение без HTTP SLO не трогает роутер на пути запроса.
 - Опциональные warmer'ы запускаются только `cache:warmup` и `cache:clear` (без `--no-optional-warmers`), не при boot ядра; поэтому

@@ -154,10 +154,14 @@ final class RouteIndexFile implements RouteIndexStoreInterface
             $raw = null;
         }
 
-        if (!RouteIndexParser::isCurrentVersion($raw) || ($raw[self::FINGERPRINT] ?? null) !== $this->fingerprint) {
+        $current = RouteIndexParser::isCurrentVersion($raw);
+        if (!$current || ($raw[self::FINGERPRINT] ?? null) !== $this->fingerprint) {
+            $reason = $current
+                ? 'SLO route index was stored for a different SLO catalog (another container), it is ignored'
+                : 'SLO route index is not warmed';
             $this->logger->warning($this->isWritable()
-                ? 'SLO route index is not warmed, HTTP SLOs read the routes from the router in this process and try to store the index for the next ones (degraded mode); run cache:warmup.'
-                : 'SLO route index is not warmed and the cache directory is not writable, HTTP SLOs read the routes from the router in every process (degraded mode); run cache:warmup.', ['file' => $file]);
+                ? $reason . ', HTTP SLOs read the routes from the router in this process and try to store the index for the next ones (degraded mode); run cache:warmup.'
+                : $reason . ' and the cache directory is not writable, HTTP SLOs read the routes from the router in every process (degraded mode); run cache:warmup.', ['file' => $file]);
 
             return null;
         }

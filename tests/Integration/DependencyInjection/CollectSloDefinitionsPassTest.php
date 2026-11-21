@@ -520,6 +520,21 @@ final class CollectSloDefinitionsPassTest extends TestCase
         $this->container($controllers, $configure, $config);
     }
 
+    public function testRepeatedIdenticalInvalidMetricLabelIsReportedOnce(): void
+    {
+        try {
+            $this->container([], static function (ContainerBuilder $container): void {
+                $container->register(RefundAction::class, RefundAction::class)
+                    ->addTag(PointTag::TAG, [PointTag::TYPE => 'logic_action', PointTag::ID => 'refund', PointTag::METRIC_LABEL => 'Refund{{x}}'])
+                    ->addTag(PointTag::TAG, [PointTag::TYPE => 'logic_action', PointTag::ID => 'refund', PointTag::METRIC_LABEL => 'Refund{{x}}'])
+                ;
+            });
+            self::fail('Compilation must fail.');
+        } catch (InvalidConfigurationException $e) {
+            self::assertSame(1, substr_count($e->getMessage(), 'attribute "metric_label" must be valid UTF-8'), $e->getMessage());
+        }
+    }
+
     public function testAllErrorsAreReportedTogetherAndSorted(): void
     {
         try {

@@ -24,13 +24,14 @@ final readonly class TaggedPointReader
     }
 
     /**
-     * @return array{list<TaggedPoint>, list<non-empty-string>} points sorted by point, warnings
+     * @return ReadResult<TaggedPoint> points sorted by point
      */
-    public function read(ContainerBuilder $container): array
+    public function read(ContainerBuilder $container): ReadResult
     {
         $points = [];
         $owners = [];
         $declared = [];
+        $rawLabels = [];
         foreach ($container->findTaggedServiceIds(PointTag::TAG) as $id => $tags) {
             $class = ServiceClass::reflect($container, $id);
             if (!$class instanceof ReflectionClass) {
@@ -46,11 +47,12 @@ final readonly class TaggedPointReader
                 }
                 $key = $point->toString();
                 if (isset($owners[$key])) {
-                    $this->checkRepeatedTag($key, $owners[$key], $id, $points[$key]->metricLabel, $tag);
+                    $this->checkRepeatedTag($key, $owners[$key], $id, $points[$key]->metricLabel, $rawLabels[$key], $tag);
 
                     continue;
                 }
                 $owners[$key] = $id;
+                $rawLabels[$key] = $tag[PointTag::METRIC_LABEL] ?? null;
                 $points[$key] = new TaggedPoint($point, $this->metricLabel($id, $tag));
                 $declared[$key] = $this->attributes->apply($point, $class);
             }
@@ -63,11 +65,14 @@ final readonly class TaggedPointReader
     /**
      * @param array<array-key, mixed> $tag
      */
-    private function checkRepeatedTag(string $key, string $owner, string $id, ?string $label, array $tag): void
+    private function checkRepeatedTag(string $key, string $owner, string $id, ?string $label, mixed $rawLabel, array $tag): void
     {
         if ($owner !== $id) {
             $this->errors->add(\sprintf('%s: tagged on services "%s" and "%s"; a tagged point id must be unique.', $key, $owner, $id));
 
+            return;
+        }
+        if (($tag[PointTag::METRIC_LABEL] ?? null) === $rawLabel) {
             return;
         }
         $other = $this->metricLabel($id, $tag);
@@ -83,9 +88,9 @@ final readonly class TaggedPointReader
      * @param array<string, TaggedPoint> $points
      * @param array<string, bool> $declared point => declares #[Slo]
      *
-     * @return array{list<TaggedPoint>, list<non-empty-string>}
+     * @return ReadResult<TaggedPoint>
      */
-    private function withoutSharedMetricLabels(array $points, array $declared): array
+    private function withoutSharedMetricLabels(array $points, array $declared): ReadResult
     {
         $byLabel = [];
         foreach ($points as $key => $tagged) {
@@ -108,7 +113,7 @@ final readonly class TaggedPointReader
             }
         }
 
-        return [array_values($points), $warnings];
+        return new ReadResult(array_values($points), $warnings);
     }
 
     /**

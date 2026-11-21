@@ -202,6 +202,18 @@ final class RouteIndexFileTest extends TestCase
         self::assertSame(['file' => $this->dir . '/' . RouteIndexFile::PATH], $logger->contexts[0]);
     }
 
+    public function testAnIndexOfAnotherCatalogIsLoggedAsForeignNotAsNotWarmed(): void
+    {
+        (new RouteIndexFile($this->dir, false, 'catalog-old'))->write($this->dir, RouteIndexData::fromRoutes([new RouteInfo('old', '/old', [], 'App\\Old::run')], []));
+        $logger = new RecordingLogger();
+
+        (new RouteIndexFile($this->dir, false, self::FINGERPRINT, $logger))->pointsFor('old');
+
+        self::assertCount(1, $logger->records);
+        self::assertStringStartsWith('SLO route index was stored for a different SLO catalog', $logger->records[0][1]);
+        self::assertStringNotContainsString('not warmed', $logger->records[0][1]);
+    }
+
     public function testAnIndexBuiltOnTheRequestPathIsStoredOnceSoTheNextProcessIsNotDegraded(): void
     {
         $logger = new RecordingLogger();

@@ -30,9 +30,9 @@ final readonly class HandlerReader
     }
 
     /**
-     * @return array{list<HandlerInfo>, list<non-empty-string>} handlers sorted by handler and message, warnings
+     * @return ReadResult<HandlerInfo> handlers sorted by handler and message
      */
-    public function read(ContainerBuilder $container, MessengerRouting $routing): array
+    public function read(ContainerBuilder $container, MessengerRouting $routing): ReadResult
     {
         $handlers = [];
         /** @var array<non-empty-string, array<non-empty-string, bool>> $byMessage message => handler "Class::method" => declares #[Slo] */
@@ -71,7 +71,7 @@ final readonly class HandlerReader
         usort($handlers, static fn (HandlerInfo $a, HandlerInfo $b): int => [$a->handlerClass, $a->messageClass] <=> [$b->handlerClass, $b->messageClass]);
         ksort($byMessage, SORT_STRING);
 
-        return [$handlers, $this->check($byMessage)];
+        return new ReadResult($handlers, $this->check($byMessage));
     }
 
     /**

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle;
 
+use Msstc4Symfony\SloBundle\Application\Generation\Generate\GenerationConfig;
 use Msstc4Symfony\SloBundle\Application\Port\ExpectedFailureClassifierInterface;
 use Msstc4Symfony\SloBundle\DependencyInjection\CompilerPass\CollectSloDefinitionsPass;
 use Msstc4Symfony\SloBundle\DependencyInjection\CompilerPass\RegisterSloMetricPass;
@@ -49,8 +50,6 @@ use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
  */
 final class SloBundle extends AbstractBundle
 {
-    private const LABEL_VALUE = '/^[A-Za-z0-9_.:-]{1,128}$/D';
-
     private const PARAMETER_PREFIX = 'msstc4symfony_slo.';
 
     private const OPERATIONS = 'operations';
@@ -244,7 +243,7 @@ final class SloBundle extends AbstractBundle
                             ->defaultNull()
                             ->validate()
                                 ->ifTrue(static fn (mixed $v): bool => $v !== null && !self::isLabelValue($v))
-                                ->thenInvalid('application must match ' . self::LABEL_VALUE . ': it becomes a label value in the generated PromQL.')
+                                ->thenInvalid('application must match ' . GenerationConfig::LABEL_VALUE . ': it becomes a label value in the generated PromQL.')
                             ->end()
                         ->end()
                         ->append(
@@ -252,7 +251,7 @@ final class SloBundle extends AbstractBundle
                                 ->scalarPrototype()
                                     ->validate()
                                         ->ifTrue(static fn (mixed $v): bool => !self::isLabelValue($v))
-                                        ->thenInvalid('every component must match ' . self::LABEL_VALUE . ': it becomes a label value in the generated PromQL.')
+                                        ->thenInvalid('every component must match ' . GenerationConfig::LABEL_VALUE . ': it becomes a label value in the generated PromQL.')
                                     ->end()
                                 ->end()
                                 ->defaultValue([]),
@@ -320,6 +319,6 @@ final class SloBundle extends AbstractBundle
 
     private static function isLabelValue(mixed $value): bool
     {
-        return \is_string($value) && preg_match(self::LABEL_VALUE, $value) === 1;
+        return \is_string($value) && preg_match(GenerationConfig::LABEL_VALUE, $value) === 1;
     }
 }

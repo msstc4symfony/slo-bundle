@@ -100,6 +100,28 @@ final class ActionTest extends TestCase
         self::assertSame([], $writer->files);
     }
 
+    /**
+     * @param list<string> $components
+     */
+    #[TestWith(['my app', ['web'], 'application'])]
+    #[TestWith(['a"b', ['web'], 'application'])]
+    #[TestWith(['{{x}}', ['web'], 'application'])]
+    #[TestWith(['shop', ['web', 'a b'], 'component'])]
+    #[TestWith(['shop', ['${x}'], 'component'])]
+    public function testResolvedLabelValueOutsideThePatternIsRejectedBeforeAnythingIsWritten(string $application, array $components, string $what): void
+    {
+        $writer = new InMemoryFileWriter();
+        $action = $this->action($writer, $application, components: $components);
+
+        try {
+            $action(new Input());
+            self::fail('Expected InvalidGenerationSettings.');
+        } catch (InvalidGenerationSettings $e) {
+            self::assertStringContainsString($what, $e->getMessage());
+        }
+        self::assertSame([], $writer->files);
+    }
+
     #[TestWith(['/'])]
     #[TestWith(['//'])]
     #[TestWith([''])]
@@ -113,8 +135,9 @@ final class ActionTest extends TestCase
 
     /**
      * @param positive-int|null $noEventsAlertHours
+     * @param list<string> $components
      */
-    private function action(InMemoryFileWriter $writer, ?string $application = 'shop', bool $sloth = false, float $availabilityTarget = 99.9, bool $rules = true, bool $alerts = true, ?int $noEventsAlertHours = null): Action
+    private function action(InMemoryFileWriter $writer, ?string $application = 'shop', bool $sloth = false, float $availabilityTarget = 99.9, bool $rules = true, bool $alerts = true, ?int $noEventsAlertHours = null, array $components = ['web']): Action
     {
         $catalog = GenerationFixture::catalog(checkoutAvailabilityTarget: $availabilityTarget);
 
@@ -123,7 +146,7 @@ final class ActionTest extends TestCase
             GenerationFixture::dashboardsAction($catalog),
             GenerationFixture::slothAction($catalog),
             new SyncAction($writer),
-            new GenerationConfig($application, ['web'], '/project/observability', $rules, $alerts, $noEventsAlertHours, $sloth),
+            new GenerationConfig($application, $components, '/project/observability', $rules, $alerts, $noEventsAlertHours, $sloth),
         );
     }
 }

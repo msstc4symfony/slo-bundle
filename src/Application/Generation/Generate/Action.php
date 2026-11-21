@@ -11,7 +11,6 @@ use Msstc4Symfony\SloBundle\Application\Generation\GenerateRules\Action as Gener
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateRules\Input as RulesInput;
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateSloth\Action as GenerateSloth;
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateSloth\Input as SlothInput;
-use Msstc4Symfony\SloBundle\Application\Generation\Selector;
 use Msstc4Symfony\SloBundle\Application\Generation\SyncFiles\Action as SyncFiles;
 use Msstc4Symfony\SloBundle\Application\Generation\SyncFiles\Input as SyncInput;
 
@@ -36,16 +35,12 @@ final readonly class Action
      */
     public function __invoke(Input $input): Output
     {
-        $application = $this->config->application;
-        if ($application === null) {
-            throw InvalidGenerationSettings::missingApplication();
-        }
+        $selector = $this->config->selector();
         $root = rtrim($input->outputDir ?? $this->config->outputDir, '/');
         if ($root === '') {
             throw InvalidGenerationSettings::invalidOutputDirectory();
         }
 
-        $selector = new Selector($application, $this->config->components);
         $rules = ($this->rules)(new RulesInput($selector, $this->config->prometheusRules, $this->config->prometheusAlerts, $this->config->noEventsAlertHours));
         $dashboards = ($this->dashboards)(new DashboardsInput($selector));
         $sloth = ($this->sloth)(new SlothInput($selector, $this->config->sloth));
