@@ -8,7 +8,9 @@ use Msstc4Symfony\SloBundle\Application\Attribute\Availability;
 use Msstc4Symfony\SloBundle\Application\Attribute\Slo;
 use Msstc4Symfony\SloBundle\Application\Generation\GeneratedFile;
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateRules\Action;
+use Msstc4Symfony\SloBundle\Application\Generation\GenerateRules\Input;
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateRules\Output;
+use Msstc4Symfony\SloBundle\Application\Generation\Selector;
 use Msstc4Symfony\SloBundle\Domain\Enum\ObjectiveKind;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
 use Msstc4Symfony\SloBundle\Domain\Service\RevisionCalculator;
@@ -57,6 +59,24 @@ final class ActionTest extends TestCase
         self::assertStringContainsString("expr: vector(0.985)\n", $after);
         self::assertStringNotContainsString('vector(0.985)', $before);
         self::assertSame(substr_count($before, 'revision="'), substr_count($after, 'revision="'));
+    }
+
+    public function testTwoApplicationsWithTheSameSloNameNeverShareSeries(): void
+    {
+        $catalog = GenerationFixture::catalog();
+        $billing = GenerationFixture::action($catalog)(new Input(new Selector('billing', [])));
+        $shop = GenerationFixture::action($catalog)(GenerationFixture::input());
+
+        foreach ([$this->recording($billing), $this->alerts($billing)] as $document) {
+            self::assertStringContainsString('application: billing', $document);
+            self::assertStringNotContainsString('shop', $document);
+        }
+        foreach ([$this->recording($shop), $this->alerts($shop)] as $document) {
+            self::assertStringContainsString('application: shop', $document);
+            self::assertStringNotContainsString('billing', $document);
+        }
+        self::assertStringNotContainsString('slo:sli:ratio{slo=', $this->recording($billing));
+        self::assertStringContainsString('1 - (1 - slo:sli:ratio{application="billing",slo="checkout.pay",objective="availability"})', $this->recording($billing));
     }
 
     public function testEveryObjectiveGetsOneGroupPerSloAndTheDocumentedRecords(): void
@@ -137,8 +157,8 @@ final class ActionTest extends TestCase
     {
         $alerts = $this->alerts(GenerationFixture::action(GenerationFixture::catalog())(GenerationFixture::input()));
 
-        self::assertStringContainsString('last_over_time(slo:error_ratio:rate3d{slo="checkout.pay",objective="availability"}[10m]) > 0.001', $alerts);
-        self::assertStringContainsString('last_over_time(slo:window:coverage_ratio{slo="checkout.pay",objective="availability"}[10m]) >= 1', $alerts);
+        self::assertStringContainsString('last_over_time(slo:error_ratio:rate3d{application="shop",slo="checkout.pay",objective="availability"}[10m]) > 0.001', $alerts);
+        self::assertStringContainsString('last_over_time(slo:window:coverage_ratio{application="shop",slo="checkout.pay",objective="availability"}[10m]) >= 1', $alerts);
         self::assertStringNotContainsString('last_over_time(slo:error_ratio:rate6h', $alerts);
     }
 

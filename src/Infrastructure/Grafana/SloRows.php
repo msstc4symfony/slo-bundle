@@ -12,6 +12,8 @@ use Msstc4Symfony\SloBundle\Infrastructure\Prometheus\PromQlBuilder;
  */
 final readonly class SloRows
 {
+    private const APPLICATION = '$application';
+
     private const WARMING_UP_BELOW = 0.999999;
 
     public function __construct(
@@ -40,21 +42,21 @@ final readonly class SloRows
      */
     private function row(BoundObjective $bound): array
     {
-        $target = $bound->objective->target->percent / 100;
+        $target = round($bound->objective->target->percent / 100, 10);
 
         return [
             $this->panels->row(\sprintf('%s / %s', $bound->definition->name()->value, $bound->objective->kind->value)),
-            $this->panels->stat('Target', new Query($this->promQl->recorded('slo:objective:target', $bound)), 'percentunit', width: 4),
-            $this->panels->stat('SLI', new Query($this->promQl->recorded('slo:sli:ratio', $bound)), 'percentunit', [
+            $this->panels->stat('Target', new Query($this->promQl->recorded('slo:objective:target', $bound, self::APPLICATION)), 'percentunit', width: 4),
+            $this->panels->stat('SLI', new Query($this->promQl->recorded('slo:sli:ratio', $bound, self::APPLICATION)), 'percentunit', [
                 ['color' => 'red', 'value' => null],
                 ['color' => 'green', 'value' => $target],
             ], width: 4),
-            $this->panels->gauge('Error budget remaining', new Query($this->promQl->recorded('slo:error_budget:remaining', $bound)), 'percentunit', 0.0, 1.0, [
+            $this->panels->gauge('Error budget remaining', new Query($this->promQl->recorded('slo:error_budget:remaining', $bound, self::APPLICATION)), 'percentunit', 0.0, 1.0, [
                 ['color' => 'red', 'value' => null],
                 ['color' => 'orange', 'value' => 0.1],
                 ['color' => 'green', 'value' => 0.5],
             ], width: 4),
-            $this->panels->stat('Window state', new Query($this->promQl->recorded('slo:window:coverage_ratio', $bound)), 'percentunit', [], [
+            $this->panels->stat('Window state', new Query($this->promQl->recorded('slo:window:coverage_ratio', $bound, self::APPLICATION)), 'percentunit', [], [
                 ['options' => ['from' => 0, 'result' => ['color' => 'orange', 'index' => 0, 'text' => 'warming up'], 'to' => self::WARMING_UP_BELOW], 'type' => 'range'],
                 ['options' => ['from' => 1, 'result' => ['color' => 'green', 'index' => 1, 'text' => 'full window'], 'to' => 1000], 'type' => 'range'],
             ], width: 4),
@@ -72,6 +74,6 @@ final readonly class SloRows
      */
     private function burnRate(BoundObjective $bound, string $window): string
     {
-        return \sprintf('%s / (1 - %s)', $this->promQl->recorded('slo:error_ratio:rate' . $window, $bound), $this->promQl->recorded('slo:objective:target', $bound));
+        return \sprintf('%s / (1 - %s)', $this->promQl->recorded('slo:error_ratio:rate' . $window, $bound, self::APPLICATION), $this->promQl->recorded('slo:objective:target', $bound, self::APPLICATION));
     }
 }

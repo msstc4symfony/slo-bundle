@@ -20,13 +20,14 @@ tests:
           * (slo:window:coverage_ratio{slo="checkout.pay",objective="availability"} <= bool (2/30 + 1/720))
         eval_time: 2d
         exp_samples:
-          - labels: '{objective="availability",slo="checkout.pay",window="30d"}'
+          - labels: '{application="shop",objective="availability",slo="checkout.pay",window="30d"}'
             value: 1
     alert_rule_test:
       - eval_time: 2d
         alertname: SloErrorBudgetBurn
         exp_alerts:
           - exp_labels:
+              application: shop
               objective: availability
               severity: page
               slo: checkout.pay
@@ -45,7 +46,7 @@ tests:
       - expr: slo:window:coverage_ratio{slo="report.export"}
         eval_time: 3d
         exp_samples:
-          - labels: 'slo:window:coverage_ratio{objective="availability",revision="1c380329",slo="report.export",window="3d"}'
+          - labels: 'slo:window:coverage_ratio{application="shop",objective="availability",revision="1c380329",slo="report.export",window="3d"}'
             value: 1
     alert_rule_test:
       - eval_time: 2d23h
@@ -56,6 +57,7 @@ tests:
         alertname: SloErrorBudgetBurn
         exp_alerts:
           - exp_labels:
+              application: shop
               objective: availability
               revision: 1c380329
               severity: ticket

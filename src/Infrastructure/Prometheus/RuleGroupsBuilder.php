@@ -54,7 +54,7 @@ final readonly class RuleGroupsBuilder implements RuleFileBuilderInterface
     public function recordingRules(Selector $selector, array $objectives): string
     {
         return $this->document($objectives, function (BoundObjective $objective) use ($selector): array {
-            $labels = $this->recordingLabels($objective);
+            $labels = $this->recordingLabels($objective, $selector->application);
             $record = $this->record(...);
             $fast = [];
             foreach (self::FAST_RATE_WINDOWS as $window) {
@@ -70,7 +70,7 @@ final readonly class RuleGroupsBuilder implements RuleFileBuilderInterface
             }
             // Rules of a group run in order: the budget reads the ratio recorded just above.
             $slow[] = $record($labels, 'slo:sli:ratio', $this->promQl->sliRatio($selector, $objective));
-            $slow[] = $record($labels, 'slo:error_budget:remaining', $this->promQl->budgetRemaining($objective));
+            $slow[] = $record($labels, 'slo:error_budget:remaining', $this->promQl->budgetRemaining($objective, $selector->application));
             $slow[] = $record($labels, 'slo:window:coverage_ratio', $this->promQl->coverageRatio($selector, $objective));
 
             return [self::FAST => $fast, self::SLOW => $slow];
@@ -85,19 +85,19 @@ final readonly class RuleGroupsBuilder implements RuleFileBuilderInterface
             $windows = $this->burnRates->windows($objective->definition->window(), $target);
             $rules = [];
 
-            $page = array_map(fn (BurnRateWindow $pair): string => $this->burning($objective, $pair), array_values(array_filter($windows, static fn (BurnRateWindow $pair): bool => $pair->severity === 'page')));
+            $page = array_map(fn (BurnRateWindow $pair): string => $this->burning($objective, $pair, $selector->application), array_values(array_filter($windows, static fn (BurnRateWindow $pair): bool => $pair->severity === 'page')));
             if ($page !== []) {
-                $rules[] = $this->alert('SloErrorBudgetBurn', implode(' or ', $page), $objective, 'page', 'burns its error budget fast');
+                $rules[] = $this->alert('SloErrorBudgetBurn', implode(' or ', $page), $objective, $selector->application, 'page', 'burns its error budget fast');
             }
             foreach ($windows as $pair) {
                 if ($pair->severity === 'ticket') {
                     // Fast-burn pages need at most 6h of history; the 3d pair waits for a fully covered window.
-                    $expr = \sprintf('%s and on() (%s >= 1)', $this->burning($objective, $pair), $this->read('slo:window:coverage_ratio', $objective, true));
-                    $rules[] = $this->alert('SloErrorBudgetBurn', $expr, $objective, 'ticket', 'burns its error budget');
+                    $expr = \sprintf('%s and on() (%s >= 1)', $this->burning($objective, $pair, $selector->application), $this->read('slo:window:coverage_ratio', $objective, $selector->application, true));
+                    $rules[] = $this->alert('SloErrorBudgetBurn', $expr, $objective, $selector->application, 'ticket', 'burns its error budget');
                 }
             }
             if ($noEventsAlertHours !== null) {
-                $rules[] = $this->alert('SloNoEvents', $this->promQl->noEvents($selector, $objective, $noEventsAlertHours), $objective, 'ticket', \sprintf('recorded no events in %dh', $noEventsAlertHours));
+                $rules[] = $this->alert('SloNoEvents', $this->promQl->noEvents($selector, $objective, $noEventsAlertHours), $objective, $selector->application, 'ticket', \sprintf('recorded no events in %dh', $noEventsAlertHours));
             }
 
             return [self::FAST => $rules];
@@ -143,20 +143,24 @@ final readonly class RuleGroupsBuilder implements RuleFileBuilderInterface
 
     /**
      * @param non-empty-string $record
+     * @param non-empty-string $application
      */
-    private function read(string $record, BoundObjective $objective, bool $slow): string
+    private function read(string $record, BoundObjective $objective, string $application, bool $slow): string
     {
-        $selector = $this->promQl->recorded($record, $objective);
+        $selector = $this->promQl->recorded($record, $objective, $application);
 
         return $slow ? \sprintf('last_over_time(%s[%s])', $selector, self::SLOW_RECORD_LOOKBACK) : $selector;
     }
 
     /**
+     * @param non-empty-string $application
+     *
      * @return array<non-empty-string, string>
      */
-    private function recordingLabels(BoundObjective $objective): array
+    private function recordingLabels(BoundObjective $objective, string $application): array
     {
         $labels = [
+            'application' => $application,
             'slo' => $objective->definition->name()->value,
             'objective' => $objective->objective->kind->value,
             'window' => $objective->definition->window()->toString(),
@@ -168,26 +172,30 @@ final readonly class RuleGroupsBuilder implements RuleFileBuilderInterface
         return $labels;
     }
 
-    private function burning(BoundObjective $objective, BurnRateWindow $pair): string
+    /**
+     * @param non-empty-string $application
+     */
+    private function burning(BoundObjective $objective, BurnRateWindow $pair, string $application): string
     {
         $threshold = BurnRatePolicy::number($pair->threshold($objective->objective->target));
 
         return \sprintf(
             '(%s > %s and %s > %s)',
-            $this->read('slo:error_ratio:rate' . $pair->longWindow, $objective, \in_array($pair->longWindow, self::SLOW_RATE_WINDOWS, true)),
+            $this->read('slo:error_ratio:rate' . $pair->longWindow, $objective, $application, \in_array($pair->longWindow, self::SLOW_RATE_WINDOWS, true)),
             $threshold,
-            $this->read('slo:error_ratio:rate' . $pair->shortWindow, $objective, \in_array($pair->shortWindow, self::SLOW_RATE_WINDOWS, true)),
+            $this->read('slo:error_ratio:rate' . $pair->shortWindow, $objective, $application, \in_array($pair->shortWindow, self::SLOW_RATE_WINDOWS, true)),
             $threshold,
         );
     }
 
     /**
      * @param non-empty-string $name
+     * @param non-empty-string $application
      * @param 'page'|'ticket' $severity
      *
      * @return RuleShape
      */
-    private function alert(string $name, string $expr, BoundObjective $objective, string $severity, string $what): array
+    private function alert(string $name, string $expr, BoundObjective $objective, string $application, string $severity, string $what): array
     {
         $slo = $objective->definition->name()->value;
         $kind = $objective->objective->kind->value;
@@ -195,7 +203,7 @@ final readonly class RuleGroupsBuilder implements RuleFileBuilderInterface
         return [
             'alert' => $name,
             'expr' => $expr,
-            'labels' => ['severity' => $severity, 'slo' => $slo, 'objective' => $kind],
+            'labels' => ['application' => $application, 'severity' => $severity, 'slo' => $slo, 'objective' => $kind],
             'annotations' => ['summary' => \sprintf(
                 'SLO %s %s %s (target %s%%, window %s)',
                 $slo,

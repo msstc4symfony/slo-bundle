@@ -110,6 +110,6 @@
 - Golden-файлы зависят от формата дампера `symfony/yaml` (кавычки строк): сверено, что 7.4.23 и 8.1 дают те же байты.
 - Новая CI-job `promtool` ставит `composer-ci.json`, а `composer-ci.lock` устарел до тега metrics-bundle 2.3.0 — job упадёт на install так же,
   как стандартная, до пересборки lock владельцем.
-- Дашборды: рекордные `slo:*` не имеют метки `application`, поэтому SLO-панели одного Prometheus для нескольких приложений смешиваются
-  (фильтр только по `slo`/`objective`); `application` фильтрует лишь базовые `symfony_*` панели. Проверить рендеринг в реальной Grafana 13.2
-  (docker недоступен в песочнице) должен владелец; формы панелей сверены с `bundles-showcase/docker/observability/grafana/dashboards`.
+- Записанные `slo:*` и алерты несут статическую rule-метку `application` (из `generation.selector.application`), а все чтения записанных серий
+  (`PromQlBuilder::recorded(record, objective, application)`) фильтруют `application=`; в Grafana — `application="$application"`. Два приложения с
+  одним именем SLO в одном Prometheus не пересекаются (promtool: `no-data.test.yml`).

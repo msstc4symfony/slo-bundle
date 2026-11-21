@@ -57,7 +57,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:objective:target{slo=\"checkout.pay\",objective=\"availability\"}",
+                    "expr": "slo:objective:target{application=\"$application\",slo=\"checkout.pay\",objective=\"availability\"}",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -85,7 +85,7 @@
                             },
                             {
                                 "color": "green",
-                                "value": 0.9990000000000001
+                                "value": 0.999
                             }
                         ]
                     },
@@ -118,7 +118,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:sli:ratio{slo=\"checkout.pay\",objective=\"availability\"}",
+                    "expr": "slo:sli:ratio{application=\"$application\",slo=\"checkout.pay\",objective=\"availability\"}",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -184,7 +184,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:error_budget:remaining{slo=\"checkout.pay\",objective=\"availability\"}",
+                    "expr": "slo:error_budget:remaining{application=\"$application\",slo=\"checkout.pay\",objective=\"availability\"}",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -255,7 +255,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:window:coverage_ratio{slo=\"checkout.pay\",objective=\"availability\"}",
+                    "expr": "slo:window:coverage_ratio{application=\"$application\",slo=\"checkout.pay\",objective=\"availability\"}",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -300,7 +300,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:error_ratio:rate1h{slo=\"checkout.pay\",objective=\"availability\"} / (1 - slo:objective:target{slo=\"checkout.pay\",objective=\"availability\"})",
+                    "expr": "slo:error_ratio:rate1h{application=\"$application\",slo=\"checkout.pay\",objective=\"availability\"} / (1 - slo:objective:target{application=\"$application\",slo=\"checkout.pay\",objective=\"availability\"})",
                     "legendFormat": "1h",
                     "refId": "A"
                 },
@@ -309,7 +309,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:error_ratio:rate6h{slo=\"checkout.pay\",objective=\"availability\"} / (1 - slo:objective:target{slo=\"checkout.pay\",objective=\"availability\"})",
+                    "expr": "slo:error_ratio:rate6h{application=\"$application\",slo=\"checkout.pay\",objective=\"availability\"} / (1 - slo:objective:target{application=\"$application\",slo=\"checkout.pay\",objective=\"availability\"})",
                     "legendFormat": "6h",
                     "refId": "B"
                 }
@@ -367,7 +367,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:objective:target{slo=\"checkout.pay\",objective=\"latency\"}",
+                    "expr": "slo:objective:target{application=\"$application\",slo=\"checkout.pay\",objective=\"latency\"}",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -428,7 +428,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:sli:ratio{slo=\"checkout.pay\",objective=\"latency\"}",
+                    "expr": "slo:sli:ratio{application=\"$application\",slo=\"checkout.pay\",objective=\"latency\"}",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -494,7 +494,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:error_budget:remaining{slo=\"checkout.pay\",objective=\"latency\"}",
+                    "expr": "slo:error_budget:remaining{application=\"$application\",slo=\"checkout.pay\",objective=\"latency\"}",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -565,7 +565,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:window:coverage_ratio{slo=\"checkout.pay\",objective=\"latency\"}",
+                    "expr": "slo:window:coverage_ratio{application=\"$application\",slo=\"checkout.pay\",objective=\"latency\"}",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -610,7 +610,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:error_ratio:rate1h{slo=\"checkout.pay\",objective=\"latency\"} / (1 - slo:objective:target{slo=\"checkout.pay\",objective=\"latency\"})",
+                    "expr": "slo:error_ratio:rate1h{application=\"$application\",slo=\"checkout.pay\",objective=\"latency\"} / (1 - slo:objective:target{application=\"$application\",slo=\"checkout.pay\",objective=\"latency\"})",
                     "legendFormat": "1h",
                     "refId": "A"
                 },
@@ -619,7 +619,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:error_ratio:rate6h{slo=\"checkout.pay\",objective=\"latency\"} / (1 - slo:objective:target{slo=\"checkout.pay\",objective=\"latency\"})",
+                    "expr": "slo:error_ratio:rate6h{application=\"$application\",slo=\"checkout.pay\",objective=\"latency\"} / (1 - slo:objective:target{application=\"$application\",slo=\"checkout.pay\",objective=\"latency\"})",
                     "legendFormat": "6h",
                     "refId": "B"
                 }
@@ -677,7 +677,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:objective:target{slo=\"payment.process\",objective=\"availability\"}",
+                    "expr": "slo:objective:target{application=\"$application\",slo=\"payment.process\",objective=\"availability\"}",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -738,7 +738,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:sli:ratio{slo=\"payment.process\",objective=\"availability\"}",
+                    "expr": "slo:sli:ratio{application=\"$application\",slo=\"payment.process\",objective=\"availability\"}",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -804,7 +804,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:error_budget:remaining{slo=\"payment.process\",objective=\"availability\"}",
+                    "expr": "slo:error_budget:remaining{application=\"$application\",slo=\"payment.process\",objective=\"availability\"}",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -875,7 +875,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:window:coverage_ratio{slo=\"payment.process\",objective=\"availability\"}",
+                    "expr": "slo:window:coverage_ratio{application=\"$application\",slo=\"payment.process\",objective=\"availability\"}",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -920,7 +920,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:error_ratio:rate1h{slo=\"payment.process\",objective=\"availability\"} / (1 - slo:objective:target{slo=\"payment.process\",objective=\"availability\"})",
+                    "expr": "slo:error_ratio:rate1h{application=\"$application\",slo=\"payment.process\",objective=\"availability\"} / (1 - slo:objective:target{application=\"$application\",slo=\"payment.process\",objective=\"availability\"})",
                     "legendFormat": "1h",
                     "refId": "A"
                 },
@@ -929,7 +929,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:error_ratio:rate6h{slo=\"payment.process\",objective=\"availability\"} / (1 - slo:objective:target{slo=\"payment.process\",objective=\"availability\"})",
+                    "expr": "slo:error_ratio:rate6h{application=\"$application\",slo=\"payment.process\",objective=\"availability\"} / (1 - slo:objective:target{application=\"$application\",slo=\"payment.process\",objective=\"availability\"})",
                     "legendFormat": "6h",
                     "refId": "B"
                 }
@@ -987,7 +987,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:objective:target{slo=\"payment.process\",objective=\"latency\"}",
+                    "expr": "slo:objective:target{application=\"$application\",slo=\"payment.process\",objective=\"latency\"}",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -1048,7 +1048,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:sli:ratio{slo=\"payment.process\",objective=\"latency\"}",
+                    "expr": "slo:sli:ratio{application=\"$application\",slo=\"payment.process\",objective=\"latency\"}",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -1114,7 +1114,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:error_budget:remaining{slo=\"payment.process\",objective=\"latency\"}",
+                    "expr": "slo:error_budget:remaining{application=\"$application\",slo=\"payment.process\",objective=\"latency\"}",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -1185,7 +1185,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:window:coverage_ratio{slo=\"payment.process\",objective=\"latency\"}",
+                    "expr": "slo:window:coverage_ratio{application=\"$application\",slo=\"payment.process\",objective=\"latency\"}",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -1230,7 +1230,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:error_ratio:rate1h{slo=\"payment.process\",objective=\"latency\"} / (1 - slo:objective:target{slo=\"payment.process\",objective=\"latency\"})",
+                    "expr": "slo:error_ratio:rate1h{application=\"$application\",slo=\"payment.process\",objective=\"latency\"} / (1 - slo:objective:target{application=\"$application\",slo=\"payment.process\",objective=\"latency\"})",
                     "legendFormat": "1h",
                     "refId": "A"
                 },
@@ -1239,7 +1239,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:error_ratio:rate6h{slo=\"payment.process\",objective=\"latency\"} / (1 - slo:objective:target{slo=\"payment.process\",objective=\"latency\"})",
+                    "expr": "slo:error_ratio:rate6h{application=\"$application\",slo=\"payment.process\",objective=\"latency\"} / (1 - slo:objective:target{application=\"$application\",slo=\"payment.process\",objective=\"latency\"})",
                     "legendFormat": "6h",
                     "refId": "B"
                 }
@@ -1297,7 +1297,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:objective:target{slo=\"report.export\",objective=\"availability\"}",
+                    "expr": "slo:objective:target{application=\"$application\",slo=\"report.export\",objective=\"availability\"}",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -1358,7 +1358,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:sli:ratio{slo=\"report.export\",objective=\"availability\"}",
+                    "expr": "slo:sli:ratio{application=\"$application\",slo=\"report.export\",objective=\"availability\"}",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -1424,7 +1424,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:error_budget:remaining{slo=\"report.export\",objective=\"availability\"}",
+                    "expr": "slo:error_budget:remaining{application=\"$application\",slo=\"report.export\",objective=\"availability\"}",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -1495,7 +1495,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:window:coverage_ratio{slo=\"report.export\",objective=\"availability\"}",
+                    "expr": "slo:window:coverage_ratio{application=\"$application\",slo=\"report.export\",objective=\"availability\"}",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -1540,7 +1540,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:error_ratio:rate1h{slo=\"report.export\",objective=\"availability\"} / (1 - slo:objective:target{slo=\"report.export\",objective=\"availability\"})",
+                    "expr": "slo:error_ratio:rate1h{application=\"$application\",slo=\"report.export\",objective=\"availability\"} / (1 - slo:objective:target{application=\"$application\",slo=\"report.export\",objective=\"availability\"})",
                     "legendFormat": "1h",
                     "refId": "A"
                 },
@@ -1549,7 +1549,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:error_ratio:rate6h{slo=\"report.export\",objective=\"availability\"} / (1 - slo:objective:target{slo=\"report.export\",objective=\"availability\"})",
+                    "expr": "slo:error_ratio:rate6h{application=\"$application\",slo=\"report.export\",objective=\"availability\"} / (1 - slo:objective:target{application=\"$application\",slo=\"report.export\",objective=\"availability\"})",
                     "legendFormat": "6h",
                     "refId": "B"
                 }

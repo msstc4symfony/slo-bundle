@@ -52,12 +52,14 @@ final readonly class PromQlBuilder
 
     /**
      * Derived from the slo:sli:ratio recorded earlier in the same group: no SLI, no budget.
+     *
+     * @param non-empty-string $application
      */
-    public function budgetRemaining(BoundObjective $objective): string
+    public function budgetRemaining(BoundObjective $objective, string $application): string
     {
         return \sprintf(
             '1 - (1 - %s) / %s',
-            $this->recorded('slo:sli:ratio', $objective),
+            $this->recorded('slo:sli:ratio', $objective, $application),
             BurnRatePolicy::number($objective->objective->target->errorBudgetRatio()),
         );
     }
@@ -88,12 +90,14 @@ final readonly class PromQlBuilder
 
     /**
      * @param non-empty-string $record
+     * @param non-empty-string $application value of the `application` label: the recorded series carry it as a rule label
      *
      * @return non-empty-string
      */
-    public function recorded(string $record, BoundObjective $objective): string
+    public function recorded(string $record, BoundObjective $objective, string $application): string
     {
         return $record . $this->matchers([
+            Matcher::equals('application', $application),
             Matcher::equals('slo', $objective->definition->name()->value),
             Matcher::equals('objective', $objective->objective->kind->value),
         ]);

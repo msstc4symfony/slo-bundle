@@ -147,7 +147,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:objective:target{slo=\"report.export\",objective=\"availability\"}",
+                    "expr": "slo:objective:target{application=\"$application\",slo=\"report.export\",objective=\"availability\"}",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -208,7 +208,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:sli:ratio{slo=\"report.export\",objective=\"availability\"}",
+                    "expr": "slo:sli:ratio{application=\"$application\",slo=\"report.export\",objective=\"availability\"}",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -274,7 +274,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:error_budget:remaining{slo=\"report.export\",objective=\"availability\"}",
+                    "expr": "slo:error_budget:remaining{application=\"$application\",slo=\"report.export\",objective=\"availability\"}",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -345,7 +345,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:window:coverage_ratio{slo=\"report.export\",objective=\"availability\"}",
+                    "expr": "slo:window:coverage_ratio{application=\"$application\",slo=\"report.export\",objective=\"availability\"}",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -390,7 +390,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:error_ratio:rate1h{slo=\"report.export\",objective=\"availability\"} / (1 - slo:objective:target{slo=\"report.export\",objective=\"availability\"})",
+                    "expr": "slo:error_ratio:rate1h{application=\"$application\",slo=\"report.export\",objective=\"availability\"} / (1 - slo:objective:target{application=\"$application\",slo=\"report.export\",objective=\"availability\"})",
                     "legendFormat": "1h",
                     "refId": "A"
                 },
@@ -399,7 +399,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:error_ratio:rate6h{slo=\"report.export\",objective=\"availability\"} / (1 - slo:objective:target{slo=\"report.export\",objective=\"availability\"})",
+                    "expr": "slo:error_ratio:rate6h{application=\"$application\",slo=\"report.export\",objective=\"availability\"} / (1 - slo:objective:target{application=\"$application\",slo=\"report.export\",objective=\"availability\"})",
                     "legendFormat": "6h",
                     "refId": "B"
                 }

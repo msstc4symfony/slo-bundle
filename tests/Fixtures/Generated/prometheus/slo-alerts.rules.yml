@@ -5,32 +5,36 @@ groups:
       - alert: SloErrorBudgetBurn
         annotations:
           summary: 'SLO checkout.pay availability burns its error budget fast (target 99.9%, window 30d)'
-        expr: '(slo:error_ratio:rate1h{slo="checkout.pay",objective="availability"} > 0.0144 and slo:error_ratio:rate5m{slo="checkout.pay",objective="availability"} > 0.0144) or (slo:error_ratio:rate6h{slo="checkout.pay",objective="availability"} > 0.006 and slo:error_ratio:rate30m{slo="checkout.pay",objective="availability"} > 0.006)'
+        expr: '(slo:error_ratio:rate1h{application="shop",slo="checkout.pay",objective="availability"} > 0.0144 and slo:error_ratio:rate5m{application="shop",slo="checkout.pay",objective="availability"} > 0.0144) or (slo:error_ratio:rate6h{application="shop",slo="checkout.pay",objective="availability"} > 0.006 and slo:error_ratio:rate30m{application="shop",slo="checkout.pay",objective="availability"} > 0.006)'
         labels:
+          application: shop
           objective: availability
           severity: page
           slo: checkout.pay
       - alert: SloErrorBudgetBurn
         annotations:
           summary: 'SLO checkout.pay availability burns its error budget (target 99.9%, window 30d)'
-        expr: '(last_over_time(slo:error_ratio:rate3d{slo="checkout.pay",objective="availability"}[10m]) > 0.001 and slo:error_ratio:rate6h{slo="checkout.pay",objective="availability"} > 0.001) and on() (last_over_time(slo:window:coverage_ratio{slo="checkout.pay",objective="availability"}[10m]) >= 1)'
+        expr: '(last_over_time(slo:error_ratio:rate3d{application="shop",slo="checkout.pay",objective="availability"}[10m]) > 0.001 and slo:error_ratio:rate6h{application="shop",slo="checkout.pay",objective="availability"} > 0.001) and on() (last_over_time(slo:window:coverage_ratio{application="shop",slo="checkout.pay",objective="availability"}[10m]) >= 1)'
         labels:
+          application: shop
           objective: availability
           severity: ticket
           slo: checkout.pay
       - alert: SloErrorBudgetBurn
         annotations:
           summary: 'SLO checkout.pay latency burns its error budget fast (target 99%, window 30d)'
-        expr: '(slo:error_ratio:rate1h{slo="checkout.pay",objective="latency"} > 0.144 and slo:error_ratio:rate5m{slo="checkout.pay",objective="latency"} > 0.144) or (slo:error_ratio:rate6h{slo="checkout.pay",objective="latency"} > 0.06 and slo:error_ratio:rate30m{slo="checkout.pay",objective="latency"} > 0.06)'
+        expr: '(slo:error_ratio:rate1h{application="shop",slo="checkout.pay",objective="latency"} > 0.144 and slo:error_ratio:rate5m{application="shop",slo="checkout.pay",objective="latency"} > 0.144) or (slo:error_ratio:rate6h{application="shop",slo="checkout.pay",objective="latency"} > 0.06 and slo:error_ratio:rate30m{application="shop",slo="checkout.pay",objective="latency"} > 0.06)'
         labels:
+          application: shop
           objective: latency
           severity: page
           slo: checkout.pay
       - alert: SloErrorBudgetBurn
         annotations:
           summary: 'SLO checkout.pay latency burns its error budget (target 99%, window 30d)'
-        expr: '(last_over_time(slo:error_ratio:rate3d{slo="checkout.pay",objective="latency"}[10m]) > 0.01 and slo:error_ratio:rate6h{slo="checkout.pay",objective="latency"} > 0.01) and on() (last_over_time(slo:window:coverage_ratio{slo="checkout.pay",objective="latency"}[10m]) >= 1)'
+        expr: '(last_over_time(slo:error_ratio:rate3d{application="shop",slo="checkout.pay",objective="latency"}[10m]) > 0.01 and slo:error_ratio:rate6h{application="shop",slo="checkout.pay",objective="latency"} > 0.01) and on() (last_over_time(slo:window:coverage_ratio{application="shop",slo="checkout.pay",objective="latency"}[10m]) >= 1)'
         labels:
+          application: shop
           objective: latency
           severity: ticket
           slo: checkout.pay
@@ -40,32 +44,36 @@ groups:
       - alert: SloErrorBudgetBurn
         annotations:
           summary: 'SLO payment.process availability burns its error budget fast (target 99.5%, window 30d)'
-        expr: '(slo:error_ratio:rate1h{slo="payment.process",objective="availability"} > 0.072 and slo:error_ratio:rate5m{slo="payment.process",objective="availability"} > 0.072) or (slo:error_ratio:rate6h{slo="payment.process",objective="availability"} > 0.03 and slo:error_ratio:rate30m{slo="payment.process",objective="availability"} > 0.03)'
+        expr: '(slo:error_ratio:rate1h{application="shop",slo="payment.process",objective="availability"} > 0.072 and slo:error_ratio:rate5m{application="shop",slo="payment.process",objective="availability"} > 0.072) or (slo:error_ratio:rate6h{application="shop",slo="payment.process",objective="availability"} > 0.03 and slo:error_ratio:rate30m{application="shop",slo="payment.process",objective="availability"} > 0.03)'
         labels:
+          application: shop
           objective: availability
           severity: page
           slo: payment.process
       - alert: SloErrorBudgetBurn
         annotations:
           summary: 'SLO payment.process availability burns its error budget (target 99.5%, window 30d)'
-        expr: '(last_over_time(slo:error_ratio:rate3d{slo="payment.process",objective="availability"}[10m]) > 0.005 and slo:error_ratio:rate6h{slo="payment.process",objective="availability"} > 0.005) and on() (last_over_time(slo:window:coverage_ratio{slo="payment.process",objective="availability"}[10m]) >= 1)'
+        expr: '(last_over_time(slo:error_ratio:rate3d{application="shop",slo="payment.process",objective="availability"}[10m]) > 0.005 and slo:error_ratio:rate6h{application="shop",slo="payment.process",objective="availability"} > 0.005) and on() (last_over_time(slo:window:coverage_ratio{application="shop",slo="payment.process",objective="availability"}[10m]) >= 1)'
         labels:
+          application: shop
           objective: availability
           severity: ticket
           slo: payment.process
       - alert: SloErrorBudgetBurn
         annotations:
           summary: 'SLO payment.process latency burns its error budget fast (target 99%, window 30d)'
-        expr: '(slo:error_ratio:rate1h{slo="payment.process",objective="latency"} > 0.144 and slo:error_ratio:rate5m{slo="payment.process",objective="latency"} > 0.144) or (slo:error_ratio:rate6h{slo="payment.process",objective="latency"} > 0.06 and slo:error_ratio:rate30m{slo="payment.process",objective="latency"} > 0.06)'
+        expr: '(slo:error_ratio:rate1h{application="shop",slo="payment.process",objective="latency"} > 0.144 and slo:error_ratio:rate5m{application="shop",slo="payment.process",objective="latency"} > 0.144) or (slo:error_ratio:rate6h{application="shop",slo="payment.process",objective="latency"} > 0.06 and slo:error_ratio:rate30m{application="shop",slo="payment.process",objective="latency"} > 0.06)'
         labels:
+          application: shop
           objective: latency
           severity: page
           slo: payment.process
       - alert: SloErrorBudgetBurn
         annotations:
           summary: 'SLO payment.process latency burns its error budget (target 99%, window 30d)'
-        expr: '(last_over_time(slo:error_ratio:rate3d{slo="payment.process",objective="latency"}[10m]) > 0.01 and slo:error_ratio:rate6h{slo="payment.process",objective="latency"} > 0.01) and on() (last_over_time(slo:window:coverage_ratio{slo="payment.process",objective="latency"}[10m]) >= 1)'
+        expr: '(last_over_time(slo:error_ratio:rate3d{application="shop",slo="payment.process",objective="latency"}[10m]) > 0.01 and slo:error_ratio:rate6h{application="shop",slo="payment.process",objective="latency"} > 0.01) and on() (last_over_time(slo:window:coverage_ratio{application="shop",slo="payment.process",objective="latency"}[10m]) >= 1)'
         labels:
+          application: shop
           objective: latency
           severity: ticket
           slo: payment.process
@@ -75,16 +83,18 @@ groups:
       - alert: SloErrorBudgetBurn
         annotations:
           summary: 'SLO report.export availability burns its error budget fast (target 99%, window 3d)'
-        expr: '(slo:error_ratio:rate1h{slo="report.export",objective="availability"} > 0.0144 and slo:error_ratio:rate5m{slo="report.export",objective="availability"} > 0.0144) or (slo:error_ratio:rate6h{slo="report.export",objective="availability"} > 0.006 and slo:error_ratio:rate30m{slo="report.export",objective="availability"} > 0.006)'
+        expr: '(slo:error_ratio:rate1h{application="shop",slo="report.export",objective="availability"} > 0.0144 and slo:error_ratio:rate5m{application="shop",slo="report.export",objective="availability"} > 0.0144) or (slo:error_ratio:rate6h{application="shop",slo="report.export",objective="availability"} > 0.006 and slo:error_ratio:rate30m{application="shop",slo="report.export",objective="availability"} > 0.006)'
         labels:
+          application: shop
           objective: availability
           severity: page
           slo: report.export
       - alert: SloErrorBudgetBurn
         annotations:
           summary: 'SLO report.export availability burns its error budget (target 99%, window 3d)'
-        expr: '(last_over_time(slo:error_ratio:rate3d{slo="report.export",objective="availability"}[10m]) > 0.001 and slo:error_ratio:rate6h{slo="report.export",objective="availability"} > 0.001) and on() (last_over_time(slo:window:coverage_ratio{slo="report.export",objective="availability"}[10m]) >= 1)'
+        expr: '(last_over_time(slo:error_ratio:rate3d{application="shop",slo="report.export",objective="availability"}[10m]) > 0.001 and slo:error_ratio:rate6h{application="shop",slo="report.export",objective="availability"} > 0.001) and on() (last_over_time(slo:window:coverage_ratio{application="shop",slo="report.export",objective="availability"}[10m]) >= 1)'
         labels:
+          application: shop
           objective: availability
           severity: ticket
           slo: report.export

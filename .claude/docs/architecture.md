@@ -166,7 +166,7 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
 - Базовые серии (Application Overview, HTTP Routes, Messenger, логика Business Operations) — `symfony_*{application="$application",
   component=~"$component"}` (`BaseSeries`); SLO-панели (`SloRows`: строка-row на SLO x objective — target, SLI, budget gauge, window state
   по `slo:window:coverage_ratio` с range-маппингом `<1` -> `warming up`, burn rate 1h/6h = `slo:error_ratio:rate<w> / (1 - slo:objective:target)`)
-  читают записанные `slo:*` по `slo` и `objective`. Все панели с запросами имеют `noValue: "No data"`.
+  читают записанные `slo:*` по `application`, `slo` и `objective`. Все панели с запросами имеют `noValue: "No data"`.
 - Monitoring Coverage — две `text`-панели (Markdown-таблицы: покрытие по видам и все точки): статическая таблица Grafana (TestData/snapshot
   datasource) не переносима между инсталляциями, Markdown детерминирован и не зависит от временных рядов. Данные — `Analyze\Output` на момент
   генерации, обновляются только `slo:generate`.

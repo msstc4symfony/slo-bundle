@@ -113,16 +113,16 @@ final class ActionTest extends TestCase
             self::assertIsString($title);
             $byTitle[$title] = $panel;
         }
-        self::assertSame('slo:objective:target{slo="checkout.pay",objective="availability"}', $byTitle['Target']->get('targets.0.expr'));
-        self::assertSame('slo:sli:ratio{slo="checkout.pay",objective="availability"}', $byTitle['SLI']->get('targets.0.expr'));
+        self::assertSame('slo:objective:target{application="$application",slo="checkout.pay",objective="availability"}', $byTitle['Target']->get('targets.0.expr'));
+        self::assertSame('slo:sli:ratio{application="$application",slo="checkout.pay",objective="availability"}', $byTitle['SLI']->get('targets.0.expr'));
         self::assertSame('gauge', $byTitle['Error budget remaining']->get('type'));
-        self::assertSame('slo:error_budget:remaining{slo="checkout.pay",objective="availability"}', $byTitle['Error budget remaining']->get('targets.0.expr'));
+        self::assertSame('slo:error_budget:remaining{application="$application",slo="checkout.pay",objective="availability"}', $byTitle['Error budget remaining']->get('targets.0.expr'));
         self::assertSame(
-            'slo:error_ratio:rate1h{slo="checkout.pay",objective="availability"} / (1 - slo:objective:target{slo="checkout.pay",objective="availability"})',
+            'slo:error_ratio:rate1h{application="$application",slo="checkout.pay",objective="availability"} / (1 - slo:objective:target{application="$application",slo="checkout.pay",objective="availability"})',
             $byTitle['Burn rate']->get('targets.0.expr'),
         );
         $warming = $byTitle['Window state'];
-        self::assertSame('slo:window:coverage_ratio{slo="checkout.pay",objective="availability"}', $warming->get('targets.0.expr'));
+        self::assertSame('slo:window:coverage_ratio{application="$application",slo="checkout.pay",objective="availability"}', $warming->get('targets.0.expr'));
         self::assertSame('range', $warming->get('fieldConfig.defaults.mappings.0.type'));
         self::assertSame('warming up', $warming->get('fieldConfig.defaults.mappings.0.options.result.text'));
         self::assertSame(0, $warming->get('fieldConfig.defaults.mappings.0.options.from'));

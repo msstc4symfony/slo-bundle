@@ -30,15 +30,26 @@ tests:
         alertname: SloErrorBudgetBurn
         exp_alerts: []
 
-  - name: series of another application only
+  - name: another application with the same SLO name burning its budget
     interval: 1m
     input_series:
       - series: 'symfony_http_response{application="other",component="web",method="POST",route="checkout_pay",status="500"}'
         values: '0+10x120'
       - series: 'symfony_slo_events_total{application="other",component="web",slo="checkout.pay",objective="latency",revision="bd652502",result="bad"}'
         values: '0+10x120'
+      - series: 'slo:error_ratio:rate5m{application="other",objective="availability",slo="checkout.pay",window="30d"}'
+        values: '1+0x120'
+      - series: 'slo:error_ratio:rate30m{application="other",objective="availability",slo="checkout.pay",window="30d"}'
+        values: '1+0x120'
+      - series: 'slo:error_ratio:rate1h{application="other",objective="availability",slo="checkout.pay",window="30d"}'
+        values: '1+0x120'
+      - series: 'slo:error_ratio:rate6h{application="other",objective="availability",slo="checkout.pay",window="30d"}'
+        values: '1+0x120'
     promql_expr_test:
-      - expr: slo:sli:ratio
+      - expr: slo:sli:ratio{application="shop"}
+        eval_time: 2h
+        exp_samples: []
+      - expr: slo:error_ratio:rate1h{application="shop"}
         eval_time: 2h
         exp_samples: []
     alert_rule_test:
