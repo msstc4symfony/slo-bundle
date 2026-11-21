@@ -19,7 +19,7 @@ use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use ReflectionClass;
 use ReflectionNamedType;
-use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Reference;
 
 /**
@@ -27,8 +27,6 @@ use Symfony\Component\DependencyInjection\Reference;
  */
 final class FailSafeLoggerWiringTest extends TestCase
 {
-    private static ?ContainerBuilder $container = null;
-
     /**
      * @return iterable<string, array{class-string}>
      */
@@ -45,13 +43,13 @@ final class FailSafeLoggerWiringTest extends TestCase
     #[DataProvider('runtimeServiceProvider')]
     public function testRuntimeServiceGetsTheFailSafeLogger(string $class): void
     {
-        self::assertSame(FailSafeLogger::class, $this->loggerOf($class));
+        self::assertSame(FailSafeLogger::class, $this->loggerOf(TestContainer::compile()->getDefinition($class), $class));
     }
 
     public function testNoBundleServiceGetsAnotherLogger(): void
     {
         $checked = 0;
-        foreach ($this->container()->getDefinitions() as $id => $definition) {
+        foreach (TestContainer::compile()->getDefinitions() as $id => $definition) {
             $class = $definition->getClass();
             if ($class === null || !str_starts_with($class, 'Msstc4Symfony\SloBundle\\') || $class === FailSafeLogger::class || !class_exists($class)) {
                 continue;
@@ -60,20 +58,20 @@ final class FailSafeLoggerWiringTest extends TestCase
                 continue;
             }
             $checked++;
-            self::assertSame(FailSafeLogger::class, $this->loggerOf($class), $id);
+            self::assertSame(FailSafeLogger::class, $this->loggerOf($definition, $class), $id);
         }
 
         self::assertGreaterThanOrEqual(\count(iterator_to_array(self::runtimeServiceProvider())), $checked);
     }
 
     /**
-     * @param class-string $class
+     * @param class-string $class the class of the definition, which reflects the logger parameter
      */
-    private function loggerOf(string $class): ?string
+    private function loggerOf(Definition $definition, string $class): ?string
     {
         $index = $this->loggerParameterIndex($class);
         self::assertNotNull($index, $class . ' takes no logger');
-        $arguments = $this->container()->getDefinition($class)->getArguments();
+        $arguments = $definition->getArguments();
         $logger = $arguments[$index] ?? $arguments['$logger'] ?? null;
 
         return $logger instanceof Reference ? (string) $logger : null;
@@ -92,10 +90,5 @@ final class FailSafeLoggerWiringTest extends TestCase
         }
 
         return null;
-    }
-
-    private function container(): ContainerBuilder
-    {
-        return self::$container ??= TestContainer::compile();
     }
 }
