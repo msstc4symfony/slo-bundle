@@ -24,7 +24,7 @@ final class StatusSetTest extends TestCase
     }
 
     /**
-     * @return iterable<string, array{list<int|string>, list<string>, string}>
+     * @return iterable<string, array{list<int|string>, list<string>, string|null}>
      */
     public static function provideCanonical(): iterable
     {
@@ -33,7 +33,7 @@ final class StatusSetTest extends TestCase
         yield 'range as alternation' => [['500-503'], ['500-503'], '500|501|502|503'];
         yield 'uppercase class' => [['5XX'], ['5xx'], '5..'];
         yield 'single range' => [['404-404'], ['404'], '404'];
-        yield 'empty' => [[], [], ''];
+        yield 'empty' => [[], [], null];
         yield 'code inside class' => [['5xx', '500'], ['5xx'], '5..'];
         yield 'code inside range' => [['500-504', 502], ['500-504'], '500|501|502|503|504'];
         yield 'range inside class' => [['5xx', '500-503'], ['5xx'], '5..'];
@@ -51,7 +51,7 @@ final class StatusSetTest extends TestCase
      * @param list<string> $canonical
      */
     #[DataProvider('provideCanonical')]
-    public function testCanonical(array $items, array $canonical, string $regex): void
+    public function testCanonical(array $items, array $canonical, ?string $regex): void
     {
         $set = StatusSet::fromList($items);
 

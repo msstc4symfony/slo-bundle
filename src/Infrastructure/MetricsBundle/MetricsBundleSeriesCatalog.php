@@ -83,16 +83,14 @@ final readonly class MetricsBundleSeriesCatalog implements SeriesCatalogInterfac
     public function httpAvailability(array $routes, StatusSet $bad, StatusSet $ineligible): SeriesBinding
     {
         $route = Matcher::regex(self::LABEL_ROUTE, PromQlRenderer::alternation($routes));
-        $badPattern = PromQlRenderer::statusPattern($bad);
-        $ineligiblePattern = PromQlRenderer::statusPattern($ineligible);
-        $notGood = implode('|', array_filter([$badPattern, $ineligiblePattern], static fn (string $part): bool => $part !== ''));
+        $status = $this->statusMatchers($bad, $ineligible);
 
         return new SeriesBinding(
             self::HTTP_COUNTER,
             SeriesKind::Counter,
-            SeriesBinding::index($ineligiblePattern === '' ? [$route] : [$route, Matcher::notRegex(self::LABEL_STATUS, $ineligiblePattern)]),
-            SeriesBinding::index($notGood === '' ? [] : [Matcher::notRegex(self::LABEL_STATUS, $notGood)]),
-            SeriesBinding::index($badPattern === '' ? [] : [Matcher::regex(self::LABEL_STATUS, $badPattern)]),
+            SeriesBinding::index([$route, ...$status['eligible']]),
+            SeriesBinding::index($status['good']),
+            SeriesBinding::index($status['bad']),
             null,
         );
     }
@@ -152,6 +150,23 @@ final readonly class MetricsBundleSeriesCatalog implements SeriesCatalogInterfac
         $action = $this->exactOrAlternation(self::LABEL_ACTION, $actionLabels);
 
         return $this->latency(self::LOGIC_HISTOGRAM, $includeErrors ? [$action] : [$action, $this->nonError()], $bucket);
+    }
+
+    /**
+     * @return array{eligible: list<Matcher>, good: list<Matcher>, bad: list<Matcher>} `status` matchers, each empty when
+     *                                                                                 its statuses are an empty set
+     */
+    private function statusMatchers(StatusSet $bad, StatusSet $ineligible): array
+    {
+        $badPattern = PromQlRenderer::statusPattern($bad);
+        $ineligiblePattern = PromQlRenderer::statusPattern($ineligible);
+        $notGood = $badPattern === null || $ineligiblePattern === null ? $badPattern ?? $ineligiblePattern : $badPattern . '|' . $ineligiblePattern;
+
+        return [
+            'eligible' => $ineligiblePattern === null ? [] : [Matcher::notRegex(self::LABEL_STATUS, $ineligiblePattern)],
+            'good' => $notGood === null ? [] : [Matcher::notRegex(self::LABEL_STATUS, $notGood)],
+            'bad' => $badPattern === null ? [] : [Matcher::regex(self::LABEL_STATUS, $badPattern)],
+        ];
     }
 
     /**

@@ -61,8 +61,10 @@ final class PromQlRenderer
 
     /**
      * Alternation over the `status` label values: a class "5xx" becomes "5..", a range lists every code.
+     *
+     * @return non-empty-string|null null for an empty set, which matches no status
      */
-    public static function statusPattern(StatusSet $statuses): string
+    public static function statusPattern(StatusSet $statuses): ?string
     {
         $parts = [];
         foreach ($statuses->canonical() as $item) {
@@ -76,7 +78,9 @@ final class PromQlRenderer
             }
         }
 
-        return implode('|', $parts);
+        $pattern = implode('|', $parts);
+
+        return $pattern === '' ? null : $pattern;
     }
 
     /**
@@ -89,6 +93,8 @@ final class PromQlRenderer
 
     /**
      * @param list<string> $literals
+     *
+     * @return string empty for an empty list; callers pass at least one literal
      */
     public static function alternation(array $literals): string
     {

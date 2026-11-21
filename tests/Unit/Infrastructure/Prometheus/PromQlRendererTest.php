@@ -92,8 +92,8 @@ final class PromQlRendererTest extends TestCase
     #[TestWith([['5xx', 429], '429|5..'])]
     #[TestWith([['500-503'], '500|501|502|503'])]
     #[TestWith([[100, 599], '100|599'])]
-    #[TestWith([[], ''])]
-    public function testStatusPattern(array $items, string $pattern): void
+    #[TestWith([[], null])]
+    public function testStatusPattern(array $items, ?string $pattern): void
     {
         self::assertSame($pattern, PromQlRenderer::statusPattern(StatusSet::fromList($items)));
     }
