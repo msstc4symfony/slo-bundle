@@ -8,7 +8,8 @@ use Msstc4Symfony\SloBundle\Application\Generation\BoundObjective;
 use Msstc4Symfony\SloBundle\Infrastructure\Prometheus\PromQlBuilder;
 
 /**
- * One row per SLO objective over the recorded slo:* series: target, SLI, remaining budget, window state, burn rate.
+ * One row per SLO objective over the recorded slo:* series: target, SLI, remaining budget, window state, the expected
+ * end of warming up (dashboards are in UTC) and the burn rate.
  *
  * @internal
  */
@@ -48,11 +49,11 @@ final readonly class SloRows
 
         return [
             $this->panels->row(\sprintf('%s / %s', $bound->definition->name()->value, $bound->objective->kind->value)),
-            $this->panels->stat('Target', new Query($this->promQl->recorded('slo:objective:target', $bound, self::APPLICATION)), 'percentunit', width: 4),
+            $this->panels->stat('Target', new Query($this->promQl->recorded('slo:objective:target', $bound, self::APPLICATION)), 'percentunit', width: 3),
             $this->panels->stat('SLI', new Query($this->promQl->recorded('slo:sli:ratio', $bound, self::APPLICATION)), 'percentunit', [
                 ['color' => 'red', 'value' => null],
                 ['color' => 'green', 'value' => $target],
-            ], width: 4),
+            ], width: 3),
             $this->panels->gauge('Error budget remaining', new Query($this->promQl->recorded('slo:error_budget:remaining', $bound, self::APPLICATION)), 'percentunit', 0.0, 1.0, [
                 ['color' => 'red', 'value' => null],
                 ['color' => 'orange', 'value' => 0.1],
@@ -61,12 +62,29 @@ final readonly class SloRows
             $this->panels->stat('Window state', new Query($this->promQl->recorded('slo:window:coverage_ratio', $bound, self::APPLICATION)), 'percentunit', [], [
                 ['options' => ['from' => 0, 'result' => ['color' => 'orange', 'index' => 0, 'text' => 'warming up'], 'to' => self::WARMING_UP_BELOW], 'type' => 'range'],
                 ['options' => ['from' => 1, 'result' => ['color' => 'green', 'index' => 1, 'text' => 'full window'], 'to' => 1000], 'type' => 'range'],
-            ], width: 4),
+            ], width: 3),
+            $this->panels->stat('Warming up until', new Query($this->warmingUpUntil($bound)), 'dateTimeAsIso', width: 4),
             $this->panels->timeseries('Burn rate', [
                 new Query($this->burnRate($bound, '1h'), '1h'),
                 new Query($this->burnRate($bound, '6h'), '6h'),
-            ], 'none', width: 8, height: 6),
+            ], 'none', width: 7, height: 6),
         ];
+    }
+
+    /**
+     * Epoch milliseconds when the current revision will have covered the whole window; no series (NoData) without
+     * coverage data or once the window is full.
+     *
+     * @return non-empty-string
+     */
+    private function warmingUpUntil(BoundObjective $bound): string
+    {
+        return \sprintf(
+            '(time() + (1 - (%s < %s)) * %d) * 1000',
+            $this->promQl->recorded('slo:window:coverage_ratio', $bound, self::APPLICATION),
+            self::WARMING_UP_BELOW,
+            $bound->definition->window()->seconds(),
+        );
     }
 
     /**

@@ -99,7 +99,7 @@ final class ActionTest extends TestCase
         }
     }
 
-    public function testSloOverviewHasTheFivePanelsPerObjectiveWithTheWarmingUpMapping(): void
+    public function testSloOverviewHasTheSixPanelsPerObjectiveWithTheWarmingUpMappingAndEndDate(): void
     {
         $dashboard = $this->dashboards()['grafana/dashboards/slo-slo-overview.json'];
         $panels = $dashboard->views('panels');
@@ -108,14 +108,21 @@ final class ActionTest extends TestCase
             ['checkout.pay / availability', 'checkout.pay / latency', 'payment.process / availability', 'payment.process / latency', 'report.export / availability'],
             array_values(array_map(static fn (JsonView $panel): mixed => $panel->get('title'), array_filter($panels, static fn (JsonView $panel): bool => $panel->get('type') === 'row'))),
         );
-        self::assertCount(5 + 5 * 5, $panels);
+        self::assertCount(5 + 5 * 6, $panels);
 
         $byTitle = [];
-        foreach (\array_slice($panels, 0, 6) as $panel) {
+        $width = 0;
+        foreach (\array_slice($panels, 0, 7) as $panel) {
             $title = $panel->get('title');
             self::assertIsString($title);
             $byTitle[$title] = $panel;
+            if ($panel->get('type') !== 'row') {
+                $panelWidth = $panel->get('gridPos.w');
+                self::assertIsInt($panelWidth);
+                $width += $panelWidth;
+            }
         }
+        self::assertSame(24, $width, 'one objective row fills the grid width');
         self::assertSame('slo:objective:target{application="$application",slo="checkout.pay",objective="availability"}', $byTitle['Target']->get('targets.0.expr'));
         self::assertSame('slo:sli:ratio{application="$application",slo="checkout.pay",objective="availability"}', $byTitle['SLI']->get('targets.0.expr'));
         self::assertSame('gauge', $byTitle['Error budget remaining']->get('type'));
@@ -132,6 +139,14 @@ final class ActionTest extends TestCase
         $to = $warming->get('fieldConfig.defaults.mappings.0.options.to');
         self::assertIsFloat($to);
         self::assertLessThan(1, $to);
+
+        $until = $byTitle['Warming up until'];
+        self::assertSame('stat', $until->get('type'));
+        self::assertSame('dateTimeAsIso', $until->get('fieldConfig.defaults.unit'));
+        self::assertSame(
+            '(time() + (1 - (slo:window:coverage_ratio{application="$application",slo="checkout.pay",objective="availability"} < 0.999999)) * 2592000) * 1000',
+            $until->get('targets.0.expr'),
+        );
     }
 
     public function testBusinessOperationsShowsTheLogicHistogramOnlyWhenItIsDefined(): void

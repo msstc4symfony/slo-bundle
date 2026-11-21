@@ -214,7 +214,7 @@
             },
             "gridPos": {
                 "h": 6,
-                "w": 4,
+                "w": 3,
                 "x": 0,
                 "y": 17
             },
@@ -275,8 +275,8 @@
             },
             "gridPos": {
                 "h": 6,
-                "w": 4,
-                "x": 4,
+                "w": 3,
+                "x": 3,
                 "y": 17
             },
             "id": 7,
@@ -343,7 +343,7 @@
             "gridPos": {
                 "h": 6,
                 "w": 4,
-                "x": 8,
+                "x": 6,
                 "y": 17
             },
             "id": 8,
@@ -412,8 +412,8 @@
             },
             "gridPos": {
                 "h": 6,
-                "w": 4,
-                "x": 12,
+                "w": 3,
+                "x": 10,
                 "y": 17
             },
             "id": 9,
@@ -451,17 +451,62 @@
             "fieldConfig": {
                 "defaults": {
                     "noValue": "No data",
+                    "unit": "dateTimeAsIso"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 6,
+                "w": 4,
+                "x": 13,
+                "y": 17
+            },
+            "id": 10,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "textMode": "auto"
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                    },
+                    "expr": "(time() + (1 - (slo:window:coverage_ratio{application=\"$application\",slo=\"checkout.pay\",objective=\"availability\"} < 0.999999)) * 2592000) * 1000",
+                    "legendFormat": "",
+                    "refId": "A"
+                }
+            ],
+            "title": "Warming up until",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "noValue": "No data",
                     "unit": "none"
                 },
                 "overrides": []
             },
             "gridPos": {
                 "h": 6,
-                "w": 8,
-                "x": 16,
+                "w": 7,
+                "x": 17,
                 "y": 17
             },
-            "id": 10,
+            "id": 11,
             "options": {
                 "legend": {
                     "calcs": [],
@@ -505,7 +550,7 @@
                 "x": 0,
                 "y": 23
             },
-            "id": 11,
+            "id": 12,
             "panels": [],
             "title": "checkout.pay / latency",
             "type": "row"
@@ -524,11 +569,11 @@
             },
             "gridPos": {
                 "h": 6,
-                "w": 4,
+                "w": 3,
                 "x": 0,
                 "y": 24
             },
-            "id": 12,
+            "id": 13,
             "options": {
                 "colorMode": "value",
                 "graphMode": "none",
@@ -585,11 +630,11 @@
             },
             "gridPos": {
                 "h": 6,
-                "w": 4,
-                "x": 4,
+                "w": 3,
+                "x": 3,
                 "y": 24
             },
-            "id": 13,
+            "id": 14,
             "options": {
                 "colorMode": "value",
                 "graphMode": "none",
@@ -653,10 +698,10 @@
             "gridPos": {
                 "h": 6,
                 "w": 4,
-                "x": 8,
+                "x": 6,
                 "y": 24
             },
-            "id": 14,
+            "id": 15,
             "options": {
                 "reduceOptions": {
                     "calcs": [
@@ -722,11 +767,11 @@
             },
             "gridPos": {
                 "h": 6,
-                "w": 4,
-                "x": 12,
+                "w": 3,
+                "x": 10,
                 "y": 24
             },
-            "id": 15,
+            "id": 16,
             "options": {
                 "colorMode": "value",
                 "graphMode": "none",
@@ -761,17 +806,62 @@
             "fieldConfig": {
                 "defaults": {
                     "noValue": "No data",
+                    "unit": "dateTimeAsIso"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 6,
+                "w": 4,
+                "x": 13,
+                "y": 24
+            },
+            "id": 17,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "textMode": "auto"
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                    },
+                    "expr": "(time() + (1 - (slo:window:coverage_ratio{application=\"$application\",slo=\"checkout.pay\",objective=\"latency\"} < 0.999999)) * 2592000) * 1000",
+                    "legendFormat": "",
+                    "refId": "A"
+                }
+            ],
+            "title": "Warming up until",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "noValue": "No data",
                     "unit": "none"
                 },
                 "overrides": []
             },
             "gridPos": {
                 "h": 6,
-                "w": 8,
-                "x": 16,
+                "w": 7,
+                "x": 17,
                 "y": 24
             },
-            "id": 16,
+            "id": 18,
             "options": {
                 "legend": {
                     "calcs": [],

@@ -34,7 +34,7 @@
             },
             "gridPos": {
                 "h": 6,
-                "w": 4,
+                "w": 3,
                 "x": 0,
                 "y": 1
             },
@@ -95,8 +95,8 @@
             },
             "gridPos": {
                 "h": 6,
-                "w": 4,
-                "x": 4,
+                "w": 3,
+                "x": 3,
                 "y": 1
             },
             "id": 3,
@@ -163,7 +163,7 @@
             "gridPos": {
                 "h": 6,
                 "w": 4,
-                "x": 8,
+                "x": 6,
                 "y": 1
             },
             "id": 4,
@@ -232,8 +232,8 @@
             },
             "gridPos": {
                 "h": 6,
-                "w": 4,
-                "x": 12,
+                "w": 3,
+                "x": 10,
                 "y": 1
             },
             "id": 5,
@@ -271,17 +271,62 @@
             "fieldConfig": {
                 "defaults": {
                     "noValue": "No data",
+                    "unit": "dateTimeAsIso"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 6,
+                "w": 4,
+                "x": 13,
+                "y": 1
+            },
+            "id": 6,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "textMode": "auto"
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                    },
+                    "expr": "(time() + (1 - (slo:window:coverage_ratio{application=\"$application\",slo=\"checkout.pay\",objective=\"availability\"} < 0.999999)) * 2592000) * 1000",
+                    "legendFormat": "",
+                    "refId": "A"
+                }
+            ],
+            "title": "Warming up until",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "noValue": "No data",
                     "unit": "none"
                 },
                 "overrides": []
             },
             "gridPos": {
                 "h": 6,
-                "w": 8,
-                "x": 16,
+                "w": 7,
+                "x": 17,
                 "y": 1
             },
-            "id": 6,
+            "id": 7,
             "options": {
                 "legend": {
                     "calcs": [],
@@ -325,7 +370,7 @@
                 "x": 0,
                 "y": 7
             },
-            "id": 7,
+            "id": 8,
             "panels": [],
             "title": "checkout.pay / latency",
             "type": "row"
@@ -344,11 +389,11 @@
             },
             "gridPos": {
                 "h": 6,
-                "w": 4,
+                "w": 3,
                 "x": 0,
                 "y": 8
             },
-            "id": 8,
+            "id": 9,
             "options": {
                 "colorMode": "value",
                 "graphMode": "none",
@@ -405,11 +450,11 @@
             },
             "gridPos": {
                 "h": 6,
-                "w": 4,
-                "x": 4,
+                "w": 3,
+                "x": 3,
                 "y": 8
             },
-            "id": 9,
+            "id": 10,
             "options": {
                 "colorMode": "value",
                 "graphMode": "none",
@@ -473,10 +518,10 @@
             "gridPos": {
                 "h": 6,
                 "w": 4,
-                "x": 8,
+                "x": 6,
                 "y": 8
             },
-            "id": 10,
+            "id": 11,
             "options": {
                 "reduceOptions": {
                     "calcs": [
@@ -542,11 +587,11 @@
             },
             "gridPos": {
                 "h": 6,
-                "w": 4,
-                "x": 12,
+                "w": 3,
+                "x": 10,
                 "y": 8
             },
-            "id": 11,
+            "id": 12,
             "options": {
                 "colorMode": "value",
                 "graphMode": "none",
@@ -581,17 +626,62 @@
             "fieldConfig": {
                 "defaults": {
                     "noValue": "No data",
+                    "unit": "dateTimeAsIso"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 6,
+                "w": 4,
+                "x": 13,
+                "y": 8
+            },
+            "id": 13,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "textMode": "auto"
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                    },
+                    "expr": "(time() + (1 - (slo:window:coverage_ratio{application=\"$application\",slo=\"checkout.pay\",objective=\"latency\"} < 0.999999)) * 2592000) * 1000",
+                    "legendFormat": "",
+                    "refId": "A"
+                }
+            ],
+            "title": "Warming up until",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "noValue": "No data",
                     "unit": "none"
                 },
                 "overrides": []
             },
             "gridPos": {
                 "h": 6,
-                "w": 8,
-                "x": 16,
+                "w": 7,
+                "x": 17,
                 "y": 8
             },
-            "id": 12,
+            "id": 14,
             "options": {
                 "legend": {
                     "calcs": [],
@@ -635,7 +725,7 @@
                 "x": 0,
                 "y": 14
             },
-            "id": 13,
+            "id": 15,
             "panels": [],
             "title": "payment.process / availability",
             "type": "row"
@@ -654,11 +744,11 @@
             },
             "gridPos": {
                 "h": 6,
-                "w": 4,
+                "w": 3,
                 "x": 0,
                 "y": 15
             },
-            "id": 14,
+            "id": 16,
             "options": {
                 "colorMode": "value",
                 "graphMode": "none",
@@ -715,11 +805,11 @@
             },
             "gridPos": {
                 "h": 6,
-                "w": 4,
-                "x": 4,
+                "w": 3,
+                "x": 3,
                 "y": 15
             },
-            "id": 15,
+            "id": 17,
             "options": {
                 "colorMode": "value",
                 "graphMode": "none",
@@ -783,10 +873,10 @@
             "gridPos": {
                 "h": 6,
                 "w": 4,
-                "x": 8,
+                "x": 6,
                 "y": 15
             },
-            "id": 16,
+            "id": 18,
             "options": {
                 "reduceOptions": {
                     "calcs": [
@@ -852,11 +942,11 @@
             },
             "gridPos": {
                 "h": 6,
-                "w": 4,
-                "x": 12,
+                "w": 3,
+                "x": 10,
                 "y": 15
             },
-            "id": 17,
+            "id": 19,
             "options": {
                 "colorMode": "value",
                 "graphMode": "none",
@@ -891,17 +981,62 @@
             "fieldConfig": {
                 "defaults": {
                     "noValue": "No data",
+                    "unit": "dateTimeAsIso"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 6,
+                "w": 4,
+                "x": 13,
+                "y": 15
+            },
+            "id": 20,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "textMode": "auto"
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                    },
+                    "expr": "(time() + (1 - (slo:window:coverage_ratio{application=\"$application\",slo=\"payment.process\",objective=\"availability\"} < 0.999999)) * 2592000) * 1000",
+                    "legendFormat": "",
+                    "refId": "A"
+                }
+            ],
+            "title": "Warming up until",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "noValue": "No data",
                     "unit": "none"
                 },
                 "overrides": []
             },
             "gridPos": {
                 "h": 6,
-                "w": 8,
-                "x": 16,
+                "w": 7,
+                "x": 17,
                 "y": 15
             },
-            "id": 18,
+            "id": 21,
             "options": {
                 "legend": {
                     "calcs": [],
@@ -945,7 +1080,7 @@
                 "x": 0,
                 "y": 21
             },
-            "id": 19,
+            "id": 22,
             "panels": [],
             "title": "payment.process / latency",
             "type": "row"
@@ -964,11 +1099,11 @@
             },
             "gridPos": {
                 "h": 6,
-                "w": 4,
+                "w": 3,
                 "x": 0,
                 "y": 22
             },
-            "id": 20,
+            "id": 23,
             "options": {
                 "colorMode": "value",
                 "graphMode": "none",
@@ -1025,11 +1160,11 @@
             },
             "gridPos": {
                 "h": 6,
-                "w": 4,
-                "x": 4,
+                "w": 3,
+                "x": 3,
                 "y": 22
             },
-            "id": 21,
+            "id": 24,
             "options": {
                 "colorMode": "value",
                 "graphMode": "none",
@@ -1093,10 +1228,10 @@
             "gridPos": {
                 "h": 6,
                 "w": 4,
-                "x": 8,
+                "x": 6,
                 "y": 22
             },
-            "id": 22,
+            "id": 25,
             "options": {
                 "reduceOptions": {
                     "calcs": [
@@ -1162,11 +1297,11 @@
             },
             "gridPos": {
                 "h": 6,
-                "w": 4,
-                "x": 12,
+                "w": 3,
+                "x": 10,
                 "y": 22
             },
-            "id": 23,
+            "id": 26,
             "options": {
                 "colorMode": "value",
                 "graphMode": "none",
@@ -1201,17 +1336,62 @@
             "fieldConfig": {
                 "defaults": {
                     "noValue": "No data",
+                    "unit": "dateTimeAsIso"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 6,
+                "w": 4,
+                "x": 13,
+                "y": 22
+            },
+            "id": 27,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "textMode": "auto"
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                    },
+                    "expr": "(time() + (1 - (slo:window:coverage_ratio{application=\"$application\",slo=\"payment.process\",objective=\"latency\"} < 0.999999)) * 2592000) * 1000",
+                    "legendFormat": "",
+                    "refId": "A"
+                }
+            ],
+            "title": "Warming up until",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "noValue": "No data",
                     "unit": "none"
                 },
                 "overrides": []
             },
             "gridPos": {
                 "h": 6,
-                "w": 8,
-                "x": 16,
+                "w": 7,
+                "x": 17,
                 "y": 22
             },
-            "id": 24,
+            "id": 28,
             "options": {
                 "legend": {
                     "calcs": [],
@@ -1255,7 +1435,7 @@
                 "x": 0,
                 "y": 28
             },
-            "id": 25,
+            "id": 29,
             "panels": [],
             "title": "report.export / availability",
             "type": "row"
@@ -1274,11 +1454,11 @@
             },
             "gridPos": {
                 "h": 6,
-                "w": 4,
+                "w": 3,
                 "x": 0,
                 "y": 29
             },
-            "id": 26,
+            "id": 30,
             "options": {
                 "colorMode": "value",
                 "graphMode": "none",
@@ -1335,11 +1515,11 @@
             },
             "gridPos": {
                 "h": 6,
-                "w": 4,
-                "x": 4,
+                "w": 3,
+                "x": 3,
                 "y": 29
             },
-            "id": 27,
+            "id": 31,
             "options": {
                 "colorMode": "value",
                 "graphMode": "none",
@@ -1403,10 +1583,10 @@
             "gridPos": {
                 "h": 6,
                 "w": 4,
-                "x": 8,
+                "x": 6,
                 "y": 29
             },
-            "id": 28,
+            "id": 32,
             "options": {
                 "reduceOptions": {
                     "calcs": [
@@ -1472,11 +1652,11 @@
             },
             "gridPos": {
                 "h": 6,
-                "w": 4,
-                "x": 12,
+                "w": 3,
+                "x": 10,
                 "y": 29
             },
-            "id": 29,
+            "id": 33,
             "options": {
                 "colorMode": "value",
                 "graphMode": "none",
@@ -1511,17 +1691,62 @@
             "fieldConfig": {
                 "defaults": {
                     "noValue": "No data",
+                    "unit": "dateTimeAsIso"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 6,
+                "w": 4,
+                "x": 13,
+                "y": 29
+            },
+            "id": 34,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "textMode": "auto"
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                    },
+                    "expr": "(time() + (1 - (slo:window:coverage_ratio{application=\"$application\",slo=\"report.export\",objective=\"availability\"} < 0.999999)) * 259200) * 1000",
+                    "legendFormat": "",
+                    "refId": "A"
+                }
+            ],
+            "title": "Warming up until",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "noValue": "No data",
                     "unit": "none"
                 },
                 "overrides": []
             },
             "gridPos": {
                 "h": 6,
-                "w": 8,
-                "x": 16,
+                "w": 7,
+                "x": 17,
                 "y": 29
             },
-            "id": 30,
+            "id": 35,
             "options": {
                 "legend": {
                     "calcs": [],
