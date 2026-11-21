@@ -75,6 +75,19 @@ final class SloBundleConfigurationTest extends TestCase
         ], $container->getParameter('msstc4symfony_slo.operations'));
     }
 
+    public function testDashedOperationNameIsKeptUnchanged(): void
+    {
+        $container = $this->load([
+            'operations' => [
+                'payment-validation' => ['objectives' => [['type' => 'availability', 'target' => 99]]],
+            ],
+        ]);
+
+        $operations = $container->getParameter('msstc4symfony_slo.operations');
+        self::assertIsArray($operations);
+        self::assertSame(['payment-validation'], array_keys($operations));
+    }
+
     public function testNoEventsAlertHoursAndSelectorAreAccepted(): void
     {
         $container = $this->load([

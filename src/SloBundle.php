@@ -105,6 +105,7 @@ final class SloBundle extends AbstractBundle
                 ->end()
                 ->arrayNode('operations')
                     ->useAttributeAsKey('name')
+                    ->normalizeKeys(false)
                     ->defaultValue([])
                     ->arrayPrototype()
                         ->children()
