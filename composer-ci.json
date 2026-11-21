@@ -56,6 +56,7 @@
   "require-dev": {
     "deptrac/deptrac": "^4.6",
     "friendsofphp/php-cs-fixer": "^3.76",
+    "justinrainbow/json-schema": "^6.6",
     "infection/infection": "^0.32",
     "msstc4symfony/logic-bundle": "^2.1",
     "phpstan/extension-installer": "^1.4",

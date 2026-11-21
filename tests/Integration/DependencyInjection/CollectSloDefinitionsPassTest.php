@@ -175,6 +175,7 @@ final class CollectSloDefinitionsPassTest extends TestCase
         self::assertSame(ProcessPaymentHandler::class, $handlers[0]->handlerClass);
         self::assertSame(ProcessPayment::class, $handlers[0]->messageClass);
         self::assertSame('async', $handlers[0]->fromTransport);
+        self::assertSame('__invoke', $handlers[0]->method);
         self::assertFalse($handlers[0]->async);
         self::assertNull($handlers[1]->fromTransport);
         self::assertSame([], $catalog->extras()->warnings);

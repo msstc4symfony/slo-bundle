@@ -4,4 +4,5 @@
 - [domain-model.md](domain-model.md) — модель SLO, точки, каталог и конфликты имён.
 - [integrations.md](integrations.md) — metrics-bundle, Messenger, мосты: что читает discovery.
 - [conventions.md](conventions.md) — раскладка, тесты, коммиты.
+- Покрытие и `slo:coverage`: см. раздел в [architecture.md](architecture.md).
 - [known-issues.md](known-issues.md) — ловушки Symfony и CI, общие для семейства, и локальной сборки.

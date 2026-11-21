@@ -34,7 +34,7 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\Window;
  *     count_attempts: bool,
  *     strategy: value-of<StrategyPreference>,
  * }
- * @phpstan-type HandlerShape array{handler_class: class-string, message_class: non-empty-string, async: bool, from_transport: non-empty-string|null}
+ * @phpstan-type HandlerShape array{handler_class: class-string, message_class: non-empty-string, async: bool, from_transport: non-empty-string|null, method: non-empty-string}
  * @phpstan-type TaggedPointShape array{point: non-empty-string, metric_label: non-empty-string|null}
  * @phpstan-type ExtrasShape array{
  *     controllers: array<class-string, list<non-empty-string>>,
@@ -77,6 +77,7 @@ final class CatalogDump
                     'message_class' => $h->messageClass,
                     'async' => $h->async,
                     'from_transport' => $h->fromTransport,
+                    'method' => $h->method,
                 ], $extras->handlers),
                 'tagged_points' => array_map(static fn (TaggedPoint $t): array => [
                     'point' => $t->point->toString(),
@@ -112,7 +113,7 @@ final class CatalogDump
             $catalog['ignored'],
             new CatalogExtras(
                 $extras['controllers'],
-                array_map(static fn (array $h): HandlerInfo => new HandlerInfo($h['handler_class'], $h['message_class'], $h['async'], $h['from_transport']), $extras['handlers']),
+                array_map(static fn (array $h): HandlerInfo => new HandlerInfo($h['handler_class'], $h['message_class'], $h['async'], $h['from_transport'], $h['method']), $extras['handlers']),
                 array_map(static fn (array $t): TaggedPoint => new TaggedPoint(self::point($t['point']), $t['metric_label']), $extras['tagged_points']),
                 $extras['operations'],
                 $extras['failure_transports'],

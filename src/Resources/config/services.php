@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Msstc4Symfony\SloBundle\Application\Binding\MetricBindingResolver;
 use Msstc4Symfony\SloBundle\Application\Catalog\List\Action as ListAction;
 use Msstc4Symfony\SloBundle\Application\Catalog\Validate\Action as ValidateAction;
+use Msstc4Symfony\SloBundle\Application\Coverage\Analyze\Action as CoverageAction;
 use Msstc4Symfony\SloBundle\Application\Evaluation\RecordEvent\Action as RecordEventAction;
 use Msstc4Symfony\SloBundle\Application\Port\CatalogDiagnosticsInterface;
 use Msstc4Symfony\SloBundle\Application\Port\ClockInterface;
@@ -25,11 +26,13 @@ use Msstc4Symfony\SloBundle\Infrastructure\Operation\OperationMonitor;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RoutePointIndex;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouterRouteCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\SloCacheWarmer;
+use Msstc4Symfony\SloBundle\Presentation\Command\CoverageCommand;
 use Msstc4Symfony\SloBundle\Presentation\Command\ListCommand;
 use Msstc4Symfony\SloBundle\Presentation\Command\ValidateCommand;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 
 use function Symfony\Component\DependencyInjection\Loader\Configurator\abstract_arg;
+use function Symfony\Component\DependencyInjection\Loader\Configurator\param;
 use function Symfony\Component\DependencyInjection\Loader\Configurator\service;
 
 return static function (ContainerConfigurator $container): void {
@@ -72,6 +75,13 @@ return static function (ContainerConfigurator $container): void {
 
     $services->set(ListAction::class);
     $services->set(ValidateAction::class);
+    $services->set(CoverageAction::class);
+    $services->set(CoverageCommand::class)
+        ->arg('$ignoredRoutes', param('msstc4symfony_slo.coverage.http_routes.ignored_routes'))
+        ->arg('$httpRequiredPercent', param('msstc4symfony_slo.coverage.http_routes.required_percent'))
+        ->arg('$messengerRequiredPercent', param('msstc4symfony_slo.coverage.messenger_handlers.required_percent'))
+        ->arg('$logicRequiredPercent', param('msstc4symfony_slo.coverage.logic_actions.required_percent'))
+    ;
     $services->set(ListCommand::class);
     $services->set(ValidateCommand::class);
     $services->set(SloCacheWarmer::class)

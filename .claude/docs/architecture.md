@@ -104,3 +104,22 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
 - Оба наблюдателя ловят любой `Throwable` (в т.ч. от логгера) и логируют в `slo_bundle`.
 - `RecordEvent\Action`: ошибка резолвера/ревизии мемоизируется по (slo, kind) как «пропуск» и логируется один раз
   (контекст `slo`, `objective`, `point`, `exception`); поиск конфликтов в отдельном guard; все вызовы логгера защищены.
+
+## Покрытие (`slo:coverage`, Task 11)
+
+- `Application/Coverage/Analyze/{Action,Input,Output,PointCoverage}` + `Domain/Enum/CoverageStatus`
+  (`monitored|unmonitored|ignored|invalid|unsupported`). Читает только скомпилированный каталог и `RouteCatalogInterface::all()`,
+  никогда временные ряды (plan §15, последняя строка).
+- Виды точек (`PointCoverage::KIND_*`): `http_route` (point = имя маршрута), `messenger_handler` (point = `HandlerClass::method`,
+  метод хранится в `HandlerInfo::$method`), `logic_action` (id точки), `operation` (имя операции из конфига).
+- Приоритет статуса: invalid → ignored → unsupported → monitored/unmonitored. Invalid: конфликт имён SLO на точке
+  (`conflictedNamesFor`) или SLO на маршруте из `httpIgnoredRoutes` metrics-bundle. Ignored: `_`-маршрут или `httpIgnoredRoutes`
+  ("system route"), `coverage.http_routes.ignored_routes`, `#[IgnoreMonitoring]` (ищется по controller-точке / message-точке / точке логики).
+- Messenger: точка на обработчик, но SLO и ignore ищутся по сообщению (`messenger_message:<FQCN>`); sync → unsupported
+  "sync handling is not measured".
+- `sloPercent = monitored / (total - ignored - unsupported)`, `measuredPercent = measuredByUniversalMetric / total`; оба округлены до
+  2 знаков, при нулевом знаменателе 100.0. Операции: всегда monitored, measured всегда false (только dedicated).
+- Команда `slo:coverage --format=text|json --min=<0..100>`: пороги из `coverage.*.required_percent` (у операций порога нет),
+  `--min` перекрывает все виды; невалидный `--min`/`--format` → код 2; код 1 при любой invalid точке или виде ниже порога
+  (сравнение по округлённому значению). JSON: ключи отсортированы, `JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES`, OUTPUT_RAW,
+  схема `doc/coverage-schema.json` (JSON Schema 2020-12; `doc/` допустим для verify-standard). Целые проценты печатаются как `50`, не `50.0`.

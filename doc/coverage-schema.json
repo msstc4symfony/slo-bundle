@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/msstc4symfony/slo-bundle/doc/coverage-schema.json",
+  "title": "slo:coverage --format=json report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "invalid",
+    "measured_percent",
+    "passed",
+    "points",
+    "required_percent",
+    "slo_percent"
+  ],
+  "properties": {
+    "invalid": {
+      "description": "Number of points with status invalid; any of them fails the gate",
+      "type": "integer",
+      "minimum": 0
+    },
+    "measured_percent": {
+      "description": "Share of the points of each kind already measured by a universal metrics-bundle series",
+      "$ref": "#/$defs/percentByKind"
+    },
+    "passed": {
+      "description": "False when any point is invalid or any kind is below its required percent",
+      "type": "boolean"
+    },
+    "points": {
+      "description": "Every point, sorted by kind (http_route, messenger_handler, logic_action, operation) then point",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "measured_by_universal_metric",
+          "point",
+          "reason",
+          "slos",
+          "status"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "http_route",
+              "messenger_handler",
+              "logic_action",
+              "operation"
+            ]
+          },
+          "measured_by_universal_metric": {
+            "type": "boolean"
+          },
+          "point": {
+            "description": "Route name, handler Class::method, logic action id or operation name",
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "description": "Null exactly for monitored points",
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "slos": {
+            "description": "Names of the SLOs covering the point, sorted",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "status": {
+            "enum": [
+              "monitored",
+              "unmonitored",
+              "ignored",
+              "invalid",
+              "unsupported"
+            ]
+          }
+        },
+        "oneOf": [
+          {
+            "properties": {
+              "status": {
+                "const": "monitored"
+              },
+              "reason": {
+                "type": "null"
+              }
+            }
+          },
+          {
+            "properties": {
+              "status": {
+                "enum": [
+                  "unmonitored",
+                  "ignored",
+                  "invalid",
+                  "unsupported"
+                ]
+              },
+              "reason": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "required_percent": {
+      "description": "Threshold applied to each kind; operations only appear when --min is given",
+      "$ref": "#/$defs/percentByKind"
+    },
+    "slo_percent": {
+      "description": "monitored / (total - ignored - unsupported) per kind, 100 when that denominator is 0",
+      "$ref": "#/$defs/percentByKind"
+    }
+  },
+  "$defs": {
+    "percent": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "percentByKind": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "http_route": {
+          "$ref": "#/$defs/percent"
+        },
+        "logic_action": {
+          "$ref": "#/$defs/percent"
+        },
+        "messenger_handler": {
+          "$ref": "#/$defs/percent"
+        },
+        "operation": {
+          "$ref": "#/$defs/percent"
+        }
+      }
+    }
+  }
+}

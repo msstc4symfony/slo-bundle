@@ -55,6 +55,7 @@
   },
   "require-dev": {
     "friendsofphp/php-cs-fixer": "^3.76",
+    "justinrainbow/json-schema": "^6.6",
     "msstc4symfony/logic-bundle": "^2.1",
     "phpstan/extension-installer": "^1.4",
     "phpstan/phpstan": "^2.1",

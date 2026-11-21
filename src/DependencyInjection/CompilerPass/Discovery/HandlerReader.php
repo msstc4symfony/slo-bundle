@@ -61,7 +61,7 @@ final readonly class HandlerReader
                     $onMethod = $this->attributes->apply($point, $reflection);
                     $onClass = $this->attributes->apply($point, $class);
                     $byMessage[$message][$handlerKey] = $onMethod || $onClass;
-                    $handlers[] = new HandlerInfo($class->getName(), $message, $routing->isAsync($message), $this->nonEmptyString($tag['from_transport'] ?? null));
+                    $handlers[] = new HandlerInfo($class->getName(), $message, $routing->isAsync($message), $this->nonEmptyString($tag['from_transport'] ?? null), $method);
                 }
             }
         }
