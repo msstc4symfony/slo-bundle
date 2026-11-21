@@ -13,6 +13,7 @@ use Symfony\Component\Routing\RouterInterface;
 
 /**
  * Route index built lazily from the router on first use and memoised: routes are fixed per container (ruling 7).
+ * Without a router (framework.router.enabled: false) there are no routes.
  *
  * @internal
  */
@@ -27,7 +28,7 @@ final class RouterRouteCatalog implements RouteCatalogInterface
     private ?array $byController = null;
 
     public function __construct(
-        private readonly RouterInterface $router,
+        private readonly ?RouterInterface $router,
         private readonly CatalogDiagnosticsInterface $diagnostics,
     ) {
     }
@@ -56,7 +57,7 @@ final class RouterRouteCatalog implements RouteCatalogInterface
 
         $routes = [];
         $byController = [];
-        foreach ($this->router->getRouteCollection()->all() as $name => $route) {
+        foreach ($this->router?->getRouteCollection()->all() ?? [] as $name => $route) {
             $name = (string) $name;
             if ($name === '') {
                 continue;

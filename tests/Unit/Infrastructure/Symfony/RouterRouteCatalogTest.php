@@ -61,4 +61,13 @@ final class RouterRouteCatalogTest extends TestCase
         $catalog->all();
         $catalog->routesFor('C::d');
     }
+
+    public function testWithoutARouterThereAreNoRoutes(): void
+    {
+        $catalog = new RouterRouteCatalog(null, CatalogFixture::build(static function (): void {
+        }));
+
+        self::assertSame([], $catalog->all());
+        self::assertSame([], $catalog->routesFor('A::b'));
+    }
 }

@@ -62,7 +62,7 @@ return static function (ContainerConfigurator $container): void {
     $services->alias(CatalogDiagnosticsInterface::class, CompiledSloCatalog::class);
 
     $services->set(RevisionCalculator::class);
-    $services->set(RouterRouteCatalog::class);
+    $services->set(RouterRouteCatalog::class)->arg('$router', service('router')->nullOnInvalid());
     $services->alias(RouteCatalogInterface::class, RouterRouteCatalog::class);
 
     $services->set(MetricBindingResolver::class);

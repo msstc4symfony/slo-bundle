@@ -15,7 +15,6 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBag;
 use Symfony\Component\Routing\Router;
-use Symfony\Component\Routing\RouterInterface;
 
 /**
  * Raw msstc4symfony_slo configuration used by the tests.
@@ -47,7 +46,7 @@ final class TestContainer
         $container->loadFromExtension($extension->getAlias(), $config);
 
         // Services of FrameworkBundle that the bundle's own services autowire; never instantiated by these tests.
-        $container->setDefinition(RouterInterface::class, new Definition(Router::class));
+        $container->setDefinition('router', new Definition(Router::class));
         $container->setDefinition(LoggerInterface::class, new Definition(NullLogger::class));
 
         if ($withMetricsBundle) {
