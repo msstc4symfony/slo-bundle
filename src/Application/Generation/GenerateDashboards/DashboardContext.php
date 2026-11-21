@@ -10,6 +10,8 @@ use Msstc4Symfony\SloBundle\Application\Generation\Selector;
 
 /**
  * Everything a dashboard is rendered from; all of it is known at compile time.
+ *
+ * @internal
  */
 final readonly class DashboardContext
 {

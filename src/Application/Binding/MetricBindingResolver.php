@@ -19,6 +19,8 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 
 /**
  * Picks per objective between existing metrics-bundle series (Strategy A) and dedicated counters (Strategy B), spec 5.4.
+ *
+ * @internal
  */
 final readonly class MetricBindingResolver
 {

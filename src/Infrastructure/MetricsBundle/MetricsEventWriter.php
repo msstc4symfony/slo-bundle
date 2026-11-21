@@ -12,6 +12,9 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\Revision;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\SloName;
 use Override;
 
+/**
+ * @internal
+ */
 final readonly class MetricsEventWriter implements EventWriterInterface
 {
     public function __construct(private MetricRecorderInterface $recorder)

@@ -8,6 +8,8 @@ use Symfony\Component\Yaml\Yaml;
 
 /**
  * YAML with recursively sorted map keys, so equal data always dumps to equal bytes.
+ *
+ * @internal
  */
 final readonly class DeterministicYaml
 {

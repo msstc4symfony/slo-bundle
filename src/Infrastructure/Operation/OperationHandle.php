@@ -17,6 +17,8 @@ use Throwable;
 
 /**
  * There is deliberately no destructor: an operation that is never ended is not recorded.
+ *
+ * @internal
  */
 final class OperationHandle implements OperationHandleInterface
 {

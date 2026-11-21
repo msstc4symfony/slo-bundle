@@ -9,6 +9,8 @@ use InvalidArgumentException;
 /**
  * Files of one or more generators plus the directories they write to. The generator owns only the files matching
  * OWNED_FILES directly in those directories: a stale owned file is deleted, anything else is never touched.
+ *
+ * @internal
  */
 final readonly class GeneratedFileSet
 {

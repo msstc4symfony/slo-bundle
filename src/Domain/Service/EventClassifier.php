@@ -14,6 +14,9 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\LatencyThreshold;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Objective;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Observation;
 
+/**
+ * @internal
+ */
 final readonly class EventClassifier
 {
     /**

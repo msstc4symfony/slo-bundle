@@ -6,6 +6,8 @@ namespace Msstc4Symfony\SloBundle\Application\Generation\SyncFiles;
 
 /**
  * State of the output directory before the sync; in write mode stale and missing files were written, extra ones deleted.
+ *
+ * @internal
  */
 final readonly class Output
 {

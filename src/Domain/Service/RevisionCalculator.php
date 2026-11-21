@@ -10,6 +10,9 @@ use Msstc4Symfony\SloBundle\Domain\Enum\ObjectiveKind;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Objective;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Revision;
 
+/**
+ * @internal
+ */
 final readonly class RevisionCalculator
 {
     public function revision(SloDefinition $slo, ObjectiveKind $kind): Revision

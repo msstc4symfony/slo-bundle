@@ -6,6 +6,9 @@ namespace Msstc4Symfony\SloBundle\Application\Generation\GenerateRules;
 
 use Msstc4Symfony\SloBundle\Application\Generation\Selector;
 
+/**
+ * @internal
+ */
 final readonly class Input
 {
     /**

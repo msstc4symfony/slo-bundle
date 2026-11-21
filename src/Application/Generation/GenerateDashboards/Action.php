@@ -12,6 +12,9 @@ use Msstc4Symfony\SloBundle\Application\Generation\GeneratedFileSet;
 use Msstc4Symfony\SloBundle\Application\Port\CatalogDiagnosticsInterface;
 use Msstc4Symfony\SloBundle\Application\Port\GrafanaFileBuilderInterface;
 
+/**
+ * @internal
+ */
 final readonly class Action
 {
     public const DASHBOARDS_DIRECTORY = 'grafana/dashboards';

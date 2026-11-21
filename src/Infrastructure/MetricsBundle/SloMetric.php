@@ -12,6 +12,9 @@ use Msstc4Symfony\SloBundle\Domain\Enum\EventResult;
 use Msstc4Symfony\SloBundle\Domain\Enum\ObjectiveKind;
 use Override;
 
+/**
+ * @internal
+ */
 enum SloMetric: string implements MetricDefinitionInterface
 {
     case EVENTS = 'slo_events_total';

@@ -9,6 +9,9 @@ use Msstc4Symfony\SloBundle\Application\Generation\GenerateDashboards\DashboardC
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
 use Override;
 
+/**
+ * @internal
+ */
 final readonly class Messenger implements DashboardInterface
 {
     public function __construct(

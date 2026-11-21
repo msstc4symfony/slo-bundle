@@ -19,6 +19,8 @@ use Override;
  * `slo-<name>-window` every 5 minutes (3d rates, SLI, budget, coverage: scans over the whole window).
  *
  * @phpstan-type RuleShape array{record?: non-empty-string, alert?: non-empty-string, expr: string, labels: array<non-empty-string, string>, annotations?: array{summary: non-empty-string}}
+ *
+ * @internal
  */
 final readonly class RuleGroupsBuilder implements RuleFileBuilderInterface
 {

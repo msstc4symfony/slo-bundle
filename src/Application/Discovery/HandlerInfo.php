@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Application\Discovery;
 
+/**
+ * @internal
+ */
 final readonly class HandlerInfo
 {
     /**

@@ -6,6 +6,9 @@ namespace Msstc4Symfony\SloBundle\Application\Generation\GenerateSloth;
 
 use Msstc4Symfony\SloBundle\Application\Generation\GeneratedFileSet;
 
+/**
+ * @internal
+ */
 final readonly class Output
 {
     /**

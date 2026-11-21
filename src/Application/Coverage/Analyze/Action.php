@@ -16,6 +16,8 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 
 /**
  * Static coverage of the application by SLOs, spec 5.7. Reads only compile-time facts, never a time series.
+ *
+ * @internal
  */
 final readonly class Action
 {

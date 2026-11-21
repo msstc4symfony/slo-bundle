@@ -16,6 +16,8 @@ use Throwable;
 
 /**
  * The duration is the one metrics-bundle measured; no second timer.
+ *
+ * @internal
  */
 final readonly class HttpSloObserver implements HttpMeasurementObserverInterface
 {

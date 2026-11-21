@@ -6,6 +6,9 @@ namespace Msstc4Symfony\SloBundle\Application\Discovery;
 
 use Msstc4Symfony\SloBundle\Domain\Entity\SloDefinition;
 
+/**
+ * @internal
+ */
 final readonly class CatalogContents
 {
     /**

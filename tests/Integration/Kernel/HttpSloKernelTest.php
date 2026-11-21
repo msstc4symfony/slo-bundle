@@ -13,8 +13,8 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\TerminableInterface;
 
 /**
- * Durations come from metrics-bundle only, so wall-time dependent results are covered by HttpSloObserverTest; here a
- * trivial controller after a warm-up request is assumed to answer within the 200ms threshold.
+ * Durations come from metrics-bundle only; the fixture threshold is 10s so no case depends on wall time, the boundary
+ * cases are covered by HttpSloObserverTest.
  */
 final class HttpSloKernelTest extends KernelTestCase
 {
@@ -60,6 +60,10 @@ final class HttpSloKernelTest extends KernelTestCase
         $this->serve('/missing');
 
         self::assertSame([], $this->counts());
+
+        $this->serve('/checkout/ok');
+
+        self::assertSame(['checkout.page|combined|good' => 1, 'checkout.page|latency|good' => 1], $this->counts());
     }
 
     public function testFragmentSubRequestPageIsOneEvent(): void

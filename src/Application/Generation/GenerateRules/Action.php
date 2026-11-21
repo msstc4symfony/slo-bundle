@@ -11,6 +11,9 @@ use Msstc4Symfony\SloBundle\Application\Generation\GeneratedFileSet;
 use Msstc4Symfony\SloBundle\Application\Port\CatalogDiagnosticsInterface;
 use Msstc4Symfony\SloBundle\Application\Port\RuleFileBuilderInterface;
 
+/**
+ * @internal
+ */
 final readonly class Action
 {
     public const DIRECTORY = 'prometheus';

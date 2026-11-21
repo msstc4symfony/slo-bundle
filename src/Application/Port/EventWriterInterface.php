@@ -9,6 +9,9 @@ use Msstc4Symfony\SloBundle\Domain\Enum\ObjectiveKind;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Revision;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\SloName;
 
+/**
+ * @internal
+ */
 interface EventWriterInterface
 {
     public function write(SloName $slo, ObjectiveKind $kind, Revision $revision, EventResult $result): void;

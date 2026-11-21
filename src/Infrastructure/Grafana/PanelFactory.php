@@ -6,6 +6,8 @@ namespace Msstc4Symfony\SloBundle\Infrastructure\Grafana;
 
 /**
  * Panel JSON in the shapes Grafana 13 writes for schemaVersion 41. Every query panel shows "No data" for an empty series.
+ *
+ * @internal
  */
 final readonly class PanelFactory
 {

@@ -16,6 +16,8 @@ use Override;
 
 /**
  * @phpstan-import-type CatalogShape from CatalogDump
+ *
+ * @internal
  */
 final readonly class CompiledSloCatalog implements SloCatalogInterface, CatalogDiagnosticsInterface
 {

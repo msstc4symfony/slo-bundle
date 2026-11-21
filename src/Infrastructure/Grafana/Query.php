@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Infrastructure\Grafana;
 
+/**
+ * @internal
+ */
 final readonly class Query
 {
     /**

@@ -6,6 +6,9 @@ namespace Msstc4Symfony\SloBundle\Application\Port;
 
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 
+/**
+ * @internal
+ */
 interface RoutePointIndexInterface
 {
     /**

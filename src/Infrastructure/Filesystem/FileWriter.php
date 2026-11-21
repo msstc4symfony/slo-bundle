@@ -11,6 +11,9 @@ use Override;
 use RuntimeException;
 use SplFileInfo;
 
+/**
+ * @internal
+ */
 final readonly class FileWriter implements FileWriterInterface
 {
     #[Override]

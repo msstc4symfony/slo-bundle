@@ -11,6 +11,8 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 /**
  * Collects raw declarations per point, then builds the catalog: identical declarations of one name merge into a
  * multi-point SLO, differing ones (or the same name twice on one point) become conflicts (ruling 1).
+ *
+ * @internal
  */
 final class CatalogAssembler
 {

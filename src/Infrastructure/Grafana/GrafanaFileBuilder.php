@@ -12,6 +12,9 @@ use Msstc4Symfony\SloBundle\Infrastructure\Prometheus\PromQlBuilder;
 use Msstc4Symfony\SloBundle\Infrastructure\Yaml\DeterministicYaml;
 use Override;
 
+/**
+ * @internal
+ */
 final readonly class GrafanaFileBuilder implements GrafanaFileBuilderInterface
 {
     /**

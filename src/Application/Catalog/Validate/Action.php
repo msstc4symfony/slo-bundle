@@ -16,6 +16,9 @@ use Msstc4Symfony\SloBundle\Domain\Enum\StrategyPreference;
 use Msstc4Symfony\SloBundle\Domain\Repository\SloCatalogInterface;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 
+/**
+ * @internal
+ */
 final readonly class Action
 {
     public function __construct(

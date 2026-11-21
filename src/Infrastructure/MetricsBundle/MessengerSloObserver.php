@@ -20,6 +20,8 @@ use Throwable;
 
 /**
  * Only worker outcomes reach this observer: synchronously handled messages are not measured.
+ *
+ * @internal
  */
 final readonly class MessengerSloObserver implements MessengerMeasurementObserverInterface
 {

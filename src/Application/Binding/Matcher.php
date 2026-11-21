@@ -8,6 +8,8 @@ use InvalidArgumentException;
 
 /**
  * One PromQL label matcher. The value is kept raw (regex source for the regex operators); toPromQl() quotes it.
+ *
+ * @internal
  */
 final readonly class Matcher
 {

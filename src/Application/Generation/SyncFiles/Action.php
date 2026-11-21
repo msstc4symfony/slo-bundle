@@ -6,6 +6,9 @@ namespace Msstc4Symfony\SloBundle\Application\Generation\SyncFiles;
 
 use Msstc4Symfony\SloBundle\Application\Port\FileWriterInterface;
 
+/**
+ * @internal
+ */
 final readonly class Action
 {
     public function __construct(private FileWriterInterface $writer)

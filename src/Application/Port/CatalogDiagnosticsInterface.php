@@ -10,6 +10,8 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 
 /**
  * Read side of the catalog that reports problems instead of serving the runtime.
+ *
+ * @internal
  */
 interface CatalogDiagnosticsInterface
 {

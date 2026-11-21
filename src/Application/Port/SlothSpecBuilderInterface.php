@@ -9,6 +9,8 @@ use Msstc4Symfony\SloBundle\Application\Generation\Selector;
 
 /**
  * Renders one Sloth `prometheus/v1` specification per SLO.
+ *
+ * @internal
  */
 interface SlothSpecBuilderInterface
 {

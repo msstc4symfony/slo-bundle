@@ -6,6 +6,9 @@ namespace Msstc4Symfony\SloBundle\Application\Discovery;
 
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 
+/**
+ * @internal
+ */
 final readonly class TaggedPoint
 {
     /**

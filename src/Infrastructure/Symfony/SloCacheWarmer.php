@@ -12,6 +12,8 @@ use Throwable;
 
 /**
  * Surfaces catalog problems in the deploy log without ever failing the cache warm-up.
+ *
+ * @internal
  */
 final readonly class SloCacheWarmer implements CacheWarmerInterface
 {

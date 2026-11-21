@@ -9,6 +9,9 @@ use Msstc4Symfony\SloBundle\Application\Generation\GenerateDashboards\DashboardC
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
 use Override;
 
+/**
+ * @internal
+ */
 final readonly class BusinessOperations implements DashboardInterface
 {
     private const HISTOGRAM = 'logic_action_duration_histogram_seconds';

@@ -7,6 +7,9 @@ namespace Msstc4Symfony\SloBundle\Infrastructure\Grafana;
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateDashboards\DashboardContext;
 use Override;
 
+/**
+ * @internal
+ */
 final readonly class SloOverview implements DashboardInterface
 {
     public function __construct(

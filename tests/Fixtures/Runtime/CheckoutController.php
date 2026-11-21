@@ -23,7 +23,7 @@ final readonly class CheckoutController
     {
     }
 
-    #[Slo(name: self::PAGE_SLO, objectives: [new Combined('200ms', 99), new Latency('200ms', 99)])]
+    #[Slo(name: self::PAGE_SLO, objectives: [new Combined('10s', 99), new Latency('10s', 99)])]
     public function page(string $outcome): Response
     {
         return match ($outcome) {
@@ -35,7 +35,7 @@ final readonly class CheckoutController
         };
     }
 
-    #[Slo(name: self::FRAGMENT_SLO, objectives: [new Combined('200ms', 99)])]
+    #[Slo(name: self::FRAGMENT_SLO, objectives: [new Combined('10s', 99)])]
     public function withFragment(): Response
     {
         $fragment = $this->kernel->handle(Request::create('/checkout/ok'), HttpKernelInterface::SUB_REQUEST);

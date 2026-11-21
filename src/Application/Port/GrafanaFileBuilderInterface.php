@@ -9,6 +9,8 @@ use Msstc4Symfony\SloBundle\Application\Generation\GeneratedFile;
 
 /**
  * Renders the Grafana dashboards and the file provisioning config.
+ *
+ * @internal
  */
 interface GrafanaFileBuilderInterface
 {

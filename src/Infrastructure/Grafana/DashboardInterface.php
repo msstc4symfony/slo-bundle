@@ -6,6 +6,9 @@ namespace Msstc4Symfony\SloBundle\Infrastructure\Grafana;
 
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateDashboards\DashboardContext;
 
+/**
+ * @internal
+ */
 interface DashboardInterface
 {
     /**

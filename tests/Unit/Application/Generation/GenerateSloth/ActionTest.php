@@ -33,7 +33,8 @@ final class ActionTest extends TestCase
         }
         self::assertCount(1, $output->warnings);
         self::assertStringContainsString('3d, 30d', $output->warnings[0]);
-        self::assertStringContainsString('--default-slo-period', $output->warnings[0]);
+        self::assertStringContainsString('one --default-slo-period cannot match several windows', $output->warnings[0]);
+        self::assertStringContainsString('SLOs whose window differs from the chosen period get wrong burn-rate thresholds', $output->warnings[0]);
     }
 
     public function testSpecsFollowTheSlothSchema(): void
@@ -82,9 +83,9 @@ final class ActionTest extends TestCase
         $output = $action(new Input(new Selector('shop', [])));
 
         self::assertCount(2, $output->files->files);
-        self::assertSame(
-            ['SLO checkout.pay availability is not expressible as a Sloth ratio SLI and is skipped', 'SLO checkout.pay latency is not expressible as a Sloth ratio SLI and is skipped'],
-            \array_slice($output->warnings, 0, 2),
-        );
+        self::assertCount(3, $output->warnings);
+        self::assertSame('SLO checkout.pay availability is not expressible as a Sloth ratio SLI and is skipped', $output->warnings[0]);
+        self::assertSame('SLO checkout.pay latency is not expressible as a Sloth ratio SLI and is skipped', $output->warnings[1]);
+        self::assertStringContainsString('one --default-slo-period cannot match several windows', $output->warnings[2]);
     }
 }

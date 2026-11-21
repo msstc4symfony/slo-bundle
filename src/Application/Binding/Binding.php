@@ -6,6 +6,9 @@ namespace Msstc4Symfony\SloBundle\Application\Binding;
 
 use Msstc4Symfony\SloBundle\Domain\Enum\Strategy;
 
+/**
+ * @internal
+ */
 final readonly class Binding
 {
     private function __construct(

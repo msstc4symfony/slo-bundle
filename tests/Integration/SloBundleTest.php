@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Msstc4Symfony\SloBundle\Test\Integration;
 
 use LogicException;
+use Msstc4Symfony\MetricsBundle\MetricsBundle;
+use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MetricsEventWriter;
+use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\SloMetric;
 use Msstc4Symfony\SloBundle\SloBundle;
 use Msstc4Symfony\SloBundle\Test\Integration\Kernel\TestKernel;
 use Override;
@@ -34,17 +37,22 @@ final class SloBundleTest extends TestCase
 
         try {
             self::assertInstanceOf(SloBundle::class, $kernel->getBundle('SloBundle'));
-            self::assertTrue($kernel->getContainer()->has('kernel'));
+            self::assertInstanceOf(MetricsBundle::class, $kernel->getBundle('MetricsBundle'));
+            $enums = $kernel->getContainer()->getParameter('msstc4symfony_metrics.metric_enums');
+            self::assertIsArray($enums);
+            self::assertContains(SloMetric::class, $enums);
         } finally {
             $kernel->shutdown();
         }
     }
 
-    public function testBundleCompilesWithoutFrameworkServices(): void
+    public function testCompiledContainerRegistersTheSloMetricAndTheEventWriterService(): void
     {
         $container = TestContainer::compile();
 
         self::assertTrue($container->isCompiled());
+        self::assertSame([SloMetric::class], $container->getParameter('msstc4symfony_metrics.metric_enums'));
+        self::assertInstanceOf(MetricsEventWriter::class, $container->get(MetricsEventWriter::class));
     }
 
     public function testCompilationWithoutMetricsBundleFailsWithAHint(): void

@@ -10,6 +10,8 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\Objective;
 
 /**
  * Fields on which two declarations of one SLO name differ.
+ *
+ * @internal
  */
 final class DeclarationDiff
 {

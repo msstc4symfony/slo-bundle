@@ -6,6 +6,8 @@ namespace Msstc4Symfony\SloBundle\Infrastructure\Grafana;
 
 /**
  * Selectors of the metrics-bundle series (exported with the `symfony_` prefix) filtered by the dashboard variables.
+ *
+ * @internal
  */
 final readonly class BaseSeries
 {

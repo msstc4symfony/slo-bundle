@@ -8,6 +8,8 @@ use InvalidArgumentException;
 
 /**
  * A panel without `id` and `gridPos`: DashboardBuilder assigns both while laying the dashboard out.
+ *
+ * @internal
  */
 final readonly class Panel
 {

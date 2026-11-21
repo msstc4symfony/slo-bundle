@@ -9,6 +9,8 @@ use Msstc4Symfony\SloBundle\Infrastructure\Prometheus\PromQlBuilder;
 
 /**
  * One row per SLO objective over the recorded slo:* series: target, SLI, remaining budget, window state, burn rate.
+ *
+ * @internal
  */
 final readonly class SloRows
 {

@@ -59,7 +59,7 @@
 ## Strategy resolver (Task 7)
 
 - `SeriesBinding` хранит матчеры как `Matcher`, а не `array<string,string>`: оператор (`=`, `!=`, `=~`, `!~`) нельзя однозначно закодировать в строке.
-- Формат `le` (`(string) $bucket`) не сверялся с реальным экспортом metrics-bundle; Task 12 должен проверить на живых сериях.
+- Формат `le` (`(string) $bucket`) проверен (ревью Task 7 и promtool-тесты Task 12) на экспорте metrics-bundle: `0.5`, `1`.
 - `slo:list --format=json` пишется с `OUTPUT_RAW`, ячейки таблицы экранируются `OutputFormatter::escape` (имена маршрутов могут содержать `<...>`).
 
 ## RecordEvent и регистрация метрики (Task 8)
@@ -78,8 +78,8 @@
 - Экспорт metrics-bundle пишет `symfony_slo_events_total{application,component,slo,objective,revision,result}` — порядок
   меток зафиксирован в `tests/Integration/Kernel/SloEventsExport` (регэксп падает на любой другой форме).
 - Синхронно обработанные сообщения не вызывают Messenger-наблюдатель (нет событий воркера) — событий SLO нет.
-- HTTP kernel-тест полагается на то, что тривиальный контроллер после прогревочного запроса укладывается в 200ms;
-  пограничные пороги проверяются юнит-тестами наблюдателя с построенными measurement.
+- HTTP kernel-тест не зависит от времени стены: фикстура `CheckoutController` использует порог 10s; пограничные пороги проверяются
+  юнит-тестами наблюдателя с построенными measurement.
 - Availability у Messenger по умолчанию Strategy A (ничего не пишется) — фикстуры kernel-тестов используют
   `strategy: 'dedicated'`, чтобы видеть счётчики.
 - `justinrainbow/json-schema` (require-dev, ^6.6) валидирует `doc/coverage-schema.json` в тестах. `if/then/else` схемой
@@ -113,3 +113,22 @@
 - Записанные `slo:*` и алерты несут статическую rule-метку `application` (из `generation.selector.application`), а все чтения записанных серий
   (`PromQlBuilder::recorded(record, objective, application)`) фильтруют `application=`; в Grafana — `application="$application"`. Два приложения с
   одним именем SLO в одном Prometheus не пересекаются (promtool: `no-data.test.yml`).
+
+## Закалка, бенчмарк и релиз (Task 15)
+
+- **`Kernel::boot()` сбрасывает сервисы после запроса**: после `handle()+terminate()` следующий `boot()` (его вызывает и
+  `Application::find()` консоли) делает `services_resetter->reset()`, а `InMemoryTransport::reset()` очищает очередь — сообщение,
+  отправленное между запросом и первым обращением к консоли, теряется (воркер ждёт `--time-limit`). `HardeningTestCase::boot()`
+  поэтому сразу вызывает `application()->find('list')`.
+- **Сбой хранилища в тесте** имитируется подменой `$recorder` у `MetricsEventWriter`, а не хранилища metrics-bundle: собственный
+  `PrometheusMetricRecorder` ловит `Throwable` внутри и пишет в лог, поэтому через него fail-open SLO не проверить; `MetricStorageInterface`
+  (`export()/clear()`) на запись не влияет.
+- **PHPStan и `never`**: замыкание, которое всегда бросает, даёт `never`, и `self::fail()` после `measure()` считается недостижимым —
+  в тестах ловить исключение в переменную и сравнивать после `try`.
+- **Benchmark** вне testsuite (как `tests/Promtool`), потому что `phpunit.xml.dist`/`Makefile` байт-в-байт из bundle-standard; цель
+  `make benchmark` в `GNUmakefile`. Замер 2026-11-21 UTC: 6.0 мкс/событие (null recorder), 13.4 мкс (in-memory хранилище metrics-bundle), PHP 8.4.17.
+- **Infection**: порог в `checks.yml` = замер 86.06 % (2246 мутантов, только unit-suite) минус запас, итого 84; основная масса выживших мутантов — дерево
+  конфигурации `SloBundle` и `DeclarationDiff`/`StatusSet`/`CollectSloDefinitionsPass` (покрыты интеграционными тестами, которые Infection не гоняет).
+  Запуск: `env -u TMPDIR make infection` с отключённым sandbox (нужен записываемый /tmp).
+- **`@internal`** в docblock класса — признак «не публичный API»; PHPStan не ругается, пока код в том же корневом namespace `Msstc4Symfony`.
+- **Мосты** обязаны регистрировать свой compiler pass с тегом `msstc4symfony_slo.point` в `TYPE_BEFORE_OPTIMIZATION` с приоритетом >= 10 (README, `PointTag`).

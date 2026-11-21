@@ -3,7 +3,7 @@
 Пакет `msstc4symfony/slo-bundle`: декларативные SLI/SLO для Symfony (обнаружение, coverage gate, счётчики
 good/bad, правила Prometheus, дашборды Grafana) поверх `metrics-bundle` 2.3.
 
-- `SloBundle` — `AbstractBundle`: `configure()` описывает дерево `msstc4symfony_slo` (пока пустое),
+- `SloBundle` — `AbstractBundle`: `configure()` описывает дерево `msstc4symfony_slo` (полное, см. README «Configuration reference»),
   `loadExtension()` импортирует `src/Resources/config/services.php`; `build()` регистрирует compiler passes из
   `src/DependencyInjection/CompilerPass/`.
 - Сервисы бандла приватные, id = FQCN; потребитель получает их автовайрингом.
@@ -60,7 +60,7 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
   `[Class|object, method]`; без `_controller` / Closure → `controller = null`. Service id, не равный имени класса,
   переводится через `CatalogExtras::controllerServices` (id => класс; заполняет `ControllerReader::serviceIds()`).
 - `Application/Catalog/List/{Action,Output,Row,ObjectiveRow,PointRow}`: строка на SLO (на каждое объявление для
-  дубликата), цели отсортированы по kind, точки по строке, имена маршрутов отсортированы. Колонки strategy нет (Task 7).
+  дубликата), цели отсортированы по kind, точки по строке, имена маршрутов отсортированы. Колонка Strategy и JSON-ключ `strategy` добавлены в Task 7.
 - `Application/Catalog/Validate/{Action,Output,DeclarationDiff,FieldDifference}`: `Output{errors, warnings, notices}`.
   Ошибка конфликта многострочная: первая строка по ruling 1, дальше `  <поле> A vs B` для каждого отличающегося поля.
 - Команды `slo:list [--format=text|json]` и `slo:validate` — `Presentation/Command/`. JSON: массив по имени, ключи
@@ -205,7 +205,21 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
 - Окно SLO в spec не выражается: Sloth берёт период из своей конфигурации (`--default-slo-period`), `window` декларации игнорируется.
 - `generation.sloth: false` (по умолчанию): файлов нет, но каталог `sloth/` остаётся управляемым (устаревшие `slo-*.yml` удаляются).
   `supports()` сейчас всегда true; false → warning в stderr `slo:generate` и цель пропускается (хук §5.6).
-- Имена полей spec сверены по примеру sloth.dev (name/labels/annotations/page_alert/ticket_alert); остальные (`version`, `service`, `slos`,
-  `sli.events.error_query/total_query`, `objective`, `description`) взяты по схеме `prometheus/v1` из памяти — не проверены `sloth validate`.
-- Sloth: у Sloth нет окна на уровне SLO; при разных окнах среди выданных SLO `slo:generate` печатает один WARNING (окна по возрастанию),
-  `--default-slo-period` должен соответствовать. Spec проверяется `sloth validate -i` из образа `ghcr.io/slok/sloth:v0.16.0` в группе promtool.
+- Спецификации проверяются настоящим `sloth validate -i` (образ `ghcr.io/slok/sloth:v0.16.0`, группа promtool; тест перед проверкой
+  убеждается, что сгенерировано 3 непустых файла).
+- Sloth: у Sloth нет окна на уровне SLO; при разных окнах среди выданных SLO `slo:generate` печатает один WARNING (окна по возрастанию):
+  один `--default-slo-period` не может подойти нескольким окнам, SLO с окном, отличным от выбранного периода, получат неверные пороги burn-rate. Spec проверяется `sloth validate -i` из образа `ghcr.io/slok/sloth:v0.16.0` в группе promtool.
+
+## Закалка и релиз-кандидат (Task 15)
+
+- Публичный API (README «Public API»): `Application\Attribute\*`, `Application\Port\{OperationMonitorInterface,OperationHandleInterface}`,
+  `Application\Discovery\PointTag`, `Application\Evaluation\RecordEvent\{Action,Input}`, `Domain\Repository\SloCatalogInterface`,
+  `Domain\Entity\SloDefinition`, `Domain\ValueObject\*`, `Domain\Enum\*`, команды, ключи конфига, `SloBundle`. Остальные классы помечены
+  `@internal` (в docblock класса); новый класс вне этого списка получает `@internal` сразу.
+- Регрессионные тесты `tests/Integration/Hardening/` (в testsuite `integration`, общее ядро `HardeningKernel` + база `HardeningTestCase`):
+  `FailOpenTest` (окружение `failing_storage`: `UseThrowingRecorderPass` подменяет `$recorder` у `MetricsEventWriter` на `ThrowingRecorder`,
+  бросающий `MetricStorageException`; HTTP, Messenger-воркер и `measure()` не меняются, исключение пользователя пробрасывается тем же объектом),
+  `StateLeakageTest` (`services_resetter->reset()` между запросами; набор предупреждений `OperationMonitor` очищается),
+  `CardinalityTest` (1000 запросов со случайным путём/query -> только 4 допустимых набора меток `slo_events_total`).
+- `tests/Benchmark/RecordEventBenchmarkTest.php` (группа `benchmark`, вне testsuite) + цель `make benchmark` в `GNUmakefile`; печатает мкс/событие в
+  STDERR, порога нет; цифры — в README «Overhead».

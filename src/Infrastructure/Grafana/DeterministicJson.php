@@ -6,6 +6,8 @@ namespace Msstc4Symfony\SloBundle\Infrastructure\Grafana;
 
 /**
  * JSON with recursively sorted object keys, so equal data always encodes to equal bytes.
+ *
+ * @internal
  */
 final readonly class DeterministicJson
 {

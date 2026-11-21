@@ -8,6 +8,8 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\Target;
 
 /**
  * One multi-window burn-rate condition: both windows must burn faster than factor x the error budget.
+ *
+ * @internal
  */
 final readonly class BurnRateWindow
 {

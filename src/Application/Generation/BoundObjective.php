@@ -11,6 +11,8 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\Revision;
 
 /**
  * One objective of one SLO with the series it reads and its current revision: the unit every generator renders.
+ *
+ * @internal
  */
 final readonly class BoundObjective
 {

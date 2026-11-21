@@ -65,7 +65,9 @@ final class PromtoolTest extends TestCase
     public function testGeneratedSlothSpecsPassSlothValidate(): void
     {
         $output = GenerationFixture::slothAction(GenerationFixture::catalog())(new SlothInput(new Selector('shop', ['worker', 'web'])));
+        self::assertCount(3, $output->files->files);
         foreach ($output->files->files as $file) {
+            self::assertNotSame('', $file->contents);
             $path = $this->scratch . '/' . $file->relativePath;
             (new Filesystem())->dumpFile($path, $file->contents);
             chmod($path, 0o644);

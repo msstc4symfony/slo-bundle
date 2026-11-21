@@ -53,6 +53,8 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\Window;
  *     ignored: array<non-empty-string, non-empty-string>,
  *     extras: ExtrasShape,
  * }
+ *
+ * @internal
  */
 final class CatalogDump
 {

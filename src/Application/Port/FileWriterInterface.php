@@ -8,6 +8,8 @@ use Msstc4Symfony\SloBundle\Application\Generation\GeneratedFile;
 
 /**
  * Output directory access of slo:generate; paths are relative to $root and slash-separated.
+ *
+ * @internal
  */
 interface FileWriterInterface
 {

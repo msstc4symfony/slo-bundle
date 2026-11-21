@@ -10,6 +10,9 @@ use Msstc4Symfony\SloBundle\Application\Generation\GeneratedFile;
 use Msstc4Symfony\SloBundle\Application\Generation\GeneratedFileSet;
 use Msstc4Symfony\SloBundle\Application\Port\SlothSpecBuilderInterface;
 
+/**
+ * @internal
+ */
 final readonly class Action
 {
     public const DIRECTORY = 'sloth';
@@ -45,7 +48,7 @@ final readonly class Action
         ksort($windows);
         if (\count($windows) > 1) {
             $warnings[] = \sprintf(
-                'Sloth has no per-SLO window but the SLOs use %s: sloth must run with --default-slo-period matching each SLO, otherwise SLOs with another window get wrong burn-rate thresholds',
+                'Sloth has no per-SLO window but the SLOs use %s: one --default-slo-period cannot match several windows, so SLOs whose window differs from the chosen period get wrong burn-rate thresholds',
                 implode(', ', $windows),
             );
         }

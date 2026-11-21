@@ -16,6 +16,8 @@ use Throwable;
 /**
  * Built lazily on first use and memoised for the process, routes are fixed per container (ruling 7). A failed build
  * is memoised as an empty index: logged once, HTTP SLOs then record nothing.
+ *
+ * @internal
  */
 final class RoutePointIndex implements RoutePointIndexInterface
 {

@@ -12,6 +12,8 @@ use InvalidArgumentException;
  * badMatchers and goodMatchers override same-label entries of matchers; both are empty for histogram latency, where
  * good is the `le` bucket and total is `_count`. For availability, total = matchers, bad = matchers + badMatchers,
  * good = matchers + goodMatchers.
+ *
+ * @internal
  */
 final readonly class SeriesBinding
 {

@@ -15,6 +15,8 @@ use Msstc4Symfony\SloBundle\Application\Generation\Selector;
  * current revision. Every ratio divides by `(total > 0)`, so no events yield no value instead of 100 %.
  *
  * @phpstan-type SeriesShape array{total: non-empty-string, bad: non-empty-string|null, bucket: non-empty-string|null}
+ *
+ * @internal
  */
 final readonly class PromQlBuilder
 {

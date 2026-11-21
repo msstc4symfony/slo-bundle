@@ -8,6 +8,8 @@ use InvalidArgumentException;
 
 /**
  * Series filter of every generated query, taken from explicit configuration (never from the runtime env, spec 5.6).
+ *
+ * @internal
  */
 final readonly class Selector
 {

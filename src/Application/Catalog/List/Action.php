@@ -15,6 +15,9 @@ use Msstc4Symfony\SloBundle\Domain\Service\RevisionCalculator;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Objective;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 
+/**
+ * @internal
+ */
 final readonly class Action
 {
     public function __construct(

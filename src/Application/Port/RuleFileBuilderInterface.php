@@ -9,6 +9,8 @@ use Msstc4Symfony\SloBundle\Application\Generation\Selector;
 
 /**
  * Renders Prometheus rule files; one rule group per SLO.
+ *
+ * @internal
  */
 interface RuleFileBuilderInterface
 {

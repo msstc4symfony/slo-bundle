@@ -6,6 +6,8 @@ namespace Msstc4Symfony\SloBundle\Application\Discovery;
 
 /**
  * Compile-time facts besides the SLO definitions, consumed by validation, coverage and strategy resolution.
+ *
+ * @internal
  */
 final readonly class CatalogExtras
 {

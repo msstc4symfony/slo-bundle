@@ -6,6 +6,9 @@ namespace Msstc4Symfony\SloBundle\Application\Generation\GenerateDashboards;
 
 use Msstc4Symfony\SloBundle\Application\Generation\Selector;
 
+/**
+ * @internal
+ */
 final readonly class Input
 {
     public const DEFAULT_DASHBOARDS_PATH = '/var/lib/grafana/dashboards';

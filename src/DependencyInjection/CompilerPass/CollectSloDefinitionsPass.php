@@ -25,6 +25,8 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
 /**
  * Builds the SLO catalog from controllers, Messenger handlers, tagged points and configured operations (spec 5.2).
  * Runs TYPE_BEFORE_OPTIMIZATION, priority 0: after attribute autoconfiguration has added the tags.
+ *
+ * @internal
  */
 final class CollectSloDefinitionsPass implements CompilerPassInterface
 {

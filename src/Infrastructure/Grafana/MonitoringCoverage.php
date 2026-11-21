@@ -10,6 +10,8 @@ use Override;
 
 /**
  * The catalog state at generation time as a Markdown table: static rows, no time series, portable between Grafana setups.
+ *
+ * @internal
  */
 final readonly class MonitoringCoverage implements DashboardInterface
 {

@@ -10,6 +10,9 @@ use Msstc4Symfony\SloBundle\Domain\Repository\SloCatalogInterface;
 use Msstc4Symfony\SloBundle\Domain\Service\RevisionCalculator;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Objective;
 
+/**
+ * @internal
+ */
 final readonly class BoundObjectiveCollector
 {
     public function __construct(

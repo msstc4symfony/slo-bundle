@@ -10,6 +10,8 @@ use Throwable;
 
 /**
  * Returned for undeclared or invalid operation names.
+ *
+ * @internal
  */
 final class NoopOperationHandle implements OperationHandleInterface
 {

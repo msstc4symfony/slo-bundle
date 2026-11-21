@@ -14,6 +14,8 @@ use Override;
 /**
  * Sloth `prometheus/v1` spec: one SLO per objective, queries are the bundle's bad/total selectors over Sloth's
  * `{{.window}}` template. The SLO window is not part of the spec: Sloth takes it from its own period configuration.
+ *
+ * @internal
  */
 final readonly class SlothSpecBuilder implements SlothSpecBuilderInterface
 {

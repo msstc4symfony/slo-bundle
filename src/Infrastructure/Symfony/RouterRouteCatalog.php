@@ -13,6 +13,8 @@ use Symfony\Component\Routing\RouterInterface;
 
 /**
  * Route index built lazily from the router on first use and memoised: routes are fixed per container (ruling 7).
+ *
+ * @internal
  */
 final class RouterRouteCatalog implements RouteCatalogInterface
 {

@@ -6,6 +6,9 @@ namespace Msstc4Symfony\SloBundle\Application\Generation;
 
 use InvalidArgumentException;
 
+/**
+ * @internal
+ */
 final readonly class GeneratedFile
 {
     /**

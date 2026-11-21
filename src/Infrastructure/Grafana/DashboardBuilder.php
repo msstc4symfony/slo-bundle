@@ -9,6 +9,8 @@ use Msstc4Symfony\SloBundle\Application\Generation\GenerateDashboards\DashboardC
 /**
  * Wraps the panels of one dashboard: stable uid, panel ids 1..n and a fixed left-to-right grid layout, the four template
  * variables and fixed time defaults. Nothing here reads the clock or the environment.
+ *
+ * @internal
  */
 final readonly class DashboardBuilder
 {

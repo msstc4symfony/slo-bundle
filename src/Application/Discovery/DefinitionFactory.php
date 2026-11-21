@@ -28,6 +28,8 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\Window;
  *
  * Classification fields that do not apply to a point type take the fixed values of Classification::defaults(),
  * so changing an unrelated default never changes a revision.
+ *
+ * @internal
  */
 final readonly class DefinitionFactory
 {

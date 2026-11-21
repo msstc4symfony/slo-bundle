@@ -6,6 +6,9 @@ namespace Msstc4Symfony\SloBundle\Application\Coverage\Analyze;
 
 use Msstc4Symfony\SloBundle\Domain\Enum\CoverageStatus;
 
+/**
+ * @internal
+ */
 final readonly class PointCoverage
 {
     public const KIND_HTTP_ROUTE = 'http_route';

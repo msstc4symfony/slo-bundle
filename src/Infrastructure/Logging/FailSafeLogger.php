@@ -12,6 +12,8 @@ use Throwable;
 
 /**
  * A failing logger must not break fail-open SLO recording.
+ *
+ * @internal
  */
 final class FailSafeLogger extends AbstractLogger
 {

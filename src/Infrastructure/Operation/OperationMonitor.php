@@ -22,6 +22,8 @@ use Throwable;
 
 /**
  * Fail-open: never throws on its own, undeclared or invalid names get a no-op handle and one warning per name (at most 100 names are remembered per reset).
+ *
+ * @internal
  */
 final class OperationMonitor implements OperationMonitorInterface, ResetInterface
 {

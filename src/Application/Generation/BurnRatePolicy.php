@@ -9,6 +9,8 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\Window;
 
 /**
  * Google SRE workbook window pairs and budget shares, scaled to the SLO window (ruling 9).
+ *
+ * @internal
  */
 final readonly class BurnRatePolicy
 {
