@@ -30,7 +30,11 @@ final class BucketLabelTest extends TestCase
         yield 'small exponent with digits' => [0.00001234, '1.234e-05'];
         yield 'float noise as exposed by promphp' => [0.1 + 0.2, '0.3'];
         yield 'zero' => [0.0, '0.0'];
+        yield 'negative fraction' => [-0.5, '-0.5'];
+        yield 'negative integral' => [-2.0, '-2.0'];
+        yield 'negative large' => [-1e6, '-1e+06'];
         yield 'infinity' => [INF, '+Inf'];
+        yield 'negative infinity' => [-INF, '-Inf'];
     }
 
     #[DataProvider('provideBuckets')]
@@ -52,6 +56,7 @@ final class BucketLabelTest extends TestCase
         yield 'close but not equal' => [0.2504, 250, false];
         yield 'sub-millisecond off' => [0.2501, 250, false];
         yield 'other bucket' => [0.5, 250, false];
+        yield 'one minute' => [60.0, 60_000, true];
     }
 
     /**
