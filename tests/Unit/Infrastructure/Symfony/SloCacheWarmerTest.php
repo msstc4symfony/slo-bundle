@@ -31,6 +31,7 @@ use Msstc4Symfony\SloBundle\Infrastructure\Symfony\SloCacheWarmer;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\WarmedRevisions;
 use Msstc4Symfony\SloBundle\Test\Integration\TestContainer;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\CatalogFixture;
+use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\FailingCatalog;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\InMemoryRouteCatalog;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Evaluation\RecordEvent\FixedPrecomputedRevisions;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Evaluation\RecordEvent\InMemoryEventWriter;
@@ -201,6 +202,39 @@ final class SloCacheWarmerTest extends TestCase
         self::assertCount(2, $writes[0]);
         self::assertSame(['payment.create|latency', 'payment.process|latency'], array_keys(($store->written[self::CACHE_DIR] ?? null)?->revisions() ?? []));
         self::assertSame($writes[1], $writes[0]);
+    }
+
+    public function testAnObjectiveThatFailsToResolveIsLeftOutAndTheOthersAreWarmed(): void
+    {
+        $catalog = CatalogFixture::build(static function (CatalogAssembler $assembler): void {
+            $assembler->declare(PointId::of(PointType::HttpRoute, 'A::create'), new Slo('payment.create', [new Availability(99.9)]));
+            $assembler->declare(PointId::of(PointType::MessengerMessage, 'App\Message\Pay'), new Slo('payment.process', [new Availability(99)]));
+        });
+        $diagnostics = new FailingCatalog($catalog, ['failureTransports']);
+        $collection = new RouteCollection();
+        $collection->add('create', new Route('/create', ['_controller' => 'A::create']));
+        $router = self::createStub(RouterInterface::class);
+        $router->method('getRouteCollection')->willReturn($collection);
+        $logger = $this->logger();
+        $store = new InMemoryRouteIndexStore();
+        $routes = new InMemoryRouteCatalog();
+
+        (new SloCacheWarmer(
+            new Action($catalog, $catalog, $routes, new MetricBindingResolver($routes, $catalog, new MetricsBundleSeriesCatalog())),
+            new RouterRouteReader($router, $catalog),
+            $catalog,
+            $logger,
+            $diagnostics,
+            new RevisionResolver(new RevisionCalculator(), $catalog),
+            new MetricsBundleSeriesCatalog(),
+            $store,
+        ))->warmUp(self::CACHE_DIR);
+
+        self::assertSame(['payment.create|availability' => ''], ($store->written[self::CACHE_DIR] ?? null)?->revisions());
+        $index = array_search('SLO objective could not be resolved during cache warm-up, it is resolved on first use.', array_column($logger->records, 1), true);
+        self::assertIsInt($index);
+        self::assertSame('payment.process', $logger->contexts[$index]['slo']);
+        self::assertSame('availability', $logger->contexts[$index]['objective']);
     }
 
     public function testNeverThrowsWhenTheLoggerFails(): void
