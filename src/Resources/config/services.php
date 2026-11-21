@@ -5,11 +5,15 @@ declare(strict_types=1);
 use Msstc4Symfony\SloBundle\Application\Binding\MetricBindingResolver;
 use Msstc4Symfony\SloBundle\Application\Catalog\List\Action as ListAction;
 use Msstc4Symfony\SloBundle\Application\Catalog\Validate\Action as ValidateAction;
+use Msstc4Symfony\SloBundle\Application\Evaluation\RecordEvent\Action as RecordEventAction;
 use Msstc4Symfony\SloBundle\Application\Port\CatalogDiagnosticsInterface;
+use Msstc4Symfony\SloBundle\Application\Port\EventWriterInterface;
 use Msstc4Symfony\SloBundle\Application\Port\RouteCatalogInterface;
 use Msstc4Symfony\SloBundle\Domain\Repository\SloCatalogInterface;
+use Msstc4Symfony\SloBundle\Domain\Service\EventClassifier;
 use Msstc4Symfony\SloBundle\Domain\Service\RevisionCalculator;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
+use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MetricsEventWriter;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouterRouteCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\SloCacheWarmer;
 use Msstc4Symfony\SloBundle\Presentation\Command\ListCommand;
@@ -32,6 +36,14 @@ return static function (ContainerConfigurator $container): void {
     $services->alias(RouteCatalogInterface::class, RouterRouteCatalog::class);
 
     $services->set(MetricBindingResolver::class);
+    $services->set(EventClassifier::class);
+
+    $services->set(MetricsEventWriter::class);
+    $services->alias(EventWriterInterface::class, MetricsEventWriter::class);
+    $services->set(RecordEventAction::class)
+        ->tag('kernel.reset', ['method' => 'reset'])
+        ->tag('monolog.logger', ['channel' => 'slo_bundle'])
+    ;
 
     $services->set(ListAction::class);
     $services->set(ValidateAction::class);

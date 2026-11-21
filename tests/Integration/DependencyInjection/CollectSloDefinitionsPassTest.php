@@ -295,11 +295,10 @@ final class CollectSloDefinitionsPassTest extends TestCase
         self::assertSame(['health'], $catalog->extras()->httpIgnoredRoutes);
     }
 
-    public function testMissingMetricsParametersLeaveExtrasEmpty(): void
+    public function testMissingIgnoredRoutesParameterLeavesExtrasEmpty(): void
     {
         $catalog = $this->catalog([]);
 
-        self::assertSame([], $catalog->extras()->metricBuckets);
         self::assertSame([], $catalog->extras()->httpIgnoredRoutes);
     }
 

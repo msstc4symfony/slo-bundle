@@ -6,6 +6,7 @@ namespace Msstc4Symfony\SloBundle\Test\Integration;
 
 use Closure;
 use LogicException;
+use Msstc4Symfony\MetricsBundle\Application\Port\MetricRecorderInterface;
 use Msstc4Symfony\SloBundle\SloBundle;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
@@ -29,8 +30,9 @@ final class TestContainer
     /**
      * @param TestConfig $config
      * @param (Closure(ContainerBuilder): void)|null $configure registers fixture services before compilation
+     * @param bool $withMetricsBundle declares the parameters and services that MetricsBundle provides
      */
-    public static function compile(array $config = [], ?Closure $configure = null): ContainerBuilder
+    public static function compile(array $config = [], ?Closure $configure = null, bool $withMetricsBundle = true): ContainerBuilder
     {
         $container = new ContainerBuilder(new ParameterBag([
             'kernel.environment' => 'test',
@@ -47,6 +49,11 @@ final class TestContainer
         // Services of FrameworkBundle that the bundle's own services autowire; never instantiated by these tests.
         $container->setDefinition(RouterInterface::class, new Definition(Router::class));
         $container->setDefinition(LoggerInterface::class, new Definition(NullLogger::class));
+
+        if ($withMetricsBundle) {
+            $container->setParameter('msstc4symfony_metrics.metric_enums', []);
+            $container->setDefinition(MetricRecorderInterface::class, new Definition(NullMetricRecorder::class));
+        }
 
         $bundle->build($container);
         if ($configure instanceof Closure) {
