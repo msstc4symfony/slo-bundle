@@ -33,7 +33,7 @@ final readonly class MetricBindingResolver
 
     public function resolve(SloDefinition $definition, Objective $objective): Binding
     {
-        if ($definition->strategy() === StrategyPreference::Dedicated || $objective->kind === ObjectiveKind::Combined) {
+        if ($definition->strategyPreference() === StrategyPreference::Dedicated || $objective->kind === ObjectiveKind::Combined) {
             return Binding::dedicated();
         }
 

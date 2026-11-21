@@ -71,13 +71,13 @@ final class CollectSloDefinitionsPassTest extends TestCase
         self::assertSame([$this->http(PaymentController::class, 'create')], $this->points($slo));
         self::assertCount(2, $slo->objectives());
         self::assertSame('30d', $slo->window()->toString());
-        self::assertSame(StrategyPreference::Auto, $slo->strategy());
+        self::assertSame(StrategyPreference::Auto, $slo->strategyPreference());
         self::assertSame(99.95, $slo->objectives()[0]->target->percent);
         self::assertSame(200, $slo->objectives()[1]->threshold?->milliseconds);
 
         $combined = $this->definition($catalog, 'payment.combined');
         self::assertSame('7d', $combined->window()->toString());
-        self::assertSame(StrategyPreference::Dedicated, $combined->strategy());
+        self::assertSame(StrategyPreference::Dedicated, $combined->strategyPreference());
 
         self::assertSame([$this->http(PaymentController::class, 'health') => 'health probe'], $catalog->ignored());
         self::assertSame([PaymentController::class => ['create', 'health']], $catalog->extras()->controllers);
@@ -305,7 +305,7 @@ final class CollectSloDefinitionsPassTest extends TestCase
 
         $slo = $this->definition($catalog, 'payment.validation');
         self::assertSame(['operation:payment.validation'], $this->points($slo));
-        self::assertSame(StrategyPreference::Dedicated, $slo->strategy());
+        self::assertSame(StrategyPreference::Dedicated, $slo->strategyPreference());
         self::assertSame('7d', $slo->window()->toString());
         self::assertTrue($slo->classification()->expectedFailureIsGood);
         self::assertSame(['payment.validation'], $catalog->extras()->operations);

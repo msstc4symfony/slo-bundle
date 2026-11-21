@@ -225,7 +225,7 @@ final class CatalogDump
             'ineligible_statuses' => $classification->ineligibleStatuses->canonical(),
             'expected_failure_is_good' => $classification->expectedFailureIsGood,
             'count_attempts' => $classification->countAttempts,
-            'strategy' => $definition->strategy()->value,
+            'strategy' => $definition->strategyPreference()->value,
         ];
     }
 

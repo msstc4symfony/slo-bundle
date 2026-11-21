@@ -53,7 +53,7 @@ final readonly class Action
         }
 
         foreach ($this->catalog->all() as $definition) {
-            if ($definition->strategy() !== StrategyPreference::Auto) {
+            if ($definition->strategyPreference() !== StrategyPreference::Auto) {
                 continue;
             }
             $objective = $definition->objective(ObjectiveKind::Latency);

@@ -32,7 +32,7 @@ final class SloDefinitionTest extends TestCase
         self::assertCount(2, $definition->objectives());
         self::assertSame(2592000, $definition->window()->seconds());
         self::assertEquals(Classification::defaults(), $definition->classification());
-        self::assertSame(StrategyPreference::Auto, $definition->strategy());
+        self::assertSame(StrategyPreference::Auto, $definition->strategyPreference());
         self::assertSame(ObjectiveKind::Latency, $definition->objective(ObjectiveKind::Latency)?->kind);
         self::assertNull($definition->objective(ObjectiveKind::Combined));
     }

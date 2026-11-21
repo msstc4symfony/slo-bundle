@@ -37,7 +37,7 @@ final class DefinitionFactoryTest extends TestCase
         self::assertSame('payment.create', $slo->name()->value);
         self::assertSame(['http_route:App::create'], array_map(static fn (PointId $p): string => $p->toString(), $slo->points()));
         self::assertSame('30d', $slo->window()->toString());
-        self::assertSame(StrategyPreference::Auto, $slo->strategy());
+        self::assertSame(StrategyPreference::Auto, $slo->strategyPreference());
         self::assertSame(['5xx'], $slo->classification()->badStatuses->canonical());
         self::assertSame(['404'], $slo->classification()->ineligibleStatuses->canonical());
         self::assertTrue($slo->objective(ObjectiveKind::Latency)?->includeErrors);
@@ -51,7 +51,7 @@ final class DefinitionFactoryTest extends TestCase
         self::assertSame('2w', $slo->window()->toString());
         self::assertSame(['429', '5xx'], $slo->classification()->badStatuses->canonical());
         self::assertSame([], $slo->classification()->ineligibleStatuses->canonical());
-        self::assertSame(StrategyPreference::Dedicated, $slo->strategy());
+        self::assertSame(StrategyPreference::Dedicated, $slo->strategyPreference());
     }
 
     public function testNonHttpPointsUseNeutralStatusesAndTheirOwnDefaults(): void

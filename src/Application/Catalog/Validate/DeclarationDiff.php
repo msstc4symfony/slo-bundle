@@ -33,7 +33,7 @@ final class DeclarationDiff
         if ($left->window()->seconds() !== $right->window()->seconds()) {
             $add('window', $left->window()->toString(), $right->window()->toString());
         }
-        $add('strategy', $left->strategy()->value, $right->strategy()->value);
+        $add('strategy', $left->strategyPreference()->value, $right->strategyPreference()->value);
 
         $qualify = \count($left->objectives()) > 1 || \count($right->objectives()) > 1;
         foreach (ObjectiveKind::cases() as $kind) {

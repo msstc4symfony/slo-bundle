@@ -93,7 +93,7 @@ final readonly class SloDefinition
         return $this->classification;
     }
 
-    public function strategy(): StrategyPreference
+    public function strategyPreference(): StrategyPreference
     {
         return $this->strategy;
     }
