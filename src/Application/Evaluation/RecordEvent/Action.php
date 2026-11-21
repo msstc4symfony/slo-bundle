@@ -6,6 +6,7 @@ namespace Msstc4Symfony\SloBundle\Application\Evaluation\RecordEvent;
 
 use Msstc4Symfony\SloBundle\Application\Binding\MetricBindingResolver;
 use Msstc4Symfony\SloBundle\Application\Binding\RevisionResolver;
+use Msstc4Symfony\SloBundle\Application\Port\EventRecorderInterface;
 use Msstc4Symfony\SloBundle\Application\Port\EventWriterInterface;
 use Msstc4Symfony\SloBundle\Application\Port\PrecomputedRevisionsInterface;
 use Msstc4Symfony\SloBundle\Domain\Entity\SloDefinition;
@@ -22,10 +23,9 @@ use Throwable;
 /**
  * Fail-open: nothing thrown while classifying or writing reaches the caller.
  *
- * Public API for bridges as a service: obtain it from the container, do not instantiate it, its constructor takes
- * internal classes and may change in any release.
+ * @internal bridges use EventRecorderInterface
  */
-final class Action implements ResetInterface
+final class Action implements EventRecorderInterface, ResetInterface
 {
     private const MAX_WARNED_FAILURES = 100;
 
@@ -54,7 +54,8 @@ final class Action implements ResetInterface
     ) {
     }
 
-    public function __invoke(Input $input): void
+    #[Override]
+    public function record(Input $input): void
     {
         try {
             $this->warnAboutConflicts($input);
@@ -64,7 +65,7 @@ final class Action implements ResetInterface
 
         try {
             foreach ($this->catalog->forPoint($input->point) as $definition) {
-                $this->record($definition, $input);
+                $this->recordDefinition($definition, $input);
             }
         } catch (Throwable $e) {
             $this->logger->warning('SLO event was not recorded.', ['point' => $input->point->toString(), 'exception' => $e]);
@@ -81,7 +82,7 @@ final class Action implements ResetInterface
         $this->failureSuppressionWarned = false;
     }
 
-    private function record(SloDefinition $definition, Input $input): void
+    private function recordDefinition(SloDefinition $definition, Input $input): void
     {
         foreach ($definition->objectives() as $objective) {
             try {

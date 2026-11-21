@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Infrastructure\Operation;
 
-use Msstc4Symfony\SloBundle\Application\Evaluation\RecordEvent\Action as RecordEvent;
 use Msstc4Symfony\SloBundle\Application\Evaluation\RecordEvent\Input;
-use Msstc4Symfony\SloBundle\Application\Port\ClockInterface;
+use Msstc4Symfony\SloBundle\Application\Port\EventRecorderInterface;
+use Msstc4Symfony\SloBundle\Application\Port\MonotonicClockInterface;
 use Msstc4Symfony\SloBundle\Application\Port\OperationHandleInterface;
 use Msstc4Symfony\SloBundle\Domain\Enum\Outcome;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Observation;
@@ -32,8 +32,8 @@ final class OperationHandle implements OperationHandleInterface
     public function __construct(
         private readonly PointId $point,
         private readonly int $startedAt,
-        private readonly ClockInterface $clock,
-        private readonly RecordEvent $record,
+        private readonly MonotonicClockInterface $clock,
+        private readonly EventRecorderInterface $recorder,
         private readonly LoggerInterface $logger,
     ) {
     }
@@ -66,7 +66,7 @@ final class OperationHandle implements OperationHandleInterface
 
         try {
             $elapsed = max(0, $this->clock->now() - $this->startedAt) / 1_000_000_000;
-            ($this->record)(new Input($this->point, Observation::outcome($this->point->type, $this->outcome ?? Outcome::Success, $elapsed)));
+            $this->recorder->record(new Input($this->point, Observation::outcome($this->point->type, $this->outcome ?? Outcome::Success, $elapsed)));
         } catch (Throwable $e) {
             $this->logger->warning('SLO operation event was not recorded.', ['operation' => $this->point->id, 'exception' => $e]);
         }

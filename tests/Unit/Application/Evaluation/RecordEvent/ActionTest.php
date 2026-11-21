@@ -47,7 +47,7 @@ final class ActionTest extends TestCase
         $writer = new InMemoryEventWriter();
         $action = $this->action($this->paymentCatalog(), $writer, new RecordingLogger());
 
-        $action(new Input($this->point(), Observation::http(200, 0.1)));
+        $action->record(new Input($this->point(), Observation::http(200, 0.1)));
 
         self::assertCount(1, $writer->writes);
         self::assertSame(['payment.create', 'latency'], \array_slice($writer->writes[0], 0, 2));
@@ -59,7 +59,7 @@ final class ActionTest extends TestCase
     {
         $catalog = $this->paymentCatalog();
         $writer = new InMemoryEventWriter();
-        $this->action($catalog, $writer, new RecordingLogger())(new Input($this->point(), Observation::http(200, 0.1)));
+        $this->action($catalog, $writer, new RecordingLogger())->record(new Input($this->point(), Observation::http(200, 0.1)));
 
         $definition = $catalog->all()[0];
 
@@ -69,7 +69,7 @@ final class ActionTest extends TestCase
     public function testSlowEventIsBad(): void
     {
         $writer = new InMemoryEventWriter();
-        $this->action($this->paymentCatalog(), $writer, new RecordingLogger())(new Input($this->point(), Observation::http(200, 0.3)));
+        $this->action($this->paymentCatalog(), $writer, new RecordingLogger())->record(new Input($this->point(), Observation::http(200, 0.3)));
 
         self::assertSame('bad', $writer->writes[0][3]);
     }
@@ -77,7 +77,7 @@ final class ActionTest extends TestCase
     public function testLatencyIneligibleEventWritesNothing(): void
     {
         $writer = new InMemoryEventWriter();
-        $this->action($this->paymentCatalog(), $writer, new RecordingLogger())(new Input($this->point(), Observation::http(500, 0.1)));
+        $this->action($this->paymentCatalog(), $writer, new RecordingLogger())->record(new Input($this->point(), Observation::http(500, 0.1)));
 
         self::assertSame([], $writer->writes);
     }
@@ -85,7 +85,7 @@ final class ActionTest extends TestCase
     public function testPointWithoutSlosWritesNothing(): void
     {
         $writer = new InMemoryEventWriter();
-        $this->action($this->paymentCatalog(), $writer, new RecordingLogger())(new Input(PointId::of(PointType::HttpRoute, 'App\Other::x'), Observation::http(200, 0.1)));
+        $this->action($this->paymentCatalog(), $writer, new RecordingLogger())->record(new Input(PointId::of(PointType::HttpRoute, 'App\Other::x'), Observation::http(200, 0.1)));
 
         self::assertSame([], $writer->writes);
     }
@@ -93,7 +93,7 @@ final class ActionTest extends TestCase
     public function testWriterFailureIsLoggedNotThrown(): void
     {
         $logger = new RecordingLogger();
-        $this->action($this->paymentCatalog(), new ThrowingEventWriter(), $logger)(new Input($this->point(), Observation::http(200, 0.1)));
+        $this->action($this->paymentCatalog(), new ThrowingEventWriter(), $logger)->record(new Input($this->point(), Observation::http(200, 0.1)));
 
         self::assertCount(1, $logger->records);
         self::assertSame('latency', $logger->contexts[0]['objective']);
@@ -115,8 +115,8 @@ final class ActionTest extends TestCase
         $action = $this->action($catalog, $writer, $logger);
         $input = new Input(PointId::of(PointType::HttpRoute, 'A::one'), Observation::http(200, 0.1));
 
-        $action($input);
-        $action($input);
+        $action->record($input);
+        $action->record($input);
 
         self::assertSame([], $writer->writes);
         self::assertCount(1, $logger->records);
@@ -124,7 +124,7 @@ final class ActionTest extends TestCase
         self::assertSame('dup.slo', $logger->contexts[0]['slo']);
 
         $action->reset();
-        $action($input);
+        $action->record($input);
 
         self::assertCount(2, $logger->records);
     }
@@ -138,7 +138,7 @@ final class ActionTest extends TestCase
         $input = new Input($this->point(), Observation::http(200, 0.1));
 
         for ($i = 0; $i < 3; $i++) {
-            $action($input);
+            $action->record($input);
             $action->reset();
         }
 
@@ -154,8 +154,8 @@ final class ActionTest extends TestCase
         $precomputed = new FixedPrecomputedRevisions(['payment.create|availability' => false, 'payment.create|latency' => Revision::fromHex('0badcafe')]);
         $action = $this->action($this->paymentCatalog(), $writer, new RecordingLogger(), $routes, $precomputed);
 
-        $action(new Input($this->point(), Observation::http(200, 0.1)));
-        $action(new Input($this->point(), Observation::http(200, 0.1)));
+        $action->record(new Input($this->point(), Observation::http(200, 0.1)));
+        $action->record(new Input($this->point(), Observation::http(200, 0.1)));
 
         self::assertSame([['payment.create', 'latency', '0badcafe', 'good'], ['payment.create', 'latency', '0badcafe', 'good']], $writer->writes);
         self::assertSame(2, $precomputed->lookups);
@@ -165,7 +165,7 @@ final class ActionTest extends TestCase
     {
         $writer = new InMemoryEventWriter();
         $logger = new RecordingLogger();
-        $this->action(new FailingCatalog($this->paymentCatalog(), ['forPoint']), $writer, $logger)(new Input($this->point(), Observation::http(200, 0.1)));
+        $this->action(new FailingCatalog($this->paymentCatalog(), ['forPoint']), $writer, $logger)->record(new Input($this->point(), Observation::http(200, 0.1)));
 
         self::assertSame([], $writer->writes);
         self::assertSame([['warning', 'SLO event was not recorded.']], $logger->records);
@@ -179,12 +179,12 @@ final class ActionTest extends TestCase
         $input = new Input($this->point(), Observation::http(200, 0.1));
 
         for ($i = 0; $i < 5; $i++) {
-            $action($input);
+            $action->record($input);
         }
         self::assertCount(1, $logger->records);
 
         $action->reset();
-        $action($input);
+        $action->record($input);
         self::assertCount(2, $logger->records);
     }
 
@@ -198,8 +198,8 @@ final class ActionTest extends TestCase
         $logger = new RecordingLogger();
         $action = $this->action($catalog, new ThrowingEventWriter(), $logger);
 
-        $action(new Input($this->point(), Observation::http(200, 0.1)));
-        $action(new Input($this->point(), Observation::http(200, 0.1)));
+        $action->record(new Input($this->point(), Observation::http(200, 0.1)));
+        $action->record(new Input($this->point(), Observation::http(200, 0.1)));
 
         self::assertCount(101, $logger->records);
         self::assertSame('Further SLO recording failures are suppressed until reset.', $logger->records[100][1]);
@@ -214,7 +214,7 @@ final class ActionTest extends TestCase
         $action = $this->action($catalog, $writer, new RecordingLogger(), $routes);
 
         for ($i = 0; $i < 5; $i++) {
-            $action(new Input($this->point(), Observation::http(200, 0.1)));
+            $action->record(new Input($this->point(), Observation::http(200, 0.1)));
         }
 
         self::assertCount(5, $writer->writes);
@@ -230,7 +230,7 @@ final class ActionTest extends TestCase
         $action = $this->action($catalog, $writer, $logger, new RouterRouteCatalog(new RouterRouteReader($router, $catalog), new RouteIndexFile(sys_get_temp_dir() . '/msstc4symfony-slo-no-route-index', false)));
 
         for ($i = 0; $i < 5; $i++) {
-            $action(new Input($this->point(), Observation::http(200, 0.1)));
+            $action->record(new Input($this->point(), Observation::http(200, 0.1)));
         }
 
         self::assertSame([], $writer->writes);
@@ -253,11 +253,11 @@ final class ActionTest extends TestCase
         $action = $this->action($this->paymentCatalog(), $writer, new RecordingLogger(), $routes);
         $input = new Input($this->point(), Observation::http(200, 0.1));
 
-        $action($input);
+        $action->record($input);
         $action->reset();
-        $action($input);
+        $action->record($input);
         $action->reset();
-        $action($input);
+        $action->record($input);
 
         self::assertCount(2, $writer->writes);
     }
@@ -269,7 +269,7 @@ final class ActionTest extends TestCase
         $logger = new RecordingLogger();
         $action = new Action($catalog, new MetricBindingResolver(new InMemoryRouteCatalog([new RouteInfo('payment_create', '/payments', [], self::CONTROLLER)]), $catalog->inner), new RevisionResolver(new RevisionCalculator(), $catalog->inner), new EventClassifier(), $writer, $logger, new FixedPrecomputedRevisions());
 
-        $action(new Input($this->point(), Observation::http(200, 0.1)));
+        $action->record(new Input($this->point(), Observation::http(200, 0.1)));
 
         self::assertCount(1, $writer->writes);
         self::assertCount(1, $logger->records);

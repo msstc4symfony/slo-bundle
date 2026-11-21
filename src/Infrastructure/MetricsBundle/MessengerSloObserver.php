@@ -6,9 +6,9 @@ namespace Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle;
 
 use Msstc4Symfony\MetricsBundle\Application\Port\MessengerMeasurement;
 use Msstc4Symfony\MetricsBundle\Application\Port\MessengerMeasurementObserverInterface;
-use Msstc4Symfony\SloBundle\Application\Evaluation\RecordEvent\Action as RecordEvent;
 use Msstc4Symfony\SloBundle\Application\Evaluation\RecordEvent\Input;
 use Msstc4Symfony\SloBundle\Application\Port\CatalogDiagnosticsInterface;
+use Msstc4Symfony\SloBundle\Application\Port\EventRecorderInterface;
 use Msstc4Symfony\SloBundle\Domain\Enum\DeliveryStatus;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
 use Msstc4Symfony\SloBundle\Domain\Repository\SloCatalogInterface;
@@ -29,7 +29,7 @@ final readonly class MessengerSloObserver implements MessengerMeasurementObserve
         private SloCatalogInterface $catalog,
         private CatalogDiagnosticsInterface $diagnostics,
         private DeliveryStatusMapperInterface $statuses,
-        private RecordEvent $record,
+        private EventRecorderInterface $recorder,
         private LoggerInterface $logger,
     ) {
     }
@@ -51,7 +51,7 @@ final readonly class MessengerSloObserver implements MessengerMeasurementObserve
                 \in_array($measurement->transport, $this->diagnostics->failureTransports(), true),
                 $measurement->durationSeconds,
             );
-            ($this->record)(new Input($point, $observation));
+            $this->recorder->record(new Input($point, $observation));
         } catch (Throwable $e) {
             $this->logger->warning('SLO event was not recorded.', ['message' => $measurement->messageClass, 'transport' => $measurement->transport, 'exception' => $e]);
         }

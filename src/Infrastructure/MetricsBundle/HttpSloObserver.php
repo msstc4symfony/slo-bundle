@@ -6,9 +6,9 @@ namespace Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle;
 
 use Msstc4Symfony\MetricsBundle\Application\Port\HttpMeasurement;
 use Msstc4Symfony\MetricsBundle\Application\Port\HttpMeasurementObserverInterface;
-use Msstc4Symfony\SloBundle\Application\Evaluation\RecordEvent\Action as RecordEvent;
 use Msstc4Symfony\SloBundle\Application\Evaluation\RecordEvent\Input;
 use Msstc4Symfony\SloBundle\Application\Port\CatalogDiagnosticsInterface;
+use Msstc4Symfony\SloBundle\Application\Port\EventRecorderInterface;
 use Msstc4Symfony\SloBundle\Application\Port\RoutePointIndexInterface;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Observation;
 use Override;
@@ -25,7 +25,7 @@ final readonly class HttpSloObserver implements HttpMeasurementObserverInterface
     public function __construct(
         private RoutePointIndexInterface $index,
         private CatalogDiagnosticsInterface $diagnostics,
-        private RecordEvent $record,
+        private EventRecorderInterface $recorder,
         private LoggerInterface $logger,
     ) {
     }
@@ -47,7 +47,7 @@ final readonly class HttpSloObserver implements HttpMeasurementObserverInterface
             }
             $observation = Observation::http($measurement->status, $measurement->durationSeconds);
             foreach ($points as $point) {
-                ($this->record)(new Input($point, $observation));
+                $this->recorder->record(new Input($point, $observation));
             }
         } catch (Throwable $e) {
             $this->logger->warning('SLO event was not recorded.', ['route' => $measurement->route, 'exception' => $e]);

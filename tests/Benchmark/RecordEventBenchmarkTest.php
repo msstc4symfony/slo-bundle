@@ -99,14 +99,14 @@ final class RecordEventBenchmarkTest extends TestCase
         $bad = new Input($point, Observation::http(500, 0.05));
 
         for ($i = 0; $i < self::WARMUP; $i++) {
-            $action($good);
+            $action->record($good);
         }
 
         $best = INF;
         for ($round = 0; $round < self::ROUNDS; $round++) {
             $start = hrtime(true);
             for ($i = 0; $i < self::EVENTS; $i++) {
-                $action($i % 10 === 0 ? $bad : $good);
+                $action->record($i % 10 === 0 ? $bad : $good);
                 if ($resetEachEvent) {
                     $action->reset();
                 }

@@ -7,7 +7,7 @@ namespace Msstc4Symfony\SloBundle\Application\Port;
 /**
  * @internal
  */
-interface ClockInterface
+interface MonotonicClockInterface
 {
     /**
      * Monotonic time in nanoseconds, only differences are meaningful.

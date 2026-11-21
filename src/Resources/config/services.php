@@ -15,10 +15,11 @@ use Msstc4Symfony\SloBundle\Application\Generation\GenerateRules\Action as Gener
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateSloth\Action as GenerateSlothAction;
 use Msstc4Symfony\SloBundle\Application\Generation\SyncFiles\Action as SyncFilesAction;
 use Msstc4Symfony\SloBundle\Application\Port\CatalogDiagnosticsInterface;
-use Msstc4Symfony\SloBundle\Application\Port\ClockInterface;
+use Msstc4Symfony\SloBundle\Application\Port\EventRecorderInterface;
 use Msstc4Symfony\SloBundle\Application\Port\EventWriterInterface;
 use Msstc4Symfony\SloBundle\Application\Port\FileWriterInterface;
 use Msstc4Symfony\SloBundle\Application\Port\GrafanaFileBuilderInterface;
+use Msstc4Symfony\SloBundle\Application\Port\MonotonicClockInterface;
 use Msstc4Symfony\SloBundle\Application\Port\OperationMonitorInterface;
 use Msstc4Symfony\SloBundle\Application\Port\PrecomputedRevisionsInterface;
 use Msstc4Symfony\SloBundle\Application\Port\RouteCatalogInterface;
@@ -91,6 +92,7 @@ return static function (ContainerConfigurator $container): void {
         ->arg('$logger', service(FailSafeLogger::class))
         ->tag('kernel.reset', ['method' => 'reset'])
     ;
+    $services->alias(EventRecorderInterface::class, RecordEventAction::class)->public();
 
     // Observers are tagged by metrics-bundle autoconfiguration.
     $services->set(RoutePointIndex::class)
@@ -107,7 +109,7 @@ return static function (ContainerConfigurator $container): void {
     $services->set(MessengerSloObserver::class)->arg('$logger', service(FailSafeLogger::class));
 
     $services->set(HrtimeClock::class);
-    $services->alias(ClockInterface::class, HrtimeClock::class);
+    $services->alias(MonotonicClockInterface::class, HrtimeClock::class);
     $services->set(OperationMonitor::class)
         ->arg('$logger', service(FailSafeLogger::class))
         ->tag('kernel.reset', ['method' => 'reset'])

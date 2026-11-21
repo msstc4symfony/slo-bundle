@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Operation;
 
-use Msstc4Symfony\SloBundle\Application\Port\ClockInterface;
+use Msstc4Symfony\SloBundle\Application\Port\MonotonicClockInterface;
 use Override;
 use RuntimeException;
 
-final class ThrowingClock implements ClockInterface
+final class ThrowingClock implements MonotonicClockInterface
 {
     private int $calls = 0;
 

@@ -27,7 +27,7 @@
 
 ## Монитор операций и логирование (Task 10)
 
-- Порты `Application/Port/{OperationMonitorInterface,OperationHandleInterface,ClockInterface}`; публичный алиас
+- Порты `Application/Port/{OperationMonitorInterface,OperationHandleInterface,MonotonicClockInterface}`; публичный алиас
   `OperationMonitorInterface` -> `Infrastructure/Operation/OperationMonitor` (его будет декорировать slo-bridge-profiling).
   Часы `HrtimeClock` (`hrtime(true)`, наносекунды); в тестах `FakeClock`.
 - Имя операции проверяется в `start()`/`measure()`: нет SLO и нет конфликта для `PointId::of(Operation, $name)` либо имя

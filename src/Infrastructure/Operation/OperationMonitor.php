@@ -8,8 +8,8 @@ use Closure;
 use InvalidArgumentException;
 use Msstc4Symfony\LogicBundle\Application\Action\ActionOutcome;
 use Msstc4Symfony\LogicBundle\Application\Action\ExpectedFailureInterface;
-use Msstc4Symfony\SloBundle\Application\Evaluation\RecordEvent\Action as RecordEvent;
-use Msstc4Symfony\SloBundle\Application\Port\ClockInterface;
+use Msstc4Symfony\SloBundle\Application\Port\EventRecorderInterface;
+use Msstc4Symfony\SloBundle\Application\Port\MonotonicClockInterface;
 use Msstc4Symfony\SloBundle\Application\Port\OperationHandleInterface;
 use Msstc4Symfony\SloBundle\Application\Port\OperationMonitorInterface;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
@@ -45,8 +45,8 @@ final class OperationMonitor implements OperationMonitorInterface, ResetInterfac
      */
     public function __construct(
         private readonly SloCatalogInterface $catalog,
-        private readonly RecordEvent $record,
-        private readonly ClockInterface $clock,
+        private readonly EventRecorderInterface $recorder,
+        private readonly MonotonicClockInterface $clock,
         private readonly LoggerInterface $logger,
         ?Closure $isExpectedFailure = null,
     ) {
@@ -70,7 +70,7 @@ final class OperationMonitor implements OperationMonitorInterface, ResetInterfac
                 return new NoopOperationHandle();
             }
 
-            return new OperationHandle($point, $this->clock->now(), $this->clock, $this->record, $this->logger);
+            return new OperationHandle($point, $this->clock->now(), $this->clock, $this->recorder, $this->logger);
         } catch (Throwable $e) {
             $this->warnOnce($key, $name, 'SLO operation cannot be monitored, nothing is recorded.', $e);
 

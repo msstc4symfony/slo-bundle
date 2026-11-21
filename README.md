@@ -338,7 +338,8 @@ Any service tagged `msstc4symfony_slo.point` becomes a measurement point of the 
 for `#[Slo]` and `#[IgnoreMonitoring]`. Tag attributes: `type` (a `PointType` value), `id` (non-empty, without `%`),
 optional `metric_label`.
 slo-bundle never depends on logic-bundle: the `slo-bridge-logic` package tags `msstc4symfony_logic.action` services and
-records their events through `RecordEvent\Action`.
+records their events through `Application\Port\EventRecorderInterface` (inject it, call
+`record(new RecordEvent\Input($point, $observation))`).
 
 **A bridge that adds the tag from its own compiler pass must register that pass with `PassConfig::TYPE_BEFORE_OPTIMIZATION`
 and a priority of 10 or higher**: discovery runs at priority 0, after the attribute autoconfiguration (100) has tagged
@@ -352,7 +353,7 @@ Covered by semantic versioning; everything else is marked `@internal` and may ch
 |------|----------|
 | Attributes | `Application\Attribute\*` (`Slo`, `Availability`, `Latency`, `Combined`, `IgnoreMonitoring`, `ObjectiveAttributeInterface`) |
 | Operations | `Application\Port\OperationMonitorInterface`, `Application\Port\OperationHandleInterface` |
-| Bridges | `Application\Discovery\PointTag`, `Application\Evaluation\RecordEvent\{Action,Input}`; obtain `RecordEvent\Action` from the container (inject it), do not instantiate it: its constructor takes internal classes and is not covered |
+| Bridges | `Application\Discovery\PointTag`, `Application\Port\EventRecorderInterface` (a public service, inject it), `Application\Evaluation\RecordEvent\Input` |
 | Catalog | `Domain\Repository\SloCatalogInterface`, `Domain\Entity\SloDefinition` |
 | Value objects and enums | `Domain\ValueObject\*`, `Domain\Enum\*` |
 | Console | the commands `slo:list`, `slo:validate`, `slo:coverage`, `slo:generate`, their options, exit codes and the JSON of `slo:coverage` |
