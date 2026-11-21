@@ -12,7 +12,6 @@ use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexStoreInterface;
 use Override;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
-use RuntimeException;
 use Throwable;
 
 /**
@@ -97,18 +96,7 @@ final class RouteIndexFile implements RouteIndexStoreInterface
     public function write(string $cacheDir, RouteIndexData $data): void
     {
         $file = $cacheDir . '/' . self::PATH;
-        $dir = \dirname($file);
-        if (!is_dir($dir) && !@mkdir($dir, 0o777, true) && !is_dir($dir)) {
-            throw new RuntimeException(\sprintf('Directory "%s" cannot be created.', $dir));
-        }
-
-        $temporary = $file . '.' . bin2hex(random_bytes(6));
-        $contents = "<?php\n\nreturn " . var_export($data->toArray(), true) . ";\n";
-        if (@file_put_contents($temporary, $contents) === false || !@rename($temporary, $file)) {
-            @unlink($temporary);
-
-            throw new RuntimeException(\sprintf('File "%s" cannot be written.', $file));
-        }
+        AtomicFile::write($file, "<?php\n\nreturn " . var_export($data->toArray(), true) . ";\n");
         if (\function_exists('opcache_invalidate')) {
             @opcache_invalidate($file, true);
         }

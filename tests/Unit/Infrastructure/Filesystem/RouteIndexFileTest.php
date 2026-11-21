@@ -200,6 +200,21 @@ final class RouteIndexFileTest extends TestCase
         self::assertSame($first, $file->load());
     }
 
+    public function testALinkPlantedAtTheIndexPathIsReplacedNotWrittenThrough(): void
+    {
+        $victim = $this->dir . '/victim.txt';
+        (new Filesystem())->dumpFile($victim, 'untouched');
+        (new Filesystem())->mkdir(\dirname($this->dir . '/' . RouteIndexFile::PATH));
+        symlink($victim, $this->dir . '/' . RouteIndexFile::PATH);
+
+        (new RouteIndexFile($this->dir, false))->write($this->dir, $this->data());
+
+        self::assertSame('untouched', file_get_contents($victim));
+        self::assertFalse(is_link($this->dir . '/' . RouteIndexFile::PATH));
+        self::assertEquals($this->data(), (new RouteIndexFile($this->dir, false))->load());
+        self::assertSame([], glob(\dirname($this->dir . '/' . RouteIndexFile::PATH) . '/.*.tmp'));
+    }
+
     public function testUnwritableDirectoryThrows(): void
     {
         (new Filesystem())->dumpFile($this->dir, 'a file, not a directory');
