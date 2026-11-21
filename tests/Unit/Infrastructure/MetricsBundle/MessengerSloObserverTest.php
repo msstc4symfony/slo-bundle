@@ -14,6 +14,7 @@ use Msstc4Symfony\SloBundle\Application\Discovery\CatalogExtras;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
+use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\DeliveryStatusMapper;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MessengerSloObserver;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Message\ProcessPayment;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Message\RefundPayment;
@@ -47,6 +48,7 @@ final class MessengerSloObserverTest extends TestCase
         $this->observer = new MessengerSloObserver(
             $catalog,
             $catalog,
+            new DeliveryStatusMapper($this->logger),
             ObserverFixture::action($catalog, new InMemoryRouteCatalog(), $this->writer, $this->logger),
             $this->logger,
         );

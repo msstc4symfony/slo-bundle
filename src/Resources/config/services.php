@@ -30,6 +30,7 @@ use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\Filesystem\FileWriter;
 use Msstc4Symfony\SloBundle\Infrastructure\Grafana\GrafanaFileBuilder;
 use Msstc4Symfony\SloBundle\Infrastructure\Logging\FailSafeLogger;
+use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\DeliveryStatusMapper;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\HttpSloObserver;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MessengerSloObserver;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MetricsEventWriter;
@@ -87,6 +88,10 @@ return static function (ContainerConfigurator $container): void {
     $services->set(RoutePointIndex::class)->arg('$logger', service(FailSafeLogger::class));
     $services->alias(RoutePointIndexInterface::class, RoutePointIndex::class);
     $services->set(HttpSloObserver::class)->arg('$logger', service(FailSafeLogger::class));
+    $services->set(DeliveryStatusMapper::class)
+        ->arg('$logger', service(FailSafeLogger::class))
+        ->tag('kernel.reset', ['method' => 'reset'])
+    ;
     $services->set(MessengerSloObserver::class)->arg('$logger', service(FailSafeLogger::class));
 
     $services->set(HrtimeClock::class);

@@ -28,6 +28,7 @@ final readonly class MessengerSloObserver implements MessengerMeasurementObserve
     public function __construct(
         private SloCatalogInterface $catalog,
         private CatalogDiagnosticsInterface $diagnostics,
+        private DeliveryStatusMapper $statuses,
         private RecordEvent $record,
         private LoggerInterface $logger,
     ) {
@@ -41,8 +42,12 @@ final readonly class MessengerSloObserver implements MessengerMeasurementObserve
             if ($this->catalog->forPoint($point) === [] && $this->catalog->conflictedNamesFor($point) === []) {
                 return;
             }
+            $status = $this->statuses->map($measurement->status->value);
+            if (!$status instanceof DeliveryStatus) {
+                return;
+            }
             $observation = Observation::delivery(
-                DeliveryStatus::from($measurement->status->value),
+                $status,
                 \in_array($measurement->transport, $this->diagnostics->extras()->failureTransports, true),
                 $measurement->durationSeconds,
             );
