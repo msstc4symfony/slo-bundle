@@ -178,6 +178,31 @@ final class SloBundleConfigurationTest extends TestCase
         $this->assertRejected(['operations' => ['a.b' => ['objectives' => [['type' => 'availability']]]]]);
     }
 
+    /**
+     * @return iterable<string, array{array<string, mixed>, non-empty-string}>
+     */
+    public static function invalidOperationObjectiveProvider(): iterable
+    {
+        yield 'latency without threshold' => [['type' => 'latency', 'target' => 99], 'latency and combined objectives need a threshold'];
+        yield 'combined without threshold' => [['type' => 'combined', 'target' => 99], 'latency and combined objectives need a threshold'];
+        yield 'threshold on availability' => [['type' => 'availability', 'target' => 99, 'threshold' => '1s'], 'availability objectives take no threshold'];
+        yield 'include_errors on availability' => [['type' => 'availability', 'target' => 99, 'include_errors' => true], 'include_errors applies to latency objectives only'];
+        yield 'include_errors on combined' => [['type' => 'combined', 'target' => 99, 'threshold' => '1s', 'include_errors' => false], 'include_errors applies to latency objectives only'];
+    }
+
+    /**
+     * @param array<string, mixed> $objective
+     * @param non-empty-string $message
+     */
+    #[DataProvider('invalidOperationObjectiveProvider')]
+    public function testOperationObjectiveOptionsAreCheckedPerType(array $objective, string $message): void
+    {
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessage($message);
+
+        $this->load(['operations' => ['a.b' => ['objectives' => [$objective]]]]);
+    }
+
     public function testEmptyWindowIsRejected(): void
     {
         $this->assertRejected(['defaults' => ['window' => '']]);
