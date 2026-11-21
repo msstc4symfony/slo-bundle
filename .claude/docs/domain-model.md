@@ -16,9 +16,9 @@
 
 ## Классификация и ревизия (DomainService, Task 3)
 
-- `RevisionCalculator::revision(SloDefinition, ObjectiveKind)`: sha256 (первые 8 hex) от канонического JSON (`JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES`, ключи отсортированы): `bad_statuses`, `count_attempts`, `expected_failure_is_good`, `include_errors`, `ineligible_statuses`, `kind`, `point_type`, `threshold_ms`. Цель, окно, имя, точки, стратегия в ревизию не входят. Закреплённый эталон: latency 200ms, http_route, дефолты = `bd652502`. Объявленный, но отсутствующий objective kind -> `InvalidArgumentException`.
-- `EventClassifier::classify(...)`: `null` = событие не учитывается. Latency: eligible, если availability-eligible и не bad (кроме `includeErrors`). Combined: bad -> bad, иначе по порогу. Delivery с `null` duration для latency и для не-bad combined даёт `null`.
-- `StatusSet::canonical()` семантический: элементы, целиком входящие в другой элемент, отбрасываются (`['5xx','500']` -> `['5xx']`); пересекающиеся диапазоны не склеиваются. Поэтому избыточные декларации дают одну ревизию и `Classification::equals`.
+- `RevisionCalculator::revision(SloDefinition, ObjectiveKind, list<string> $failureTransports)` (вызывать через `Application\Binding\RevisionResolver`, он подставляет транспорты из каталога): sha256 (первые 8 hex) от канонического JSON (`JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES`, ключи отсортированы): `bad_statuses`, `count_attempts`, `expected_failure_is_good`, `include_errors`, `ineligible_statuses`, `kind`, `point_type`, `threshold_ms`. Для `messenger_message` добавляется `failure_transports` (отсортированный, всегда, даже пустой; CR-014); для latency у logic_action/operation ключ `expected_failure_is_good` удаляется (CR-013). Цель, окно, имя, точки, стратегия в ревизию не входят. Закреплённые эталоны: latency 200ms, http_route, дефолты = `bd652502`; messenger availability с `['failed','dead']` = `a098f2a6`. Объявленный, но отсутствующий objective kind -> `InvalidArgumentException`.
+- `EventClassifier::classify(...)`: `null` = событие не учитывается. Latency HTTP/Messenger: eligible, если availability-eligible и не bad (кроме `includeErrors`); latency logic/operation (outcome-точки): eligible всё, кроме `error`, независимо от `expectedFailureIsGood` (CR-013, spec 4.4). Combined: bad -> bad, иначе по порогу. Delivery с `null` duration для latency и для не-bad combined даёт `null`.
+- `StatusSet::canonical()` семантический: элементы, целиком входящие в другой элемент, отбрасываются (`['5xx','500']` -> `['5xx']`); при равных границах (`'5xx'` и `'500-599'`) остаётся один — форма `Nxx` (сортируется последней), раньше пропадали оба (CR-001); пересекающиеся диапазоны не склеиваются. Поэтому избыточные декларации дают одну ревизию и `Classification::equals`.
 
 ## Каталог и точки (Task 5)
 
@@ -38,5 +38,11 @@
   `defaults.logic.expected_failure_is_good`.
 - Ошибки опций: `countAttempts` вне Messenger, `includeErrors: true` вне HTTP (в т.ч. в `operations`),
   `expectedFailureIsGood` на HTTP/Messenger, `badStatuses`/`ineligibleStatuses` вне HTTP, strategy не auto|dedicated,
-  `#[Slo]` на двух handlers одного сообщения, одинаковое короткое имя у двух SLO-сообщений. Сообщение с SLO и > 1
+  `#[Slo]` на двух handlers одного сообщения, одинаковое короткое имя у двух SLO-сообщений, `#[Slo]` на handler
+  интерфейса/абстрактного класса сообщения (runtime ищет точку по конкретному классу, CR-003), `%` в `id` тега точки. Сообщение с SLO и > 1
   handler — warning в `extras()->warnings`.
+
+## Наблюдения (CR-027)
+
+- `Observation::outcome(PointType, Outcome, float)` принимает только `LogicAction|Operation` (иначе `InvalidArgumentException`);
+  `RecordEvent\Input` проверяет, что тип наблюдения совпадает с типом точки.

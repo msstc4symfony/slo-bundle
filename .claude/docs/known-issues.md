@@ -127,7 +127,8 @@
 - **PHPStan и `never`**: замыкание, которое всегда бросает, даёт `never`, и `self::fail()` после `measure()` считается недостижимым —
   в тестах ловить исключение в переменную и сравнивать после `try`.
 - **Benchmark** вне testsuite (как `tests/Promtool`), потому что `phpunit.xml.dist`/`Makefile` байт-в-байт из bundle-standard; цель
-  `make benchmark` в `GNUmakefile`. Замер 2026-11-21 UTC: 6.0 мкс/событие (null recorder), 13.4 мкс (in-memory хранилище metrics-bundle), PHP 8.4.17.
+  `make benchmark` в `GNUmakefile`. Замер 2026-11-21 UTC (после acc-fix A): 4.5 мкс/событие (null recorder), 5.1 мкс с `kernel.reset` после каждого события
+  (со старым reset, сбрасывавшим резолв, было 28.7), 10.7 мкс (in-memory хранилище metrics-bundle), PHP 8.4.17.
 - **Infection**: порог в `checks.yml` = замер 86.06 % (2246 мутантов, только unit-suite) минус запас, итого 84; основная масса выживших мутантов — дерево
   конфигурации `SloBundle` и `DeclarationDiff`/`StatusSet`/`CollectSloDefinitionsPass` (покрыты интеграционными тестами, которые Infection не гоняет).
   Запуск: `env -u TMPDIR make infection` с отключённым sandbox (нужен записываемый /tmp).
@@ -151,3 +152,41 @@
 - **Grafana `dateTimeAsIso`** ждёт epoch в миллисекундах: `Warming up until` = `(time() + (1 - (coverage < 0.999999)) * W) * 1000`;
   дашборды в `timezone: utc`. Когда окно полное или нет покрытия — серии нет, панель показывает `No data`.
 - **Retention Prometheus** ≥ окно + 1h: `coverageRatio` — подзапрос `[W/1h + 1 h:1h]`, с меньшим retention покрытие никогда не 1.
+
+## acc:code-review high, батч A (2026-11-21 UTC)
+
+- **Prometheus 3 нормализует `le`** классических гистограмм при приёме: экспозиция `le="1"` хранится как `le="1.0"`
+  (проверено: `prom/prometheus:v3.15.0` скрапит сам себя в `PrometheusText0.0.4`, `count(...{le="1"})` пусто, `{le="1.0"}` есть;
+  `/api/v1/label/le/values` содержит `1.0`, `10.0`, `100000.0`, `1e+06`, `1.6384e+06`). Формат — Go `strconv.FormatFloat(f,'g',-1,64)`
+  + `.0` для целых. promphp экспонирует бакет как `(string)$bucket` (precision 14), поэтому `BucketLabel::fromBucket()` сначала
+  кастует в строку и обратно, затем форматирует по-гошному. promtool `test rules` входные серии НЕ нормализует — тест
+  `latency-bucket.test.yml` подаёт `le="1.0"` явно.
+- **Совпадение бакета с порогом** — `abs(bucket*1000 - ms) <= 1e-9*ms` по экспонируемому значению; `round()` больше нет (0.2504 ≠ 250ms).
+- **Дамп каталога**: `CatalogShape` теперь с `format` (= `CatalogDump::FORMAT`, 2), `point_index` (точка → индексы определений) и
+  `conflicted_points`. `CompiledSloCatalog` гидрирует лениво по точке; несовпадение формата/битый дамп на runtime-пути = пусто + одно
+  предупреждение, диагностические методы (`all/get/conflicts/shared/ignored/extras`) бросают `RuntimeException` «clear the cache».
+  Дешёвые `hasHttpPoints()`/`failureTransports()` в `CatalogDiagnosticsInterface` — для наблюдателей, без гидрации extras.
+- **`%` в аргументах сервиса** резолвится как параметр: `CollectSloDefinitionsPass::escape()` удваивает `%` в строковых значениях дампа.
+  `ParameterBag::unescapeValue()` НЕ раскавычивает ключи массива (PhpDumper раскавычивает), поэтому `%` в ключах недопустим —
+  единственный пользовательский источник ключей с `%` (id тега точки) отклоняется на компиляции.
+- **Числовые имена маршрутов** (`404`) становятся int-ключами PHP-массивов: `RouteIndexData` кастует ключи в строку при каждом чтении
+  и принимает int-ключи при разборе файла.
+- **route_index.php версия 2**: секции `routes`, `controllers`, `points`, `revisions` валидируются по отдельности (`RouteIndexFile::points()`,
+  `::revisions()`, `::load()`); горячий путь трогает только `points` и `revisions`. `revisions` = `"<slo>|<kind>" => 8 hex | ''`
+  (`''` — Strategy A), их считает `SloCacheWarmer` резолвером поверх только что прочитанных маршрутов; `WarmedRevisions`
+  (`PrecomputedRevisionsInterface`) отдаёт их `RecordEvent\Action`. В debug или без файла — runtime-резолв как раньше.
+- **`RecordEvent\Action::reset()`** очищает только предупреждения и неудачные резолвы; успешные резолвы (стратегия+ревизия) живут
+  весь процесс. Повторные сбои записи логируются один раз на `slo|objective|класс исключения` до reset (не больше 100 ключей).
+  `RoutePointIndex` теперь `ResetInterface`: reset повторяет только неудачную сборку индекса.
+- **`OperationMonitor`** принимает необязательный `Closure(Throwable): bool $isExpectedFailure` (по умолчанию logic-bundle
+  `ActionOutcome`); сбой классификации = error, исключение пользователя пробрасывается без замены.
+- **`DeliveryStatusMapperInterface`** — шов для тестов наблюдателя Messenger (ветка «неизвестный статус» недостижима с реальным enum).
+- **Покрытие**: порог сравнивается по точной дроби (`monitored*100 < required*eligible`), процент округляется только для вывода
+  (`Output::$sloFraction`).
+- **Grafana**: записи 5m-группы (`slo:events:rate3d`, `slo:error_ratio:rate3d`, `slo:sli:ratio`, `slo:error_budget:remaining`,
+  `slo:window:coverage_ratio`) читаются через `PromQlBuilder::latest()`/`lookback()` = `last_over_time(...[10m])`, как в алертах;
+  список таких записей — `PromQlBuilder::SLOW_RECORDS`, согласованность с группами проверяет `GenerateRules\ActionTest`.
+- **`FileWriter`** создаёт временный файл через `fopen(..., 'x')` со случайным суффиксом (предсказуемое имя позволяло подложить symlink).
+- **`generation.selector.application/components`** валидируются `/^[A-Za-z0-9_.:-]{1,128}$/D` в дереве конфигурации.
+- **Rector** удаляет неиспользуемые параметры у фикстур-хендлеров (`RemoveUnusedPublicMethodParameterRector`-подобные правила):
+  в фикстурах параметр сообщения нужно использовать (`return $message::class;`).

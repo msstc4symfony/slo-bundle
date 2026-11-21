@@ -47,7 +47,8 @@
 
 - Экспорт metrics-bundle: префикс `symfony_` (`PrometheusMetricRecorder::NAMESPACE`), имя счётчика = значение enum без добавления `_total`
   (`symfony_http_response`, `symfony_messenger_message_handled`, `symfony_slo_events_total`); гистограммы — `<name>_bucket{le}` / `_count`.
-  `le` рендерится `(string) $bucket` (`"1"`, `"0.5"`) — сверено с promphp `RenderTextFormat`.
+  promphp экспонирует `le` как `(string) $bucket` (`"1"`, `"0.5"`), но Prometheus 3 при приёме нормализует его в
+  `"1.0"`; генератор пишет нормализованную форму (`BucketLabel`), см. known-issues, батч A.
 - `promtool` — образ `prom/prometheus:v3.15.0`, `docker run --rm -v <dir>:/work:ro -w /work --entrypoint promtool ... check rules|test rules`.
   Golden-файлы `tests/Fixtures/Generated/prometheus/*.yml` проверяются `check rules`, сценарии `tests/Fixtures/Promtool/*.test.yml`
   ссылаются на них через `../Generated/...`.

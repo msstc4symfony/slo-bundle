@@ -22,3 +22,17 @@
 - Dashboard rows show the expected end of warming up as a UTC date.
 - README: installation, attributes, classification, strategies, revisions and warming up, configuration reference, commands and exit codes, GitOps provisioning, failure semantics, public API, compatibility matrix, Prometheus retention, route-index overhead.
 - Everything outside the documented public API is marked `@internal`.
+- Strategy A latency rules select the bucket in the form Prometheus 3 stores (`le="1.0"` for an exposed `le="1"`);
+  a threshold matches a bucket only up to float noise (`0.2504` does not match `250ms`); promtool test with `le="1.0"` input.
+- The route index (format 2) also carries the strategy and revision of every objective, computed by the cache warmer;
+  the request path validates only the sections it reads, the compiled catalog is hydrated per point, and an unreadable
+  catalog dump records nothing with one warning instead of throwing.
+- `kernel.reset` keeps successful objective resolutions and a built route index and retries only failed ones; repeated
+  recording failures are logged once per SLO, objective and exception class until the next reset.
+- Logic-action and operation latency covers every non-error run regardless of `expectedFailureIsGood` (spec 4.4);
+  Messenger revisions include the sorted failure transports.
+- Compilation errors for `#[Slo]` on a handler of an interface or abstract message class and for `%` in a tagged point
+  id; `%` in `#[IgnoreMonitoring]` reasons and other dumped strings is escaped. `generation.selector.application` and
+  `components` are validated as label values (`[A-Za-z0-9_.:-]{1,128}`).
+- `slo:validate` warns about an SLO on a message that is never routed to a transport; coverage thresholds are compared
+  on the exact fraction; dashboards read the 5m window-group records over a 10m lookback, like the alerts.

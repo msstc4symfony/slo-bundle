@@ -130,8 +130,11 @@ Events come from the metrics-bundle measurement observers, with the duration met
 - Messenger: one event per final worker outcome of an envelope (`handled`, or `failed` after the last retry);
   retries are events only with `countAttempts: true`, anything consumed from a failure transport
   (`messenger:failed:retry`) never is. Batch handlers (`BatchHandlerInterface`) are counted per envelope like any async message.
-  Synchronously handled messages are not measured (`slo:coverage` reports them as `unsupported`). `#[Slo]` on a handler
-  is an SLO on the envelope of its message; a message with several handlers gets a validation warning.
+  Synchronously handled messages are not measured (`slo:coverage` reports them as `unsupported`, `slo:validate` warns
+  about an SLO on a message that is never routed to a transport). `#[Slo]` on a handler is an SLO on the envelope of
+  its message; a message with several handlers gets a validation warning. The handler must take a concrete message
+  class: events are matched by the dispatched message's class, so `#[Slo]` on a handler of an interface or abstract
+  class is a compilation error.
 - Operations: one event per finished handle, see [Operations API](#operations-api).
 - Logic actions: through the `slo-bridge-logic` package, see [Bridges](#bridges-and-measurement-points).
 
@@ -146,13 +149,16 @@ Defaults, all overridable per SLO. An *eligible* event enters the denominator; *
 | Logic action | action call | `error`; `expected_failure` is good | `success` and `expected_failure` |
 | Operation | finished handle | `error` | everything except `error` |
 
-- Latency is eligible only for availability-good events, unless `Latency(includeErrors: true)` (then every
-  availability-eligible event; `includeErrors` applies to HTTP routes only, elsewhere it is a compilation error).
+- HTTP and Messenger: latency is eligible only for availability-good events, unless `Latency(includeErrors: true)`
+  (then every availability-eligible event; `includeErrors` applies to HTTP routes only, elsewhere it is a compilation
+  error). Logic actions and operations: latency covers every run that is not an `error`, also with
+  `expectedFailureIsGood: false` (which changes availability and `Combined` only).
   `Combined` is bad when the event is bad or slow.
 - `countAttempts: true` (Messenger): every attempt is an event - handled is good, failed and retried are bad;
   failure-transport events stay ineligible.
 - Failure transports are detected at compile time from the framework's failure-transport listener and can be set with
   `defaults.messenger.failure_transports`.
+- Status sets are canonical: `['5xx', '500-599']` is the same set as `['5xx']`.
 - Empty denominator is NoData, never 100 %.
 
 ## Strategies: existing series or dedicated counters
@@ -167,15 +173,20 @@ written) or counts good and bad events itself (Strategy B, `symfony_slo_events_t
 | HTTP latency | `includeErrors: true`, and the threshold equals a bucket of `request_duration_histogram_seconds` | observer |
 | Messenger availability | `countAttempts` not set (`handled + failed`, failure transports excluded) and no other handled message shares the short class name (metrics-bundle labels messages by short name; `slo:validate` warns) | observer |
 | Messenger latency | `countAttempts` not set (`countAttempts: false`) and the threshold is a bucket boundary | observer |
-| Logic action | the threshold is a bucket of `logic_action_duration_histogram_seconds` and `expectedFailureIsGood` is default | `slo-bridge-logic` |
+| Logic action | availability: `expectedFailureIsGood` is default; latency: the threshold is a bucket of `logic_action_duration_histogram_seconds` | `slo-bridge-logic` |
 | Operation, `Combined` | never | always B |
 
-`strategy: dedicated` forces B. A threshold matches a bucket when `bucket * 1000 === thresholdMs`.
+`strategy: dedicated` forces B. A threshold matches a bucket when the bucket, as metrics-bundle exposes it, equals
+`thresholdMs / 1000` up to float noise (relative 1e-9): `0.25` matches `250ms`, `0.2504` does not. The generated
+`le` matcher uses the form Prometheus 3 stores on ingestion (Go's shortest float with `.0` for integral values):
+a bucket exposed as `le="1"` is selected as `le="1.0"`, `1e6` as `le="1e+06"`.
 
 ## Revisions and warming up
 
 Every dedicated series carries `revision`, the first 8 hex digits of a hash of the event semantics: objective kind,
-eligibility and good rule, threshold, point type, classification overrides. Target, window, name and the list of
+eligibility and good rule, threshold, point type, classification overrides, and for Messenger SLOs the sorted list of
+failure transports (it decides which deliveries are eligible). `expectedFailureIsGood` is not part of the latency
+revision of logic actions and operations, whose latency does not depend on it. Target, window, name and the list of
 points are **not** part of it. Consequences:
 
 - Changing a threshold from `200ms` to `100ms` creates a new revision. Generated rules filter only the current
@@ -246,8 +257,8 @@ msstc4symfony_slo:
     operations: {}                           # see "Operations API"
     generation:
         selector:
-            application: ~                   # required by slo:generate
-            components: []                   # [] = no component filter
+            application: ~                   # required by slo:generate; [A-Za-z0-9_.:-]{1,128}
+            components: []                   # [] = no component filter; same pattern
         output_dir: '%kernel.project_dir%/infrastructure/observability'
         grafana: { datasource_uid: prometheus, folder: SLO }
         prometheus:
@@ -263,7 +274,7 @@ msstc4symfony_slo:
 |---------|---------|------------|
 | `slo:list [--format=text\|json]` | declared SLOs with points, routes, strategy and revisions; shared and `DUPLICATE` names are marked | 0 ok, 1 the JSON cannot be encoded, 2 bad option |
 | `slo:validate` | validates the catalog against the routes; prints `ERROR`, `WARNING` and `NOTICE` lines | 0 no errors (warnings allowed), 1 errors |
-| `slo:coverage [--format=text\|json] [--min=<0-100>]` | which routes, handlers, actions and operations have an SLO and which are already measured by a universal series; statuses `monitored`, `unmonitored`, `ignored`, `invalid`, `unsupported` | 0 passed, 1 any `invalid` point, a kind below its required percent (`--min` overrides all kinds) or the JSON cannot be encoded, 2 bad option |
+| `slo:coverage [--format=text\|json] [--min=<0-100>]` | which routes, handlers, actions and operations have an SLO and which are already measured by a universal series; statuses `monitored`, `unmonitored`, `ignored`, `invalid`, `unsupported` | 0 passed, 1 any `invalid` point, a kind below its required percent (compared on the exact fraction: 2 of 3 is below 66.67; `--min` overrides all kinds) or the JSON cannot be encoded, 2 bad option |
 | `slo:generate [--output=<dir>] [--check]` | writes Prometheus rules, Grafana dashboards and optional Sloth specs; `--check` compares with the disk without writing and prints `stale`, `missing`, `extra` paths | 0 ok / up to date, 1 `--check` found differences, 2 missing `generation.selector.application` or output directory |
 
 `slo:coverage --format=json` is stable and described by the JSON Schema [`doc/coverage-schema.json`](doc/coverage-schema.json).
@@ -309,10 +320,14 @@ Commit the directory, run `slo:generate --check` in CI ("rules are stale" fails 
   the total. When the storage (Redis) is down, **a lost write loses the whole event, not the ratio**: the SLI is
   computed from the events that were written, and a long outage shows up as missing data, not as a skewed percentage.
 - Under long-running workers (RoadRunner, Messenger workers) every stateful service is reset through `kernel.reset`:
-  the memoised revisions and the per-process warning sets. Two requests with different routes and outcomes are
-  attributed to their own SLO (`StateLeakageTest`). The route index is not reset: routes are fixed per container, so
-  it is built once per process (or read from the [warmed cache](#overhead)). A router that fails while the index is
-  built disables HTTP SLOs (one warning) until the worker restarts.
+  the per-process warning sets and every failed resolution. Successful resolutions (strategy and revision of an
+  objective) and a successfully built route index survive the reset: catalog and routes are fixed per container. Two
+  requests with different routes and outcomes are attributed to their own SLO (`StateLeakageTest`). A router that
+  fails while the route index is built disables HTTP SLOs (one warning) until the next `kernel.reset` retries it.
+- A storage outage logs one warning per SLO, objective and exception class until the next reset (at most 100, then
+  one suppression notice), not one per event.
+- A compiled catalog that cannot be read (a cache left over from another bundle version) never throws on the request
+  path: its SLOs record nothing and one warning asks to clear the cache; the `slo:*` commands fail with that message.
 - Cardinality is bounded: labels are `slo` (declared name), `objective`, `revision` and `result` only. No path,
   query string, user or request value ever becomes a label (`CardinalityTest`: 1000 random URLs, at most two
   `result` values per objective).
@@ -320,7 +335,8 @@ Commit the directory, run `slo:generate --check` in CI ("rules are stale" fails 
 ## Bridges and measurement points
 
 Any service tagged `msstc4symfony_slo.point` becomes a measurement point of the catalog; the bundle reflects its class
-for `#[Slo]` and `#[IgnoreMonitoring]`. Tag attributes: `type` (a `PointType` value), `id`, optional `metric_label`.
+for `#[Slo]` and `#[IgnoreMonitoring]`. Tag attributes: `type` (a `PointType` value), `id` (non-empty, without `%`),
+optional `metric_label`.
 slo-bundle never depends on logic-bundle: the `slo-bridge-logic` package tags `msstc4symfony_logic.action` services and
 records their events through `RecordEvent\Action`.
 
@@ -401,10 +417,15 @@ measures the cost of the classifier plus writer path for one event with two obje
 10 % of the events are errors), best of 5 rounds of 100 000 events after a warm-up. Measured on 2026-11-21 UTC,
 PHP 8.4.17 (CLI, no opcache/JIT tuning), Intel Core Ultra 7 155H, Linux 6.17, one core:
 
-| Recorder | Cost per event |
+| Scenario | Cost per event |
 |----------|----------------|
-| null recorder (classifier, binding, revision memo, writer call) | 6.0 us |
-| metrics-bundle in-memory storage (the full `increment` path) | 13.4 us |
+| null recorder (classifier, binding, revision memo, writer call) | 4.5 us |
+| null recorder, `kernel.reset` after every event (RoadRunner request or consumed message) | 5.1 us |
+| the same with revisions warmed into the cache | 5.6 us |
+| metrics-bundle in-memory storage (the full `increment` path) | 10.7 us |
+
+Before 1.0 a reset also dropped the resolved strategy and revision of every objective: the reset scenario cost
+28.7 us per event (6.4 us with warmed revisions) because every event resolved its binding and hashed its revision again.
 
 A real Redis storage adds its network round trip per `increment`; the events are written after the response is
 produced in the HTTP path (`kernel.terminate`) and in the worker loop for Messenger.
@@ -415,7 +436,9 @@ FrameworkBundle's `Router::getRouteCollection()` reloads every route from the lo
 event of every request (milliseconds to tens of milliseconds in large applications). The optional cache warmer
 avoids it: `cache:warmup` (and `cache:clear` without `--no-optional-warmers`) writes the index to
 `%kernel.cache_dir%/msstc4symfony_slo/route_index.php`, a `var_export` array that opcache keeps in shared memory,
-and the request path reads only that file. The lazy build stays the fallback when the file is missing or unreadable,
+and the request path reads only that file: the route → points section and the precomputed strategy and revision of
+every objective, each validated on its own (the routes section is validated only by the commands). The compiled
+catalog is hydrated the same way, per point on first use. The lazy build stays the fallback when the file is missing or unreadable,
 and in debug mode, where routes may change without a cache clear and the file is ignored. An application without HTTP
 SLOs never touches the router on the request path. The warmer never fails the warm-up: problems are logged on the
 `slo_bundle` channel.
