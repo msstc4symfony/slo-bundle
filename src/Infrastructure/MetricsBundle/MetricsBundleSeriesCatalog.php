@@ -145,11 +145,9 @@ final readonly class MetricsBundleSeriesCatalog implements SeriesCatalogInterfac
     }
 
     #[Override]
-    public function logicLatency(array $actionLabels, bool $includeErrors, string $bucket): SeriesBinding
+    public function logicLatency(array $actionLabels, string $bucket): SeriesBinding
     {
-        $action = $this->exactOrAlternation(self::LABEL_ACTION, $actionLabels);
-
-        return $this->latency(self::LOGIC_HISTOGRAM, $includeErrors ? [$action] : [$action, $this->nonError()], $bucket);
+        return $this->latency(self::LOGIC_HISTOGRAM, [$this->exactOrAlternation(self::LABEL_ACTION, $actionLabels), $this->nonError()], $bucket);
     }
 
     /**

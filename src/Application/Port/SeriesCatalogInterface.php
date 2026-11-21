@@ -76,8 +76,10 @@ interface SeriesCatalogInterface
     public function logicAvailability(array $actionLabels): SeriesBinding;
 
     /**
+     * Error runs are not latency-eligible (includeErrors applies to http_route points only).
+     *
      * @param non-empty-list<non-empty-string> $actionLabels
      * @param non-empty-string $bucket
      */
-    public function logicLatency(array $actionLabels, bool $includeErrors, string $bucket): SeriesBinding;
+    public function logicLatency(array $actionLabels, string $bucket): SeriesBinding;
 }

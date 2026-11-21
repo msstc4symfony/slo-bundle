@@ -133,7 +133,7 @@ final readonly class MetricBindingResolver
         }
         $bucket = $this->bucket(PointType::LogicAction, $objective);
 
-        return $bucket === null ? null : $this->series->logicLatency($labels, $objective->includeErrors, $bucket);
+        return $bucket === null ? null : $this->series->logicLatency($labels, $bucket);
     }
 
     /**
