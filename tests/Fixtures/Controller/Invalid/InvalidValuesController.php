@@ -40,7 +40,7 @@ final class InvalidValuesController
         return 'statuses';
     }
 
-    // Reason: an invalid strategy is the value under test; the attribute types it as 'auto'|'dedicated'.
+    // Reason: a string strategy is the value under test (TypeError at instantiation); the attribute types it as StrategyPreference.
     #[Slo(name: 'payment.strategy', objectives: [new Availability(99)], strategy: 'fast')] // @phpstan-ignore argument.type
     public function strategy(): string
     {

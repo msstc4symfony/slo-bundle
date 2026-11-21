@@ -37,7 +37,7 @@
   чужого дефолта не меняла ревизии: HTTP — статусы из `defaults.http.*`; Messenger — `count_attempts`; logic/operation —
   `defaults.logic.expected_failure_is_good`.
 - Ошибки опций: `countAttempts` вне Messenger, `includeErrors: true` вне HTTP (в т.ч. в `operations`),
-  `expectedFailureIsGood` на HTTP/Messenger, `badStatuses`/`ineligibleStatuses` вне HTTP, strategy не auto|dedicated,
+  `expectedFailureIsGood` на HTTP/Messenger, `badStatuses`/`ineligibleStatuses` вне HTTP, неверный тип аргумента атрибута (например `strategy` не `StrategyPreference` — TypeError, `invalid attribute: ...`),
   `#[Slo]` на двух handlers одного сообщения, одинаковое короткое имя у двух SLO-сообщений, `#[Slo]` на handler
   интерфейса/абстрактного класса сообщения (runtime ищет точку по конкретному классу, CR-003), `%` в `id` тега точки. Сообщение с SLO и > 1
   handler — warning в `extras()->warnings`.

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Application\Attribute;
 
+use Msstc4Symfony\SloBundle\Domain\Enum\ObjectiveKind;
 use Override;
 
 final readonly class Combined implements ObjectiveAttributeInterface
@@ -15,8 +16,8 @@ final readonly class Combined implements ObjectiveAttributeInterface
     }
 
     #[Override]
-    public function kind(): string
+    public function kind(): ObjectiveKind
     {
-        return 'combined';
+        return ObjectiveKind::Combined;
     }
 }

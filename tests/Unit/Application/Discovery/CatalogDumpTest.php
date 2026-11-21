@@ -18,6 +18,7 @@ use Msstc4Symfony\SloBundle\Application\Discovery\DiscoveryErrors;
 use Msstc4Symfony\SloBundle\Application\Discovery\HandlerInfo;
 use Msstc4Symfony\SloBundle\Application\Discovery\TaggedPoint;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
+use Msstc4Symfony\SloBundle\Domain\Enum\StrategyPreference;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -34,7 +35,7 @@ final class CatalogDumpTest extends TestCase
         $assembler->declare($update, new Slo('payment.create', [new Availability(99.95), new Latency('200ms', 99, true), new Combined('1.5s', 95)], window: '1mo', badStatuses: ['5xx', 429], ineligibleStatuses: ['400-404']));
         $assembler->declare($create, new Slo('payment.conflict', [new Availability(99.9)]));
         $assembler->declare($update, new Slo('payment.conflict', [new Availability(99.5)]));
-        $assembler->declare(PointId::of(PointType::MessengerMessage, 'App\Message\Pay'), new Slo('payment.process', [new Availability(99)], countAttempts: true, strategy: 'dedicated'));
+        $assembler->declare(PointId::of(PointType::MessengerMessage, 'App\Message\Pay'), new Slo('payment.process', [new Availability(99)], countAttempts: true, strategy: StrategyPreference::Dedicated));
         $assembler->ignore(PointId::of(PointType::HttpRoute, 'App\Controller::health'), 'probe');
 
         $extras = new CatalogExtras(

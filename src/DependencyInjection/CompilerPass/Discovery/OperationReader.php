@@ -11,6 +11,7 @@ use Msstc4Symfony\SloBundle\Application\Attribute\ObjectiveAttributeInterface;
 use Msstc4Symfony\SloBundle\Application\Attribute\Slo;
 use Msstc4Symfony\SloBundle\Application\Discovery\CatalogAssembler;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
+use Msstc4Symfony\SloBundle\Domain\Enum\StrategyPreference;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 
 /**
@@ -50,7 +51,7 @@ final readonly class OperationReader
                 objectives: $objectives,
                 window: \is_string($window) ? $window : null,
                 expectedFailureIsGood: \is_bool($expectedFailureIsGood) ? $expectedFailureIsGood : null,
-                strategy: 'dedicated',
+                strategy: StrategyPreference::Dedicated,
             ));
             $names[] = $name;
         }

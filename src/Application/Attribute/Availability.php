@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Application\Attribute;
 
+use Msstc4Symfony\SloBundle\Domain\Enum\ObjectiveKind;
 use Override;
 
 final readonly class Availability implements ObjectiveAttributeInterface
@@ -13,8 +14,8 @@ final readonly class Availability implements ObjectiveAttributeInterface
     }
 
     #[Override]
-    public function kind(): string
+    public function kind(): ObjectiveKind
     {
-        return 'availability';
+        return ObjectiveKind::Availability;
     }
 }

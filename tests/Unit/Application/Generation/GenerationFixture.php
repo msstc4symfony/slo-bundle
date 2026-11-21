@@ -23,6 +23,7 @@ use Msstc4Symfony\SloBundle\Application\Generation\GenerateSloth\Action as Sloth
 use Msstc4Symfony\SloBundle\Application\Generation\Selector;
 use Msstc4Symfony\SloBundle\Application\Port\RouteInfo;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
+use Msstc4Symfony\SloBundle\Domain\Enum\StrategyPreference;
 use Msstc4Symfony\SloBundle\Domain\Service\RevisionCalculator;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
@@ -50,7 +51,7 @@ final class GenerationFixture
             static function (CatalogAssembler $assembler) use ($checkoutLatencyTarget, $checkoutAvailabilityTarget): void {
                 $assembler->declare(PointId::of(PointType::HttpRoute, self::CHECKOUT), new Slo('checkout.pay', [new Availability($checkoutAvailabilityTarget), new Latency('200ms', $checkoutLatencyTarget)]));
                 $assembler->declare(PointId::of(PointType::MessengerMessage, 'App\Message\ProcessPayment'), new Slo('payment.process', [new Latency('1s', 99), new Availability(99.5)]));
-                $assembler->declare(PointId::of(PointType::Operation, 'report.export'), new Slo('report.export', [new Availability(99)], window: '3d', strategy: 'dedicated'));
+                $assembler->declare(PointId::of(PointType::Operation, 'report.export'), new Slo('report.export', [new Availability(99)], window: '3d', strategy: StrategyPreference::Dedicated));
             },
             new CatalogExtras(
                 handlers: [

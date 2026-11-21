@@ -10,6 +10,8 @@ use Msstc4Symfony\SloBundle\Application\Attribute\Combined;
 use Msstc4Symfony\SloBundle\Application\Attribute\IgnoreMonitoring;
 use Msstc4Symfony\SloBundle\Application\Attribute\Latency;
 use Msstc4Symfony\SloBundle\Application\Attribute\Slo;
+use Msstc4Symfony\SloBundle\Domain\Enum\ObjectiveKind;
+use Msstc4Symfony\SloBundle\Domain\Enum\StrategyPreference;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\PaymentController;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -28,14 +30,14 @@ final class AttributesTest extends TestCase
         self::assertSame('payment.create', $first->name);
         self::assertInstanceOf(Availability::class, $first->objectives[0]);
         self::assertInstanceOf(Latency::class, $first->objectives[1]);
-        self::assertSame(['availability', 'latency'], [$first->objectives[0]->kind(), $first->objectives[1]->kind()]);
+        self::assertSame([ObjectiveKind::Availability, ObjectiveKind::Latency], [$first->objectives[0]->kind(), $first->objectives[1]->kind()]);
         self::assertNull($first->window);
-        self::assertSame('auto', $first->strategy);
+        self::assertSame(StrategyPreference::Auto, $first->strategy);
 
         self::assertSame('7d', $second->window);
-        self::assertSame('dedicated', $second->strategy);
+        self::assertSame(StrategyPreference::Dedicated, $second->strategy);
         self::assertInstanceOf(Combined::class, $second->objectives[0]);
-        self::assertSame('combined', $second->objectives[0]->kind());
+        self::assertSame(ObjectiveKind::Combined, $second->objectives[0]->kind());
     }
 
     public function testObjectiveValuesAreHeldRaw(): void
@@ -52,7 +54,7 @@ final class AttributesTest extends TestCase
 
     public function testSloOverridesDefaultToNull(): void
     {
-        $slo = new Slo('a.b', [new Availability(99)], '30d', ['5xx'], [404], false, true, 'dedicated');
+        $slo = new Slo('a.b', [new Availability(99)], '30d', ['5xx'], [404], false, true, StrategyPreference::Dedicated);
 
         self::assertSame(['5xx'], $slo->badStatuses);
         self::assertSame([404], $slo->ineligibleStatuses);

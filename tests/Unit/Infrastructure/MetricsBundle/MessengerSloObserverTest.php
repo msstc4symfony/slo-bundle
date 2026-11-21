@@ -13,6 +13,7 @@ use Msstc4Symfony\SloBundle\Application\Discovery\CatalogAssembler;
 use Msstc4Symfony\SloBundle\Application\Discovery\CatalogExtras;
 use Msstc4Symfony\SloBundle\Domain\Enum\DeliveryStatus;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
+use Msstc4Symfony\SloBundle\Domain\Enum\StrategyPreference;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\DeliveryStatusMapper;
@@ -42,7 +43,7 @@ final class MessengerSloObserverTest extends TestCase
     protected function setUp(): void
     {
         $this->catalog = CatalogFixture::build(static function (CatalogAssembler $assembler): void {
-            $assembler->declare(PointId::of(PointType::MessengerMessage, ProcessPayment::class), new Slo('payment.process', [new Availability(99.9), new Latency('1s', 99)], strategy: 'dedicated'));
+            $assembler->declare(PointId::of(PointType::MessengerMessage, ProcessPayment::class), new Slo('payment.process', [new Availability(99.9), new Latency('1s', 99)], strategy: StrategyPreference::Dedicated));
         }, new CatalogExtras(failureTransports: ['dead', 'failed']));
         $catalog = $this->catalog;
         $this->writer = new InMemoryEventWriter();

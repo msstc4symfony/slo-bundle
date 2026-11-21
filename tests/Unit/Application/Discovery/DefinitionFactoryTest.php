@@ -46,7 +46,7 @@ final class DefinitionFactoryTest extends TestCase
 
     public function testHttpOverridesWin(): void
     {
-        $slo = $this->create(new Slo('payment.create', [new Availability(99)], window: '2w', badStatuses: ['5xx', 429], ineligibleStatuses: [], strategy: 'dedicated'), PointType::HttpRoute);
+        $slo = $this->create(new Slo('payment.create', [new Availability(99)], window: '2w', badStatuses: ['5xx', 429], ineligibleStatuses: [], strategy: StrategyPreference::Dedicated), PointType::HttpRoute);
 
         self::assertSame('2w', $slo->window()->toString());
         self::assertSame(['429', '5xx'], $slo->classification()->badStatuses->canonical());
@@ -68,7 +68,7 @@ final class DefinitionFactoryTest extends TestCase
         self::assertFalse($logic->expectedFailureIsGood);
         self::assertFalse($logic->countAttempts);
 
-        $operation = $this->create(new Slo('payment.validation', [new Availability(99)], expectedFailureIsGood: true, strategy: 'dedicated'), PointType::Operation);
+        $operation = $this->create(new Slo('payment.validation', [new Availability(99)], expectedFailureIsGood: true, strategy: StrategyPreference::Dedicated), PointType::Operation);
         self::assertTrue($operation->classification()->expectedFailureIsGood);
 
         $messengerOverride = $this->create(new Slo('payment.process', [new Availability(99)], countAttempts: false), PointType::MessengerMessage);
@@ -85,8 +85,6 @@ final class DefinitionFactoryTest extends TestCase
             ineligibleStatuses: [600],
             expectedFailureIsGood: true,
             countAttempts: true,
-            // Reason: an invalid strategy is the value under test; the attribute types it as 'auto'|'dedicated'.
-            strategy: 'fast', // @phpstan-ignore argument.type
         );
 
         self::assertNull((new DefinitionFactory('30d', ['5xx'], [], true, false))->fromAttribute($slo, PointId::of(PointType::LogicAction, 'refund'), $this->errors));
@@ -99,7 +97,6 @@ final class DefinitionFactoryTest extends TestCase
             'logic_action:refund: SLO "Bad Name": countAttempts applies to messenger_message points only.',
             'logic_action:refund: SLO "Bad Name": includeErrors applies to http_route points only.',
             'logic_action:refund: SLO "Bad Name": ineligibleStatuses applies to http_route points only.',
-            'logic_action:refund: SLO "Bad Name": invalid strategy "fast", expected auto|dedicated.',
         ], $this->errors->messages());
     }
 
@@ -115,9 +112,9 @@ final class DefinitionFactoryTest extends TestCase
     {
         $custom = new class implements ObjectiveAttributeInterface {
             #[Override]
-            public function kind(): string
+            public function kind(): ObjectiveKind
             {
-                return 'availability';
+                return ObjectiveKind::Availability;
             }
         };
 

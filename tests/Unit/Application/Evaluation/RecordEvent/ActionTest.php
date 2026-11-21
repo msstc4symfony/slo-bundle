@@ -19,6 +19,7 @@ use Msstc4Symfony\SloBundle\Application\Port\RouteCatalogInterface;
 use Msstc4Symfony\SloBundle\Application\Port\RouteInfo;
 use Msstc4Symfony\SloBundle\Domain\Enum\ObjectiveKind;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
+use Msstc4Symfony\SloBundle\Domain\Enum\StrategyPreference;
 use Msstc4Symfony\SloBundle\Domain\Repository\SloCatalogInterface;
 use Msstc4Symfony\SloBundle\Domain\Service\EventClassifier;
 use Msstc4Symfony\SloBundle\Domain\Service\RevisionCalculator;
@@ -107,8 +108,8 @@ final class ActionTest extends TestCase
     public function testConflictedNameWarnsOncePerNameAndNeverWrites(): void
     {
         $catalog = CatalogFixture::build(function (CatalogAssembler $assembler): void {
-            $assembler->declare(PointId::of(PointType::HttpRoute, 'A::one'), new Slo('dup.slo', [new Availability(99.9)], strategy: 'dedicated'));
-            $assembler->declare(PointId::of(PointType::HttpRoute, 'A::two'), new Slo('dup.slo', [new Availability(99.5)], strategy: 'dedicated'));
+            $assembler->declare(PointId::of(PointType::HttpRoute, 'A::one'), new Slo('dup.slo', [new Availability(99.9)], strategy: StrategyPreference::Dedicated));
+            $assembler->declare(PointId::of(PointType::HttpRoute, 'A::two'), new Slo('dup.slo', [new Availability(99.5)], strategy: StrategyPreference::Dedicated));
         });
         $writer = new InMemoryEventWriter();
         $logger = new RecordingLogger();
@@ -192,7 +193,7 @@ final class ActionTest extends TestCase
     {
         $catalog = CatalogFixture::build(function (CatalogAssembler $assembler): void {
             for ($i = 0; $i < 101; $i++) {
-                $assembler->declare($this->point(), new Slo(\sprintf('payment.s%03d', $i), [new Availability(99.9)], strategy: 'dedicated'));
+                $assembler->declare($this->point(), new Slo(\sprintf('payment.s%03d', $i), [new Availability(99.9)], strategy: StrategyPreference::Dedicated));
             }
         });
         $logger = new RecordingLogger();

@@ -14,6 +14,7 @@ use Msstc4Symfony\SloBundle\Application\Discovery\CatalogExtras;
 use Msstc4Symfony\SloBundle\Application\Discovery\HandlerInfo;
 use Msstc4Symfony\SloBundle\Application\Port\RouteInfo;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
+use Msstc4Symfony\SloBundle\Domain\Enum\StrategyPreference;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\CatalogFixture;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\InMemoryRouteCatalog;
@@ -177,7 +178,7 @@ final class ActionTest extends TestCase
             function ($assembler): void {
                 $assembler->declare($this->http('A::create'), new Slo('payment.create', [new Availability(99.9), new Latency('200ms', 99, true)]));
                 $assembler->declare($this->http('A::fast'), new Slo('payment.fast', [new Latency('500ms', 99, true)]));
-                $assembler->declare($this->http('A::forced'), new Slo('payment.forced', [new Latency('200ms', 99)], strategy: 'dedicated'));
+                $assembler->declare($this->http('A::forced'), new Slo('payment.forced', [new Latency('200ms', 99)], strategy: StrategyPreference::Dedicated));
             },
             new CatalogExtras(metricBuckets: ['request_duration_histogram_seconds' => [0.1, 0.5, 1.0]]),
         );

@@ -82,7 +82,7 @@
 - HTTP kernel-тест не зависит от времени стены: фикстура `CheckoutController` использует порог 10s; пограничные пороги проверяются
   юнит-тестами наблюдателя с построенными measurement.
 - Availability у Messenger по умолчанию Strategy A (ничего не пишется) — фикстуры kernel-тестов используют
-  `strategy: 'dedicated'`, чтобы видеть счётчики.
+  `strategy: StrategyPreference::Dedicated`, чтобы видеть счётчики.
 - `justinrainbow/json-schema` (require-dev, ^6.6) валидирует `doc/coverage-schema.json` в тестах. `if/then/else` схемой
   не поддерживается библиотекой надёжно — в схеме используется `oneOf`. `Validator::validate()` берёт значение по ссылке и
   требует объекты (`json_decode(..., false)`), массивы не годятся. `composer-ci.lock` не пересобран (устарел и без этого —

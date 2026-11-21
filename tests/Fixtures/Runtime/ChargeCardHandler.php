@@ -6,6 +6,7 @@ namespace Msstc4Symfony\SloBundle\Test\Fixtures\Runtime;
 
 use Msstc4Symfony\SloBundle\Application\Attribute\Availability;
 use Msstc4Symfony\SloBundle\Application\Attribute\Slo;
+use Msstc4Symfony\SloBundle\Domain\Enum\StrategyPreference;
 use RuntimeException;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -17,7 +18,7 @@ final class ChargeCardHandler
     /** @var array<string, int> */
     private array $attempts = [];
 
-    #[Slo(name: self::SLO, objectives: [new Availability(99.9)], strategy: 'dedicated')]
+    #[Slo(name: self::SLO, objectives: [new Availability(99.9)], strategy: StrategyPreference::Dedicated)]
     public function __invoke(ChargeCard $message): string
     {
         $attempt = $this->attempts[$message->id] = ($this->attempts[$message->id] ?? 0) + 1;

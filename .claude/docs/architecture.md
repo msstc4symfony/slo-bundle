@@ -42,7 +42,7 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
   чтение контейнера — `@internal` классы в `src/DependencyInjection/CompilerPass/Discovery/`
   (`ControllerReader`, `HandlerReader`, `TaggedPointReader`, `OperationReader`, `MessengerRouting`,
   `MetricsParameters`, `AttributeReader`, `ServiceClass`).
-- Конфиг `operations` превращается в `Slo(..., strategy: 'dedicated')`, поэтому валидация у всех источников одна —
+- Конфиг `operations` превращается в `Slo(..., strategy: StrategyPreference::Dedicated)`, поэтому валидация у всех источников одна —
   `DefinitionFactory::fromAttribute()`.
 - Каталог: сервис `CompiledSloCatalog` (алиас `SloCatalogInterface`), аргумент `$catalog` — плоский массив
   `CatalogDump::toArray()` (`@phpstan-type CatalogShape`: `format`, `definitions`, `conflicts`, `ignored`, `extras`,

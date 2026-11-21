@@ -23,6 +23,7 @@ use Msstc4Symfony\SloBundle\Domain\Entity\SloDefinition;
 use Msstc4Symfony\SloBundle\Domain\Enum\ObjectiveKind;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
 use Msstc4Symfony\SloBundle\Domain\Enum\Strategy;
+use Msstc4Symfony\SloBundle\Domain\Enum\StrategyPreference;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Objective;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Target;
@@ -47,13 +48,13 @@ final class MetricBindingResolverTest extends TestCase
 
         yield 'http availability defaults' => [$http, self::slo(new Availability(99.9)), ObjectiveKind::Availability, Strategy::ExistingSeries];
         yield 'http availability custom statuses' => [$http, self::slo(new Availability(99.9), badStatuses: [429, '5xx'], ineligibleStatuses: [404]), ObjectiveKind::Availability, Strategy::ExistingSeries];
-        yield 'http availability dedicated' => [$http, self::slo(new Availability(99.9), strategy: 'dedicated'), ObjectiveKind::Availability, Strategy::Dedicated];
+        yield 'http availability dedicated' => [$http, self::slo(new Availability(99.9), strategy: StrategyPreference::Dedicated), ObjectiveKind::Availability, Strategy::Dedicated];
         yield 'http latency 200ms has no bucket' => [$http, self::slo(new Latency('200ms', 99, true)), ObjectiveKind::Latency, Strategy::Dedicated];
         yield 'http latency 500ms with includeErrors' => [$http, self::slo(new Latency('500ms', 99, true)), ObjectiveKind::Latency, Strategy::ExistingSeries];
         yield 'http latency 0.5s with includeErrors' => [$http, self::slo(new Latency('0.5s', 99, true)), ObjectiveKind::Latency, Strategy::ExistingSeries];
         yield 'http latency 500ms without includeErrors' => [$http, self::slo(new Latency('500ms', 99)), ObjectiveKind::Latency, Strategy::Dedicated];
         yield 'http latency includeErrors but ineligible statuses' => [$http, self::slo(new Latency('500ms', 99, true), ineligibleStatuses: [404]), ObjectiveKind::Latency, Strategy::Dedicated];
-        yield 'http latency dedicated' => [$http, self::slo(new Latency('500ms', 99, true), strategy: 'dedicated'), ObjectiveKind::Latency, Strategy::Dedicated];
+        yield 'http latency dedicated' => [$http, self::slo(new Latency('500ms', 99, true), strategy: StrategyPreference::Dedicated), ObjectiveKind::Latency, Strategy::Dedicated];
         yield 'http combined' => [$http, self::slo(new Combined('500ms', 99)), ObjectiveKind::Combined, Strategy::Dedicated];
         yield 'messenger availability defaults' => [$message, self::slo(new Availability(99)), ObjectiveKind::Availability, Strategy::ExistingSeries];
         yield 'messenger availability countAttempts' => [$message, self::slo(new Availability(99), countAttempts: true), ObjectiveKind::Availability, Strategy::Dedicated];
@@ -285,9 +286,8 @@ final class MetricBindingResolverTest extends TestCase
     /**
      * @param list<int|string>|null $badStatuses
      * @param list<int|string>|null $ineligibleStatuses
-     * @param 'auto'|'dedicated' $strategy
      */
-    private static function slo(ObjectiveAttributeInterface $first, ?ObjectiveAttributeInterface $second = null, ?array $badStatuses = null, ?array $ineligibleStatuses = null, ?bool $expectedFailureIsGood = null, ?bool $countAttempts = null, string $strategy = 'auto'): Slo
+    private static function slo(ObjectiveAttributeInterface $first, ?ObjectiveAttributeInterface $second = null, ?array $badStatuses = null, ?array $ineligibleStatuses = null, ?bool $expectedFailureIsGood = null, ?bool $countAttempts = null, StrategyPreference $strategy = StrategyPreference::Auto): Slo
     {
         return new Slo('payment.create', $second instanceof ObjectiveAttributeInterface ? [$first, $second] : [$first], null, $badStatuses, $ineligibleStatuses, $expectedFailureIsGood, $countAttempts, $strategy);
     }

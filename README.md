@@ -110,7 +110,7 @@ public function debug(): Response { /* ... */ }
 | `badStatuses`, `ineligibleStatuses` | HTTP only: codes, ranges (`500-503`) or classes (`5xx`) |
 | `expectedFailureIsGood` | logic actions and operations only |
 | `countAttempts` | Messenger only |
-| `strategy` | `auto` (default) or `dedicated` to force dedicated counters |
+| `strategy` | `StrategyPreference::Auto` (default) or `StrategyPreference::Dedicated` (`Domain\Enum\StrategyPreference`) to force dedicated counters |
 | `IgnoreMonitoring(reason)` | excludes the point from the coverage gate; the reason is mandatory |
 
 The same name on several points with identical declarations is one SLO over all of them (`slo:list` marks it
@@ -172,11 +172,11 @@ written) or counts good and bad events itself (Strategy B, `symfony_slo_events_t
 | HTTP availability | classification is the default or expressible through the `status` label | observer |
 | HTTP latency | `includeErrors: true`, and the threshold equals a bucket of `request_duration_histogram_seconds` | observer |
 | Messenger availability | `countAttempts` not set (`handled + failed`, failure transports excluded) and no other handled message shares the short class name (metrics-bundle labels messages by short name; `slo:validate` warns) | observer |
-| Messenger latency | `countAttempts` not set (`countAttempts: false`) and the threshold is a bucket boundary | observer |
+| Messenger latency | `countAttempts` not set (`countAttempts: false`), the threshold is a bucket boundary, and no other handled message shares the short class name (`slo:validate` warns) | observer |
 | Logic action | availability: `expectedFailureIsGood` is default; latency: the threshold is a bucket of `logic_action_duration_histogram_seconds` | `slo-bridge-logic` |
 | Operation, `Combined` | never | always B |
 
-`strategy: dedicated` forces B. A threshold matches a bucket when the bucket, as metrics-bundle exposes it, equals
+`strategy: StrategyPreference::Dedicated` forces B. A threshold matches a bucket when the bucket, as metrics-bundle exposes it, equals
 `thresholdMs / 1000` up to float noise (relative 1e-9): `0.25` matches `250ms`, `0.2504` does not. The generated
 `le` matcher uses the form Prometheus 3 stores on ingestion (Go's shortest float with `.0` for integral values):
 a bucket exposed as `le="1"` is selected as `le="1.0"`, `1e6` as `le="1e+06"`.

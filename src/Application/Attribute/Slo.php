@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Msstc4Symfony\SloBundle\Application\Attribute;
 
 use Attribute;
+use Msstc4Symfony\SloBundle\Domain\Enum\StrategyPreference;
 
 /**
  * Holds raw declared values; validation happens in the discovery pass so all errors are collected together.
@@ -16,7 +17,6 @@ final readonly class Slo
      * @param non-empty-list<ObjectiveAttributeInterface> $objectives
      * @param list<int|string>|null $badStatuses
      * @param list<int|string>|null $ineligibleStatuses
-     * @param 'auto'|'dedicated' $strategy
      */
     public function __construct(
         public string $name,
@@ -26,7 +26,7 @@ final readonly class Slo
         public ?array $ineligibleStatuses = null,
         public ?bool $expectedFailureIsGood = null,
         public ?bool $countAttempts = null,
-        public string $strategy = 'auto',
+        public StrategyPreference $strategy = StrategyPreference::Auto,
     ) {
     }
 }

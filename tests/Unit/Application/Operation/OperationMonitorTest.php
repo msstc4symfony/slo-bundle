@@ -19,6 +19,7 @@ use Msstc4Symfony\SloBundle\Application\Operation\OperationMonitor;
 use Msstc4Symfony\SloBundle\Application\Port\EventWriterInterface;
 use Msstc4Symfony\SloBundle\Application\Port\OperationHandleInterface;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
+use Msstc4Symfony\SloBundle\Domain\Enum\StrategyPreference;
 use Msstc4Symfony\SloBundle\Domain\Service\EventClassifier;
 use Msstc4Symfony\SloBundle\Domain\Service\RevisionCalculator;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
@@ -345,7 +346,7 @@ final class OperationMonitorTest extends TestCase
             $assembler->declare(PointId::of(PointType::Operation, 'payment.validation'), new Slo(
                 'payment.validation',
                 [new Availability(99.9), new Latency('50ms', 99)],
-                strategy: 'dedicated',
+                strategy: StrategyPreference::Dedicated,
             ));
         });
     }

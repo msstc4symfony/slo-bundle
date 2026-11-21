@@ -12,7 +12,6 @@ use Msstc4Symfony\SloBundle\Application\Attribute\Latency;
 use Msstc4Symfony\SloBundle\Application\Attribute\Slo;
 use Msstc4Symfony\SloBundle\Domain\Entity\SloDefinition;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
-use Msstc4Symfony\SloBundle\Domain\Enum\StrategyPreference;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Classification;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\LatencyThreshold;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Objective;
@@ -59,14 +58,10 @@ final readonly class DefinitionFactory
 
         $name = $this->attempt(static fn (): SloName => SloName::fromString($slo->name), $fail);
         $window = $this->attempt(fn (): Window => Window::fromString($slo->window ?? $this->defaultWindow), $fail);
-        $strategy = StrategyPreference::tryFrom($slo->strategy);
-        if (!$strategy instanceof StrategyPreference) {
-            $option(\sprintf('invalid strategy "%s", expected auto|dedicated.', $slo->strategy));
-        }
         $objectives = $this->objectives($slo, $point->type, $fail, $option);
         $classification = $this->classification($slo, $point->type, $fail, $option);
 
-        if ($failed || !$name instanceof SloName || !$window instanceof Window || !$strategy instanceof StrategyPreference || !$classification instanceof Classification) {
+        if ($failed || !$name instanceof SloName || !$window instanceof Window || !$classification instanceof Classification) {
             return null;
         }
         if ($objectives === []) {
@@ -76,7 +71,7 @@ final readonly class DefinitionFactory
         }
 
         return $this->attempt(
-            static fn (): SloDefinition => new SloDefinition($name, $point->type, [$point], $objectives, $window, $classification, $strategy),
+            static fn (): SloDefinition => new SloDefinition($name, $point->type, [$point], $objectives, $window, $classification, $slo->strategy),
             $fail,
         );
     }
