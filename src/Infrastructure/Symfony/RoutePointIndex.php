@@ -81,7 +81,7 @@ final class RoutePointIndex implements RoutePointIndexInterface, ResetInterface
 
             return [];
         }
-        $this->file->persist(fn (): RouteIndexData => $this->builder->build($routes));
+        $this->file->persist(fn (): RouteIndexData => $this->builder->build($routes, $points));
 
         return $points;
     }

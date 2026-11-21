@@ -9,6 +9,7 @@ use Msstc4Symfony\SloBundle\Application\Binding\ObjectiveKey;
 use Msstc4Symfony\SloBundle\Application\Binding\RevisionResolver;
 use Msstc4Symfony\SloBundle\Application\Port\RouteInfo;
 use Msstc4Symfony\SloBundle\Domain\Repository\SloCatalogInterface;
+use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
@@ -34,12 +35,13 @@ final readonly class RouteIndexBuilder
      * (resolved on first use) and logged.
      *
      * @param list<RouteInfo> $routes
+     * @param array<array-key, list<PointId>>|null $points RouteIndexData::pointsOf() of these routes when the caller has it already
      *
      * @throws Throwable when the points behind the routes cannot be read from the catalog
      */
-    public function build(array $routes): RouteIndexData
+    public function build(array $routes, ?array $points = null): RouteIndexData
     {
-        $points = RouteIndexData::pointsOf($routes, $this->catalog);
+        $points ??= RouteIndexData::pointsOf($routes, $this->catalog);
         try {
             $revisions = $this->revisionsOf(RouteIndexData::fromRoutes($routes, $points));
         } catch (Throwable $e) {
