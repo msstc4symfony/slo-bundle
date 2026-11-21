@@ -34,7 +34,7 @@ final class RouteIndexParserTest extends TestCase
         yield 'other version' => [['version' => RouteIndexData::VERSION + 1] + $valid];
         yield 'routes missing' => [array_diff_key($valid, ['routes' => true])];
         yield 'route without path' => [['routes' => ['pay' => ['methods' => [], 'controller' => null]]] + $valid];
-        yield 'route with empty name' => [['routes' => ['' => ['path' => '/', 'methods' => [], 'controller' => null]]] + $valid];
+        yield 'route with empty name' => [['routes' => ['' => ['path' => '/', 'methods' => [], 'controller' => null]], 'controllers' => [], 'points' => []] + $valid];
         yield 'methods not a list' => [['routes' => ['pay' => ['path' => '/', 'methods' => ['a' => 'GET'], 'controller' => 'A::b']]] + $valid];
         yield 'empty controller' => [['routes' => ['pay' => ['path' => '/', 'methods' => [], 'controller' => '']]] + $valid];
         yield 'controller to unknown route' => [['controllers' => ['A::b' => ['nope']]] + $valid];

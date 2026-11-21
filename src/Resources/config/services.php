@@ -82,6 +82,7 @@ return static function (ContainerConfigurator $container): void {
     $services->set(RouteIndexFile::class)
         ->arg('$cacheDir', param('kernel.cache_dir'))
         ->arg('$debug', param('kernel.debug'))
+        ->arg('$fingerprint', abstract_arg('hash of the catalog dump, set by CollectSloDefinitionsPass'))
         ->arg('$logger', service(FailSafeLogger::class))
     ;
     $services->alias(RouteIndexStoreInterface::class, RouteIndexFile::class);

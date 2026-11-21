@@ -19,6 +19,7 @@ use Msstc4Symfony\SloBundle\DependencyInjection\CompilerPass\Discovery\TaggedPoi
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CatalogDump;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MetricsBundleSeriesCatalog;
+use Msstc4Symfony\SloBundle\Infrastructure\RouteIndex\RouteIndexFile;
 use Override;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
@@ -70,7 +71,11 @@ final class CollectSloDefinitionsPass implements CompilerPassInterface
             throw new InvalidConfigurationException($errors->summary());
         }
 
-        $container->getDefinition(CompiledSloCatalog::class)->setArgument('$catalog', self::escape(CatalogDump::toArray($contents, new MetricsBundleSeriesCatalog())));
+        $dump = self::escape(CatalogDump::toArray($contents, new MetricsBundleSeriesCatalog()));
+        $container->getDefinition(CompiledSloCatalog::class)->setArgument('$catalog', $dump);
+        if ($container->hasDefinition(RouteIndexFile::class)) {
+            $container->getDefinition(RouteIndexFile::class)->setArgument('$fingerprint', self::fingerprint($dump));
+        }
     }
 
     /**
@@ -99,6 +104,16 @@ final class CollectSloDefinitionsPass implements CompilerPassInterface
         }
 
         return $escaped;
+    }
+
+    /**
+     * @param array<array-key, mixed> $dump
+     *
+     * @return non-empty-string
+     */
+    private static function fingerprint(array $dump): string
+    {
+        return hash('xxh128', serialize($dump));
     }
 
     private function parameter(ContainerBuilder $container, string $path): mixed

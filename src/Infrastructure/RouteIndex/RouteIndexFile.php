@@ -27,6 +27,8 @@ final class RouteIndexFile implements RouteIndexStoreInterface
 {
     public const PATH = 'msstc4symfony_slo/route_index.php';
 
+    private const FINGERPRINT = 'fingerprint';
+
     private bool $included = false;
 
     /** @var array<array-key, mixed>|null the included file when it is an index of the current version */
@@ -46,9 +48,14 @@ final class RouteIndexFile implements RouteIndexStoreInterface
     /** @var array<string, Revision|false|null> */
     private array $revisions = [];
 
+    /**
+     * @param non-empty-string $fingerprint identifies the catalog of this container: a file stored by another one (an old
+     *                                      process persisting into a cache directory cleared in place) is not trusted
+     */
     public function __construct(
         private readonly string $cacheDir,
         private readonly bool $debug,
+        private readonly string $fingerprint,
         private readonly LoggerInterface $logger = new NullLogger(),
     ) {
     }
@@ -121,7 +128,7 @@ final class RouteIndexFile implements RouteIndexStoreInterface
     public function write(string $cacheDir, RouteIndexData $data): void
     {
         $file = $cacheDir . '/' . self::PATH;
-        AtomicFile::write($file, "<?php\n\nreturn " . var_export($data->toArray(), true) . ";\n");
+        AtomicFile::write($file, "<?php\n\nreturn " . var_export([self::FINGERPRINT => $this->fingerprint] + $data->toArray(), true) . ";\n");
         if (\function_exists('opcache_invalidate')) {
             @opcache_invalidate($file, true);
         }
@@ -147,7 +154,7 @@ final class RouteIndexFile implements RouteIndexStoreInterface
             $raw = null;
         }
 
-        if (!RouteIndexParser::isCurrentVersion($raw)) {
+        if (!RouteIndexParser::isCurrentVersion($raw) || ($raw[self::FINGERPRINT] ?? null) !== $this->fingerprint) {
             $this->logger->warning($this->isWritable()
                 ? 'SLO route index is not warmed, HTTP SLOs read the routes from the router in this process and try to store the index for the next ones (degraded mode); run cache:warmup.'
                 : 'SLO route index is not warmed and the cache directory is not writable, HTTP SLOs read the routes from the router in every process (degraded mode); run cache:warmup.', ['file' => $file]);

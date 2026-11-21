@@ -16,6 +16,7 @@ use Msstc4Symfony\SloBundle\Domain\Repository\SloCatalogInterface;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\SloName;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
+use Msstc4Symfony\SloBundle\Infrastructure\RouteIndex\RouteIndexFile;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Action\CleanupAction;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Action\RefundAction;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\AdminController;
@@ -48,6 +49,7 @@ use Msstc4Symfony\SloBundle\Test\Fixtures\Message\Legacy\ProcessPayment as Legac
 use Msstc4Symfony\SloBundle\Test\Fixtures\Message\ProcessPayment;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Message\SendReceipt;
 use Msstc4Symfony\SloBundle\Test\Integration\CallbackPass;
+use Msstc4Symfony\SloBundle\Test\Integration\DefinitionArgument;
 use Msstc4Symfony\SloBundle\Test\Integration\TestContainer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\RequiresMethod;
@@ -296,6 +298,15 @@ final class CollectSloDefinitionsPassTest extends TestCase
         self::assertSame('RefundAction', $tagged[1]->metricLabel);
     }
 
+    public function testTheRouteIndexFileIsBoundToAFingerprintOfTheCatalog(): void
+    {
+        $payment = $this->fingerprint([PaymentController::class]);
+        self::assertIsString($payment);
+        self::assertMatchesRegularExpression('/^[0-9a-f]{32}$/D', $payment);
+        self::assertSame($payment, $this->fingerprint([PaymentController::class]), 'the same catalog has the same fingerprint');
+        self::assertNotSame($payment, $this->fingerprint([]));
+    }
+
     public function testConfiguredOperationIsADedicatedSlo(): void
     {
         $catalog = $this->catalog([], null, ['operations' => ['payment.validation' => [
@@ -518,6 +529,14 @@ final class CollectSloDefinitionsPassTest extends TestCase
                 $configure($container);
             }
         });
+    }
+
+    /**
+     * @param list<class-string> $controllers
+     */
+    private function fingerprint(array $controllers): mixed
+    {
+        return DefinitionArgument::of($this->container($controllers)->getDefinition(RouteIndexFile::class), RouteIndexFile::class, 'fingerprint');
     }
 
     private function definition(CompiledSloCatalog $catalog, string $name): SloDefinition

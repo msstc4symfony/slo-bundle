@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Test\Unit\Presentation\Command;
 
-use LogicException;
 use Msstc4Symfony\SloBundle\Application\Generation\Generate\Action as GenerateAction;
 use Msstc4Symfony\SloBundle\Application\Generation\Generate\GenerationConfig;
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateDashboards\Action as GenerateDashboardsAction;
 use Msstc4Symfony\SloBundle\Application\Generation\SyncFiles\Action as SyncAction;
 use Msstc4Symfony\SloBundle\Infrastructure\Grafana\GrafanaFileBuilder;
 use Msstc4Symfony\SloBundle\Presentation\Command\GenerateCommand;
+use Msstc4Symfony\SloBundle\Test\Integration\DefinitionArgument;
 use Msstc4Symfony\SloBundle\Test\Integration\TestContainer;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Generation\GenerationFixture;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Generation\SyncFiles\InMemoryFileWriter;
@@ -19,7 +19,6 @@ use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
-use Symfony\Component\DependencyInjection\Definition;
 
 final class GenerateCommandTest extends TestCase
 {
@@ -154,24 +153,10 @@ final class GenerateCommandTest extends TestCase
 
         $grafana = $container->getDefinition(GrafanaFileBuilder::class);
         $standard = new ReflectionMethod(GrafanaFileBuilder::class, 'standard');
-        self::assertSame('mimir', $this->argument($grafana, $standard, 'datasourceUid'));
-        self::assertSame('Shop SLO', $this->argument($grafana, $standard, 'folder'));
-        self::assertSame(['health'], $container->getParameterBag()->resolveValue($this->argument($container->getDefinition(GenerateDashboardsAction::class), new ReflectionMethod(GenerateDashboardsAction::class, '__construct'), 'ignoredRoutes')));
+        self::assertSame('mimir', DefinitionArgument::of($grafana, $standard, 'datasourceUid'));
+        self::assertSame('Shop SLO', DefinitionArgument::of($grafana, $standard, 'folder'));
+        self::assertSame(['health'], $container->getParameterBag()->resolveValue(DefinitionArgument::of($container->getDefinition(GenerateDashboardsAction::class), new ReflectionMethod(GenerateDashboardsAction::class, '__construct'), 'ignoredRoutes')));
         self::assertSame('slo:generate', $this->command(new InMemoryFileWriter())->getName());
-    }
-
-    /**
-     * Compiled definitions hold positional arguments: look the position up by parameter name.
-     */
-    private function argument(Definition $definition, ReflectionMethod $method, string $name): mixed
-    {
-        foreach ($method->getParameters() as $parameter) {
-            if ($parameter->getName() === $name) {
-                return $definition->getArgument($parameter->getPosition());
-            }
-        }
-
-        throw new LogicException(\sprintf('%s has no parameter $%s.', $method->getName(), $name));
     }
 
     /**

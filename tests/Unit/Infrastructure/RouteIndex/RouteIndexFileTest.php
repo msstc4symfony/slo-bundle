@@ -27,6 +27,8 @@ use Symfony\Component\Filesystem\Filesystem;
 
 final class RouteIndexFileTest extends TestCase
 {
+    private const FINGERPRINT = 'catalog-a';
+
     private string $dir;
 
     #[Override]
@@ -48,8 +50,8 @@ final class RouteIndexFileTest extends TestCase
 
     public function testWrittenIndexIsLoadedBack(): void
     {
-        (new RouteIndexFile($this->dir, false))->write($this->dir, $this->data());
-        $loaded = (new RouteIndexFile($this->dir, false))->load();
+        (new RouteIndexFile($this->dir, false, self::FINGERPRINT))->write($this->dir, $this->data());
+        $loaded = (new RouteIndexFile($this->dir, false, self::FINGERPRINT))->load();
 
         self::assertInstanceOf(RouteIndexData::class, $loaded);
         self::assertEquals($this->data(), $loaded);
@@ -70,8 +72,8 @@ final class RouteIndexFileTest extends TestCase
         self::assertSame(['404', '500', 'home'], array_map(static fn (RouteInfo $r): string => $r->name, $built->all()));
         self::assertSame(['404', '500'], array_map(static fn (RouteInfo $r): string => $r->name, $built->routesFor('App\Error::show')));
 
-        (new RouteIndexFile($this->dir, false))->write($this->dir, $built);
-        $file = new RouteIndexFile($this->dir, false);
+        (new RouteIndexFile($this->dir, false, self::FINGERPRINT))->write($this->dir, $built);
+        $file = new RouteIndexFile($this->dir, false, self::FINGERPRINT);
         $loaded = $file->load();
 
         self::assertInstanceOf(RouteIndexData::class, $loaded);
@@ -83,54 +85,64 @@ final class RouteIndexFileTest extends TestCase
 
     public function testRewritingReplacesTheIndex(): void
     {
-        (new RouteIndexFile($this->dir, false))->write($this->dir, $this->data());
-        (new RouteIndexFile($this->dir, false))->write($this->dir, RouteIndexData::fromRoutes([], []));
+        (new RouteIndexFile($this->dir, false, self::FINGERPRINT))->write($this->dir, $this->data());
+        (new RouteIndexFile($this->dir, false, self::FINGERPRINT))->write($this->dir, RouteIndexData::fromRoutes([], []));
 
-        self::assertSame([], (new RouteIndexFile($this->dir, false))->load()?->all());
+        self::assertSame([], (new RouteIndexFile($this->dir, false, self::FINGERPRINT))->load()?->all());
     }
 
     public function testMissingFileLoadsNothing(): void
     {
-        self::assertNull((new RouteIndexFile($this->dir, false))->load());
+        self::assertNull((new RouteIndexFile($this->dir, false, self::FINGERPRINT))->load());
     }
 
     public function testDebugModeIgnoresTheFileBecauseRoutesMayChangeWithoutACacheClear(): void
     {
-        (new RouteIndexFile($this->dir, false))->write($this->dir, $this->data());
+        (new RouteIndexFile($this->dir, false, self::FINGERPRINT))->write($this->dir, $this->data());
 
-        self::assertNull((new RouteIndexFile($this->dir, true))->load());
+        self::assertNull((new RouteIndexFile($this->dir, true, self::FINGERPRINT))->load());
     }
 
     /**
+     * File-level cases; the structure of the index is covered by RouteIndexParserTest.
+     *
      * @return iterable<string, array{string}>
      */
     public static function malformedProvider(): iterable
     {
+        $valid = ['fingerprint' => self::FINGERPRINT, 'version' => RouteIndexData::VERSION, 'routes' => ['a' => ['path' => '/a', 'methods' => [], 'controller' => 'A::b']], 'controllers' => ['A::b' => ['a']], 'points' => ['a' => ['http_route:A::b']], 'revisions' => []];
+        $file = static fn (array $index): string => '<?php return ' . var_export($index, true) . ';';
+
         yield 'not an array' => ['<?php return 42;'];
-        yield 'other version' => ["<?php return ['version' => 0, 'routes' => [], 'controllers' => [], 'points' => []];"];
-        yield 'route without path' => ["<?php return ['version' => 2, 'revisions' => [], 'routes' => ['a' => ['methods' => [], 'controller' => null]], 'controllers' => [], 'points' => []];"];
-        yield 'bad method list' => ["<?php return ['version' => 2, 'revisions' => [], 'routes' => ['a' => ['path' => '/a', 'methods' => [1], 'controller' => null]], 'controllers' => [], 'points' => []];"];
-        yield 'bad controller' => ["<?php return ['version' => 2, 'revisions' => [], 'routes' => ['a' => ['path' => '/a', 'methods' => [], 'controller' => '']], 'controllers' => [], 'points' => []];"];
-        yield 'empty route name' => ["<?php return ['version' => 2, 'revisions' => [], 'routes' => ['' => ['path' => '/a', 'methods' => [], 'controller' => null]], 'controllers' => [], 'points' => []];"];
-        yield 'controller of an unknown route' => ["<?php return ['version' => 2, 'revisions' => [], 'routes' => [], 'controllers' => ['A::b' => ['a']], 'points' => []];"];
-        yield 'invalid point' => ["<?php return ['version' => 2, 'revisions' => [], 'routes' => [], 'controllers' => [], 'points' => ['a' => ['nope']]];"];
-        yield 'point list not a list' => ["<?php return ['version' => 2, 'revisions' => [], 'routes' => [], 'controllers' => [], 'points' => ['a' => 'http_route:A::b']];"];
-        yield 'routes not an array' => ["<?php return ['version' => 2, 'revisions' => [], 'routes' => 'a', 'controllers' => [], 'points' => []];"];
-        yield 'controllers not an array' => ["<?php return ['version' => 2, 'revisions' => [], 'routes' => [], 'controllers' => 'a', 'points' => []];"];
-        yield 'points not an array' => ["<?php return ['version' => 2, 'revisions' => [], 'routes' => [], 'controllers' => [], 'points' => 'a'];"];
-        yield 'route not an array' => ["<?php return ['version' => 2, 'revisions' => [], 'routes' => ['a' => '/a'], 'controllers' => [], 'points' => []];"];
-        yield 'methods not a list' => ["<?php return ['version' => 2, 'revisions' => [], 'routes' => ['a' => ['path' => '/a', 'methods' => ['x' => 'GET'], 'controller' => null]], 'controllers' => [], 'points' => []];"];
-        yield 'empty controller key' => ["<?php return ['version' => 2, 'revisions' => [], 'routes' => ['a' => ['path' => '/a', 'methods' => [], 'controller' => null]], 'controllers' => ['' => ['a']], 'points' => []];"];
-        yield 'empty route list' => ["<?php return ['version' => 2, 'revisions' => [], 'routes' => [], 'controllers' => [], 'points' => ['a' => []]];"];
-        yield 'empty route name in a list' => ["<?php return ['version' => 2, 'revisions' => [], 'routes' => ['a' => ['path' => '/a', 'methods' => [], 'controller' => 'A::b']], 'controllers' => ['A::b' => ['a', '']], 'points' => []];"];
-        yield 'version 1 index' => ["<?php return ['version' => 1, 'routes' => [], 'controllers' => [], 'points' => []];"];
-        yield 'revisions missing' => ["<?php return ['version' => 2, 'routes' => [], 'controllers' => [], 'points' => []];"];
-        yield 'revisions not an array' => ["<?php return ['version' => 2, 'revisions' => 'a', 'routes' => [], 'controllers' => [], 'points' => []];"];
-        yield 'bad revision key' => ["<?php return ['version' => 2, 'revisions' => ['Pay|availability' => ''], 'routes' => [], 'controllers' => [], 'points' => []];"];
-        yield 'bad revision objective' => ["<?php return ['version' => 2, 'revisions' => ['pay|speed' => ''], 'routes' => [], 'controllers' => [], 'points' => []];"];
-        yield 'bad revision value' => ["<?php return ['version' => 2, 'revisions' => ['pay|availability' => 'ABCDEF12'], 'routes' => [], 'controllers' => [], 'points' => []];"];
-        yield 'numeric controller key' => ["<?php return ['version' => 2, 'revisions' => [], 'routes' => ['a' => ['path' => '/a', 'methods' => [], 'controller' => null]], 'controllers' => [7 => ['a']], 'points' => []];"];
+        yield 'other version' => [$file(['version' => RouteIndexData::VERSION - 1] + $valid)];
+        yield 'other fingerprint' => [$file(['fingerprint' => 'catalog-b'] + $valid)];
+        yield 'no fingerprint' => [$file(array_diff_key($valid, ['fingerprint' => true]))];
+        yield 'route without path' => [$file(['routes' => ['a' => ['methods' => [], 'controller' => 'A::b']]] + $valid)];
         yield 'throws' => ["<?php throw new \\RuntimeException('broken');"];
+    }
+
+    public function testTheBaseOfTheMalformedCasesIsValid(): void
+    {
+        $this->dump(['version' => RouteIndexData::VERSION, 'routes' => ['a' => ['path' => '/a', 'methods' => [], 'controller' => 'A::b']], 'controllers' => ['A::b' => ['a']], 'points' => ['a' => ['http_route:A::b']], 'revisions' => []]);
+
+        self::assertNotNull((new RouteIndexFile($this->dir, false, self::FINGERPRINT))->load());
+    }
+
+    public function testAnIndexStoredForAnotherCatalogIsNotTrustedAndIsReplaced(): void
+    {
+        (new RouteIndexFile($this->dir, false, 'catalog-old'))->write($this->dir, RouteIndexData::fromRoutes([new RouteInfo('old', '/old', [], 'App\\Old::run')], []));
+        $logger = new RecordingLogger();
+        $file = new RouteIndexFile($this->dir, false, self::FINGERPRINT, $logger);
+
+        self::assertNull($file->pointsFor('old'));
+        self::assertNull($file->revisionOf(ObjectiveKey::of(SloName::fromString('pay.create'), ObjectiveKind::Availability)));
+        self::assertNull($file->load());
+        self::assertCount(1, $logger->records, 'the degraded-mode warning');
+
+        $file->persist(fn (): RouteIndexData => $this->data());
+
+        self::assertEquals($this->data(), (new RouteIndexFile($this->dir, false, self::FINGERPRINT))->load());
+        self::assertNull((new RouteIndexFile($this->dir, false, 'catalog-old'))->load());
     }
 
     #[DataProvider('malformedProvider')]
@@ -138,17 +150,19 @@ final class RouteIndexFileTest extends TestCase
     {
         (new Filesystem())->dumpFile($this->dir . '/' . RouteIndexFile::PATH, $contents);
 
-        self::assertNull((new RouteIndexFile($this->dir, false))->load());
+        self::assertNull((new RouteIndexFile($this->dir, false, self::FINGERPRINT))->load());
     }
 
     public function testHotPathReadsValidateOnlyTheEntryTheyReturn(): void
     {
-        (new Filesystem())->dumpFile($this->dir . '/' . RouteIndexFile::PATH, "<?php return ['version' => 2, "
-            . "'routes' => ['pay' => ['path' => '/pay', 'methods' => ['POST'], 'controller' => 'A::b'], 'broken' => 'x'], "
-            . "'controllers' => ['A::b' => ['pay'], 'C::d' => ['broken']], "
-            . "'points' => ['pay' => ['http_route:A::b'], 'broken' => ['nope']], "
-            . "'revisions' => ['pay.create|availability' => 'abcdef12', 'pay.create|latency' => '', 'pay.broken|latency' => 'ABCDEF12']];");
-        $file = new RouteIndexFile($this->dir, false);
+        $this->dump([
+            'version' => RouteIndexData::VERSION,
+            'routes' => ['pay' => ['path' => '/pay', 'methods' => ['POST'], 'controller' => 'A::b'], 'broken' => 'x'],
+            'controllers' => ['A::b' => ['pay'], 'C::d' => ['broken']],
+            'points' => ['pay' => ['http_route:A::b'], 'broken' => ['nope']],
+            'revisions' => ['pay.create|availability' => 'abcdef12', 'pay.create|latency' => '', 'pay.broken|latency' => 'ABCDEF12'],
+        ]);
+        $file = new RouteIndexFile($this->dir, false, self::FINGERPRINT);
 
         self::assertEquals([PointId::of(PointType::HttpRoute, 'A::b')], $file->pointsFor('pay'));
         self::assertSame([], $file->pointsFor('other'));
@@ -167,7 +181,7 @@ final class RouteIndexFileTest extends TestCase
     public function testHotPathReadsOfAMalformedFileNeverThrow(string $contents): void
     {
         (new Filesystem())->dumpFile($this->dir . '/' . RouteIndexFile::PATH, $contents);
-        $file = new RouteIndexFile($this->dir, false);
+        $file = new RouteIndexFile($this->dir, false, self::FINGERPRINT);
 
         $file->pointsFor('a');
         $file->routesFor('A::b');
@@ -178,7 +192,7 @@ final class RouteIndexFileTest extends TestCase
     public function testWithoutAWarmedIndexEveryHotPathReadIsNullAndTheDegradedModeIsLoggedOnce(): void
     {
         $logger = new RecordingLogger();
-        $file = new RouteIndexFile($this->dir, false, $logger);
+        $file = new RouteIndexFile($this->dir, false, self::FINGERPRINT, $logger);
 
         self::assertNull($file->pointsFor('pay'));
         self::assertNull($file->revisionOf(ObjectiveKey::of(SloName::fromString('pay.create'), ObjectiveKind::Availability)));
@@ -191,7 +205,7 @@ final class RouteIndexFileTest extends TestCase
     public function testAnIndexBuiltOnTheRequestPathIsStoredOnceSoTheNextProcessIsNotDegraded(): void
     {
         $logger = new RecordingLogger();
-        $first = new RouteIndexFile($this->dir, false, $logger);
+        $first = new RouteIndexFile($this->dir, false, self::FINGERPRINT, $logger);
         self::assertNull($first->pointsFor('pay_create'));
 
         $builds = 0;
@@ -203,7 +217,7 @@ final class RouteIndexFileTest extends TestCase
         $first->persist($build);
         $first->persist($build);
 
-        $next = new RouteIndexFile($this->dir, false, $logger);
+        $next = new RouteIndexFile($this->dir, false, self::FINGERPRINT, $logger);
         self::assertSame(1, $builds);
         self::assertEquals([PointId::of(PointType::HttpRoute, 'App\Pay::create')], $next->pointsFor('pay_create'));
         self::assertEquals($this->data(), $next->load());
@@ -214,52 +228,52 @@ final class RouteIndexFileTest extends TestCase
     {
         $build = static fn (): RouteIndexData => throw new LogicException('must not build');
 
-        (new RouteIndexFile($this->dir, true))->persist($build);
+        (new RouteIndexFile($this->dir, true, self::FINGERPRINT))->persist($build);
         self::assertFileDoesNotExist($this->dir . '/' . RouteIndexFile::PATH);
 
         $warmed = RouteIndexData::fromRoutes([new RouteInfo('warmed', '/w', [], null)], []);
-        (new RouteIndexFile($this->dir, false))->write($this->dir, $warmed);
-        (new RouteIndexFile($this->dir, false))->persist($build);
-        self::assertEquals($warmed, (new RouteIndexFile($this->dir, false))->load());
+        (new RouteIndexFile($this->dir, false, self::FINGERPRINT))->write($this->dir, $warmed);
+        (new RouteIndexFile($this->dir, false, self::FINGERPRINT))->persist($build);
+        self::assertEquals($warmed, (new RouteIndexFile($this->dir, false, self::FINGERPRINT))->load());
     }
 
     public function testPersistReplacesAnIndexOfAnotherVersion(): void
     {
-        (new Filesystem())->dumpFile($this->dir . '/' . RouteIndexFile::PATH, '<?php return ' . var_export(['version' => RouteIndexData::VERSION - 1] + $this->data()->toArray(), true) . ';');
-        $file = new RouteIndexFile($this->dir, false);
+        $this->dump(['version' => RouteIndexData::VERSION - 1] + $this->data()->toArray());
+        $file = new RouteIndexFile($this->dir, false, self::FINGERPRINT);
         self::assertNull($file->pointsFor('pay_create'));
 
         $file->persist(fn (): RouteIndexData => $this->data());
 
-        self::assertEquals($this->data(), (new RouteIndexFile($this->dir, false))->load());
+        self::assertEquals($this->data(), (new RouteIndexFile($this->dir, false, self::FINGERPRINT))->load());
     }
 
     public function testPersistRepairsAMalformedIndexOfTheCurrentVersionAndSaysSo(): void
     {
         $broken = $this->data()->toArray();
         $broken['points']['pay_create'] = ['nope'];
-        (new Filesystem())->dumpFile($this->dir . '/' . RouteIndexFile::PATH, '<?php return ' . var_export($broken, true) . ';');
+        $this->dump($broken);
         $logger = new RecordingLogger();
-        $file = new RouteIndexFile($this->dir, false, $logger);
+        $file = new RouteIndexFile($this->dir, false, self::FINGERPRINT, $logger);
         self::assertNull($file->pointsFor('pay_create'));
 
         $file->persist(fn (): RouteIndexData => $this->data());
 
         self::assertSame(['file' => $this->dir . '/' . RouteIndexFile::PATH], $this->contextOf($logger, 'SLO route index is malformed, it is replaced by the index built from the router; run cache:warmup.'));
-        self::assertEquals($this->data(), (new RouteIndexFile($this->dir, false))->load());
+        self::assertEquals($this->data(), (new RouteIndexFile($this->dir, false, self::FINGERPRINT))->load());
     }
 
     public function testConcurrentWritersLeaveOneCompleteIndexAndNoTemporaryFile(): void
     {
-        $first = new RouteIndexFile($this->dir, false);
-        $second = new RouteIndexFile($this->dir, false);
+        $first = new RouteIndexFile($this->dir, false, self::FINGERPRINT);
+        $second = new RouteIndexFile($this->dir, false, self::FINGERPRINT);
         self::assertNull($first->pointsFor('pay_create'));
         self::assertNull($second->pointsFor('pay_create'));
 
         $first->persist(fn (): RouteIndexData => $this->data());
         $second->persist(fn (): RouteIndexData => $this->data());
 
-        self::assertEquals($this->data(), (new RouteIndexFile($this->dir, false))->load());
+        self::assertEquals($this->data(), (new RouteIndexFile($this->dir, false, self::FINGERPRINT))->load());
         self::assertSame([], glob(\dirname($this->dir . '/' . RouteIndexFile::PATH) . '/.*.tmp'));
     }
 
@@ -267,7 +281,7 @@ final class RouteIndexFileTest extends TestCase
     {
         (new Filesystem())->mkdir($this->dir . '/' . RouteIndexFile::PATH);
         $logger = new RecordingLogger();
-        $file = new RouteIndexFile($this->dir, false, $logger);
+        $file = new RouteIndexFile($this->dir, false, self::FINGERPRINT, $logger);
         $builds = 0;
         $build = function () use (&$builds): RouteIndexData {
             $builds++;
@@ -303,7 +317,7 @@ final class RouteIndexFileTest extends TestCase
         }
         $builds = 0;
 
-        (new RouteIndexFile($this->dir, false))->persist(function () use (&$builds): RouteIndexData {
+        (new RouteIndexFile($this->dir, false, self::FINGERPRINT))->persist(function () use (&$builds): RouteIndexData {
             $builds++;
 
             return $this->data();
@@ -318,7 +332,7 @@ final class RouteIndexFileTest extends TestCase
         (new Filesystem())->dumpFile($this->dir, 'a file, not a directory');
         $logger = new RecordingLogger();
 
-        (new RouteIndexFile($this->dir, false, $logger))->persist(static fn (): RouteIndexData => throw new LogicException('must not build'));
+        (new RouteIndexFile($this->dir, false, self::FINGERPRINT, $logger))->persist(static fn (): RouteIndexData => throw new LogicException('must not build'));
 
         self::assertSame(['SLO route index is not warmed and the cache directory is not writable, HTTP SLOs read the routes from the router in every process (degraded mode); run cache:warmup.'], array_column($logger->records, 1));
         self::assertSame('a file, not a directory', file_get_contents($this->dir));
@@ -328,7 +342,7 @@ final class RouteIndexFileTest extends TestCase
     {
         $logger = new RecordingLogger();
 
-        (new RouteIndexFile($this->dir, false, $logger))->persist(static fn (): RouteIndexData => throw new RuntimeException('catalog broken'));
+        (new RouteIndexFile($this->dir, false, self::FINGERPRINT, $logger))->persist(static fn (): RouteIndexData => throw new RuntimeException('catalog broken'));
 
         self::assertInstanceOf(RuntimeException::class, $this->contextOf($logger, 'SLO route index built on the request path could not be stored.')['exception'] ?? null);
         self::assertFileDoesNotExist($this->dir . '/' . RouteIndexFile::PATH);
@@ -337,17 +351,17 @@ final class RouteIndexFileTest extends TestCase
     public function testDegradedModeIsNotLoggedInDebugOrWithAWarmedIndex(): void
     {
         $logger = new RecordingLogger();
-        (new RouteIndexFile($this->dir, true, $logger))->pointsFor('pay');
-        (new RouteIndexFile($this->dir, false))->write($this->dir, $this->data());
-        (new RouteIndexFile($this->dir, false, $logger))->pointsFor('pay');
+        (new RouteIndexFile($this->dir, true, self::FINGERPRINT, $logger))->pointsFor('pay');
+        (new RouteIndexFile($this->dir, false, self::FINGERPRINT))->write($this->dir, $this->data());
+        (new RouteIndexFile($this->dir, false, self::FINGERPRINT, $logger))->pointsFor('pay');
 
         self::assertSame([], $logger->records);
     }
 
     public function testLoadIsMemoised(): void
     {
-        (new RouteIndexFile($this->dir, false))->write($this->dir, $this->data());
-        $file = new RouteIndexFile($this->dir, false);
+        (new RouteIndexFile($this->dir, false, self::FINGERPRINT))->write($this->dir, $this->data());
+        $file = new RouteIndexFile($this->dir, false, self::FINGERPRINT);
         $first = $file->load();
         (new Filesystem())->remove($this->dir);
 
@@ -361,11 +375,11 @@ final class RouteIndexFileTest extends TestCase
         (new Filesystem())->mkdir(\dirname($this->dir . '/' . RouteIndexFile::PATH));
         symlink($victim, $this->dir . '/' . RouteIndexFile::PATH);
 
-        (new RouteIndexFile($this->dir, false))->write($this->dir, $this->data());
+        (new RouteIndexFile($this->dir, false, self::FINGERPRINT))->write($this->dir, $this->data());
 
         self::assertSame('untouched', file_get_contents($victim));
         self::assertFalse(is_link($this->dir . '/' . RouteIndexFile::PATH));
-        self::assertEquals($this->data(), (new RouteIndexFile($this->dir, false))->load());
+        self::assertEquals($this->data(), (new RouteIndexFile($this->dir, false, self::FINGERPRINT))->load());
         self::assertSame([], glob(\dirname($this->dir . '/' . RouteIndexFile::PATH) . '/.*.tmp'));
     }
 
@@ -374,7 +388,7 @@ final class RouteIndexFileTest extends TestCase
         (new Filesystem())->dumpFile($this->dir, 'a file, not a directory');
 
         $this->expectException(RuntimeException::class);
-        (new RouteIndexFile($this->dir, false))->write($this->dir, $this->data());
+        (new RouteIndexFile($this->dir, false, self::FINGERPRINT))->write($this->dir, $this->data());
     }
 
     public function testPointsAreComputedFromTheCatalog(): void
@@ -390,6 +404,16 @@ final class RouteIndexFileTest extends TestCase
             ['one' => [PointId::of(PointType::HttpRoute, 'A::one')], 'pay_create' => [PointId::of(PointType::HttpRoute, 'App\Pay::create')], 'pay_create_v2' => [PointId::of(PointType::HttpRoute, 'App\Pay::create')]],
             RouteIndexData::pointsOf($routes, $catalog),
         );
+    }
+
+    /**
+     * Stores a hand-made index as this container's.
+     *
+     * @param array<array-key, mixed> $index
+     */
+    private function dump(array $index): void
+    {
+        (new Filesystem())->dumpFile($this->dir . '/' . RouteIndexFile::PATH, '<?php return ' . var_export(['fingerprint' => self::FINGERPRINT] + $index, true) . ';');
     }
 
     /**

@@ -12,6 +12,8 @@ use Symfony\Component\Filesystem\Filesystem;
 
 final class RouteIndexFileContractTest extends RouteIndexStoreContractTestCase
 {
+    private const FINGERPRINT = 'catalog-a';
+
     private string $dir;
 
     #[Override]
@@ -31,15 +33,15 @@ final class RouteIndexFileContractTest extends RouteIndexStoreContractTestCase
     protected function store(?RouteIndexData $stored): RouteIndexStoreInterface
     {
         if ($stored instanceof RouteIndexData) {
-            (new RouteIndexFile($this->dir, false))->write($this->dir, $stored);
+            (new RouteIndexFile($this->dir, false, self::FINGERPRINT))->write($this->dir, $stored);
         }
 
-        return new RouteIndexFile($this->dir, false);
+        return new RouteIndexFile($this->dir, false, self::FINGERPRINT);
     }
 
     #[Override]
     protected function reopen(RouteIndexStoreInterface $store): RouteIndexStoreInterface
     {
-        return new RouteIndexFile($this->dir, false);
+        return new RouteIndexFile($this->dir, false, self::FINGERPRINT);
     }
 }

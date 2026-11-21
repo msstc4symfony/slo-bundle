@@ -53,6 +53,8 @@ use Symfony\Component\Filesystem\Filesystem;
 #[Group('benchmark')]
 final class RecordEventBenchmarkTest extends TestCase
 {
+    private const FINGERPRINT = 'catalog-a';
+
     private const CONTROLLER = 'App\PaymentController::create';
 
     private const WARMUP = 2_000;
@@ -118,7 +120,7 @@ final class RecordEventBenchmarkTest extends TestCase
             return $assembler->assemble(new DefinitionFactory('30d', ['5xx'], [], true, false), new DiscoveryErrors(), new CatalogExtras(hasHttpPoints: true));
         })(), new MetricsBundleSeriesCatalog());
         $warm = new CompiledSloCatalog($dump);
-        (new RouteIndexFile($dir, false))->write($dir, RouteIndexFixture::builder($warm, $warm)->build($routes));
+        (new RouteIndexFile($dir, false, self::FINGERPRINT))->write($dir, RouteIndexFixture::builder($warm, $warm)->build($routes));
         // opcache.file_update_protection skips files modified in the last seconds: age the file like a deployed one.
         touch($dir . '/' . RouteIndexFile::PATH, time() - 60);
         $observation = Observation::http(200, 0.05);
@@ -156,7 +158,7 @@ final class RecordEventBenchmarkTest extends TestCase
     private function coldRequest(array $dump, string $dir, string $route, Observation $observation): void
     {
         $catalog = new CompiledSloCatalog($dump);
-        $file = new RouteIndexFile($dir, false);
+        $file = new RouteIndexFile($dir, false, self::FINGERPRINT);
         $routes = new RouterRouteCatalog(new RouterRouteReader(null, $catalog), $file);
         $index = new RoutePointIndex($routes, $catalog, $file, new NullLogger(), RouteIndexFixture::builder($catalog, $catalog));
         $action = new Action(

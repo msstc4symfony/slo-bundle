@@ -30,6 +30,7 @@ use Msstc4Symfony\SloBundle\Infrastructure\RouteIndex\RouteIndexBuilder;
 use Msstc4Symfony\SloBundle\Infrastructure\RouteIndex\WarmedRevisions;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouterRouteReader;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\SloCacheWarmer;
+use Msstc4Symfony\SloBundle\Test\Integration\DefinitionArgument;
 use Msstc4Symfony\SloBundle\Test\Integration\TestContainer;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\CatalogFixture;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\FailingCatalog;
@@ -58,7 +59,7 @@ final class SloCacheWarmerTest extends TestCase
 
         $definition = TestContainer::compile()->getDefinition(SloCacheWarmer::class);
         self::assertTrue($definition->hasTag('kernel.cache_warmer'));
-        $logger = $definition->getArgument(3);
+        $logger = DefinitionArgument::of($definition, SloCacheWarmer::class, 'logger');
         self::assertInstanceOf(Reference::class, $logger);
         self::assertSame(FailSafeLogger::class, (string) $logger);
     }

@@ -30,7 +30,7 @@ use Override;
  */
 final readonly class RouteIndexData implements RouteCatalogInterface
 {
-    public const VERSION = 2;
+    public const VERSION = 3;
 
     /**
      * @param array<array-key, RouteShape> $routes sorted by name
