@@ -370,8 +370,28 @@ Covered by semantic versioning; everything else is marked `@internal` and may ch
   (`slo:generate`) together with such a change.
 - The label order of `symfony_slo_events_total` is `application, component, slo, objective, revision, result`.
 - Retired revisions are not removed: their series stay in the metrics-bundle storage and in its export until the
-  storage is cleared (`metrics:clear`) or expires, so every revision ever deployed adds its `good`/`bad` series per
-  objective. Clear the storage after a burst of semantic changes if the cardinality matters.
+  storage is cleared, so every revision ever deployed adds its `good`/`bad` series per objective. The generated rules
+  and dashboards read the current revision only, so the old series cost cardinality, not correctness.
+
+### Cleaning series of old revisions
+
+With the default Redis storage (`promphp/prometheus_client_php`) the counter is one Redis hash,
+`PROMETHEUS_:counter:symfony_slo_events_total` with the default key prefix, with one field per label set (the field
+name is the JSON list of label values, so the revision is inside it). Redis sets no TTL on it: the fields of retired
+revisions live until they are removed.
+
+- `bin/console metrics:clear` wipes the whole metrics-bundle storage. Every counter restarts from zero, which
+  Prometheus `rate()`/`increase()` treat as a counter reset; nothing is lost but the samples of the scrape interval
+  around the wipe. Run it after a deploy that changed revisions, when the cardinality matters.
+- To drop only the old revisions, delete their fields from the hash, e.g. for revision `abcdef12`:
+
+  ```bash
+  redis-cli -n 4 --scan --pattern 'PROMETHEUS_:counter:symfony_slo_events_total' | while read -r key; do
+    redis-cli -n 4 hkeys "$key" | grep '"abcdef12"' | while read -r field; do redis-cli -n 4 hdel "$key" "$field"; done
+  done
+  ```
+
+  The key layout belongs to promphp, not to this bundle, and may change with it; prefer `metrics:clear` when in doubt.
 
 ## Layers
 
