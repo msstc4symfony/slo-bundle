@@ -74,7 +74,24 @@
   `Application\Coverage\Analyze\CoverageStatus` and `Application\Binding\Strategy` (internal); `Revision` and
   `EventResult` are internal. The Grafana datasource, folder and dashboards path are settings of the Grafana adapter.
 
+- Outside debug mode an index the request path had to build (no warmed `route_index.php`) is stored in the cache
+  directory with its objective revisions, so the rebuild and the degraded-mode warning happen once per deploy; a
+  read-only cache directory is skipped. The cache warmer and the request path share one `RouteIndexBuilder`.
+- The compiled catalog dump is format 3 (point → `metric_label` and `message` label → message classes indexes for the
+  request path); a dump left in a stale cache records nothing and asks to clear the cache, as before.
+- `SloDefinition::strategy()` is renamed to `strategyPreference()`.
+- Strategy decisions on the request path no longer build the series binding (matchers and patterns) they do not use.
+- `slo:coverage` compares a kind with its required percent in integer basis points, so a fractional `--min` such as
+  `0.07` is met by 7 of 10000 points.
+- Deterministic JSON and YAML output rejects a map that key sorting would turn into a list; dumped catalog keys with
+  `%` are rejected centrally.
+- `GenerationConfig` validates its settings; burn-rate alert severities are an enum (`page`, `ticket`), generated files
+  unchanged.
+
 ### Documentation
+
+- README: bridges build `RecordEvent\Input` inside their own `try` (building it can throw, `record()` cannot); the cold
+  PHP-FPM request benchmark (500 SLOs) and the stored runtime route index.
 
 - README: cleaning the series of retired revisions from the Redis storage; Messenger latency uses dedicated counters
   when the message short name is shared.

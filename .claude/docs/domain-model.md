@@ -51,3 +51,4 @@
 
 - `Observation::outcome(PointType, Outcome, float)` принимает только `LogicAction|Operation` (иначе `InvalidArgumentException`);
   `RecordEvent\Input` проверяет, что тип наблюдения совпадает с типом точки.
+- `SloDefinition::strategyPreference(): StrategyPreference` (до батча D — `strategy()`): объявленное предпочтение (`auto|dedicated`); фактическая стратегия цели (`Application\Binding\Strategy`) решается `MetricBindingResolver`. Ключ цели SLO — `Application\Binding\ObjectiveKey` (`"<slo>|<kind>"`).

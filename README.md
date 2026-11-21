@@ -452,6 +452,13 @@ PHP 8.4.17 (CLI, no opcache/JIT tuning), Intel Core Ultra 7 155H, Linux 6.17, on
 Before 1.0 a reset also dropped the resolved strategy and revision of every objective: the reset scenario cost
 28.7 us per event (6.4 us with warmed revisions) because every event resolved its binding and hashed its revision again.
 
+A cold PHP-FPM request is benchmarked as well: every service is new, the catalog has 500 HTTP SLOs with two objectives
+each, the route index comes from the warmed file and the request records one event. It cost about 195 us per request
+(2026-11-21 UTC, the same machine, opcache on in the CLI and the index file aged past `opcache.file_update_protection`;
+a file younger than that is parsed on every include, about 1.4 ms). Most of it (about 115 us) is hydrating the one SLO
+definition of the route, i.e. the value-object invariants of the compiled catalog entry; the route index entries cost
+about 20 us.
+
 A real Redis storage adds its network round trip per `increment`; the events are written after the response is
 produced in the HTTP path (`kernel.terminate`) and in the worker loop for Messenger.
 
@@ -466,7 +473,10 @@ precomputed strategy and revision of an objective and, when a revision is missin
 entry validated on its own (the whole file is validated only by the commands). The compiled catalog is hydrated the
 same way, per point on first use. The lazy build stays the fallback when the file is missing or unreadable (logged
 once per process as degraded mode on the `slo_bundle` channel), and in debug mode, where routes may change without a
-cache clear and the file is ignored. An application without HTTP SLOs never touches the router on the request path.
+cache clear and the file is ignored. Outside debug mode the request path that had to build the index stores it, with
+the objective revisions, in the same file (exclusive temporary file and rename), so the rebuild and the warning happen
+once per deploy rather than on every request; a cache directory that cannot be written is skipped silently and every
+process keeps building its own index. An application without HTTP SLOs never touches the router on the request path.
 The warmer never fails the warm-up: problems are logged on the `slo_bundle` channel.
 
 ## License

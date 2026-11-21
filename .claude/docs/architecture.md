@@ -48,8 +48,8 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
 - Конфиг `operations` превращается в `Slo(..., strategy: StrategyPreference::Dedicated)`, поэтому валидация у всех источников одна —
   `DefinitionFactory::fromAttribute()`.
 - Каталог: сервис `CompiledSloCatalog` (алиас `SloCatalogInterface`), аргумент `$catalog` — плоский массив
-  `CatalogDump::toArray()` (`@phpstan-type CatalogShape`: `format`, `definitions`, `conflicts`, `ignored`, `extras`,
-  `point_index`, `conflicted_points`), никаких объектов в дампе; `%` в строках экранируется `CollectSloDefinitionsPass::escape()`.
+  `CatalogDump::toArray($contents, SeriesCatalogInterface)` (`@phpstan-type CatalogShape`: `format` (3), `definitions`, `conflicts`, `ignored`, `extras`,
+  `point_index`, `conflicted_points`, `metric_labels`, `message_classes_by_label` — последние четыре индексы для горячего пути, R2-037), никаких объектов в дампе; `%` в строках экранируется `CollectSloDefinitionsPass::escape()`.
   Гидрация ленивая: по точке в `forPoint()`, целиком — в диагностических методах; конструктор не бросает (см. known-issues, батч A).
   Точка в дампе — строка `PointId::toString()`, разбирается по первому `:` (`CatalogDump::point()`).
 - Все ошибки компиляции копятся в `DiscoveryErrors` и бросаются одним `InvalidConfigurationException`
@@ -59,7 +59,7 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
 
 - Порты в `src/Application/Port/`: `RouteCatalogInterface` (`routesFor('Class::method')`, `all()`; `RouteInfo{name, path, methods,
   controller}`) и `CatalogDiagnosticsInterface` (`conflicts()`, `shared()`, `extras()`, дешёвые `hasHttpPoints()`,
-  `failureTransports()`, `metricBuckets()`, `metricLabelOf()`, `handledMessageClasses()`), его реализует `CompiledSloCatalog`.
+  `failureTransports()`, `metricBuckets()`, `metricLabelOf()`, `handledMessageClassesLabelled(label)`), его реализует `CompiledSloCatalog`.
   Application не зависит от Infrastructure (deptrac) — Validate/List получают диагностику только через порт.
 - `Infrastructure/Symfony/RouterRouteCatalog` — `RouteCatalogInterface` поверх `RouteIndexData`: сначала прогретый
   индекс из `RouteIndexStoreInterface`, иначе `RouterRouteReader::read()` один раз (ruling 7). Нормализацию делает `RouterRouteReader`
@@ -84,14 +84,23 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
   `RouteIndexData::toArray()`: `version` (2), `routes` name => {path, methods, controller}, `controllers` controller => имена,
   `points` маршрут => строки `PointId`, `revisions` `"<slo>|<kind>"` => 8 hex | `''`), атомарно (tmp + rename) и с `opcache_invalidate`.
   `RouteIndexData` реализует `RouteCatalogInterface` (warmer резолвит стратегии поверх свежих маршрутов).
-- Хранилище — шов `Infrastructure/Symfony/RouteIndexStoreInterface` (`load()` — всё, для CLI; горячий путь по ключу: `pointsFor(route)`,
-  `revisionOf("<slo>|<kind>"): Revision|false|null`, `routesFor(controller)`; `write($cacheDir, data)`; R2-008/009),
-  адаптер `Infrastructure/Filesystem/RouteIndexFile` (`%kernel.cache_dir%`, `%kernel.debug%`) читает файл один раз на процесс,
+- Всё про индекс лежит в `Infrastructure/RouteIndex/` (R2-053): `RouteIndexData`, `RouteIndexParser`, `RouteIndexStoreInterface`,
+  `RouteIndexFile`, `RouteIndexBuilder`, `WarmedRevisions`.
+- Хранилище — шов `Infrastructure/RouteIndex/RouteIndexStoreInterface` (`load()` — всё, для CLI; горячий путь по ключу: `pointsFor(route)`,
+  `revisionOf(ObjectiveKey): Revision|false|null`, `routesFor(controller)`; `write($cacheDir, data)`; R2-008/009),
+  адаптер `Infrastructure/RouteIndex/RouteIndexFile` (`%kernel.cache_dir%`, `%kernel.debug%`) читает файл один раз на процесс,
   версию проверяет один раз при include, на горячем пути валидирует только запрошенную запись (`RouteIndexParser::pointsEntry/revisionEntry/
   routesEntry`, мемо по ключу), `parse()` — всё; вне debug отсутствующий/чужой версии файл логируется один раз на процесс
   («degraded mode»); запись — `Filesystem/AtomicFile` (эксклюзивный tmp + rename, общий с `FileWriter`);
   `RouteIndexData` — чистый VO, конструктор проверяет, что controllers ссылаются на известные маршруты); в debug файл игнорируется
   (маршруты меняются без cache:clear, а опциональные warmer'ы при пересборке контейнера в dev не запускаются).
+- Сборка индекса — `RouteIndexBuilder::build(list<RouteInfo>)` (точки + ревизии через `resolver->withRoutes()`; сбой ревизий/цели
+  логируется и пропускается). Им пользуются warmer и `RoutePointIndex`: если прогретого файла нет, `RoutePointIndex` строит точки сам и
+  отдаёт `RouteIndexStoreInterface::persist(Closure)`; `RouteIndexFile` вызывает замыкание и пишет файл только вне debug, один раз за процесс
+  и когда текущего индекса нет (прогретый файл не перезаписывается); read-only кеш молча пропускается (R2-010-F). Следующий процесс читает
+  файл — перестройка и degraded-предупреждение раз на деплой.
+- Ключ ревизий — `Application/Binding/ObjectiveKey::of(SloName, ObjectiveKind)->value` (`"<slo>|<kind>"`), общий для warmer,
+  `WarmedRevisions`, `RouteIndexStoreInterface::revisionOf()` и мемо `RecordEvent\Action` (R2-034-F).
   Битый/чужой версии/отсутствующий файл → `null` → ленивый fallback (`RouterRouteReader`, `RouteIndexData::pointsOf`).
 - `CatalogExtras::hasHttpPoints` (ставит `CatalogAssembler`, в дампе `has_http_points`): `HttpSloObserver` выходит сразу,
   если нет ни одного http_route SLO/конфликта, — приложение без HTTP SLO не трогает роутер на пути запроса.
@@ -100,9 +109,11 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
 
 ## Привязка метрик: Strategy A / B (Task 7)
 
-- `Application/Binding/MetricBindingResolver::resolve(SloDefinition, Objective): Binding` и `isDedicated(definition, kind)`. Решает только
+- `Application/Binding/MetricBindingResolver::resolve(SloDefinition, Objective): Binding` и `isDedicated(definition, kind)`; оба идут через
+  `existingSeries()` → `?Closure(): SeriesBinding`: решение принимается без сборки матчеров, `isDedicated()` замыкание не вызывает (R2-038).
+  `withRoutes(RouteCatalogInterface)` — тот же резолвер поверх других маршрутов (индекс при сборке, R2-047). Решает только
   «может ли существующий ряд выразить цель»; зависит от портов `RouteCatalogInterface`, `CatalogDiagnosticsInterface` (только дешёвые
-  чтения: `metricBuckets()`, `metricLabelOf()`, `handledMessageClasses()`, `failureTransports()` — никогда `extras()`, REREVIEW-A-2)
+  чтения: `metricBuckets()`, `metricLabelOf()`, `handledMessageClassesLabelled()`, `failureTransports()` — никогда `extras()`, REREVIEW-A-2)
   и `SeriesCatalogInterface` (CR-024).
 - `Application/Port/SeriesCatalogInterface` — имена метрик/меток metrics-bundle и logic-bundle и сборка `SeriesBinding`;
   адаптер `Infrastructure/MetricsBundle/MetricsBundleSeriesCatalog` (константы меток, значения статусов/исходов из
@@ -177,7 +188,7 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
   objective, binding, revision}` — единица рендеринга всех генераторов, `BoundObjectiveCollector::collect()` (SLO по имени, цели в порядке
   `ObjectiveKind::cases()`; конфликтные имена отсутствуют в `all()` и правил не получают), `BurnRatePolicy` + `BurnRateWindow` (ruling 9).
 - `BurnRatePolicy` лежит в Application (а не в Infrastructure, как в брифе): им пользуется и `slo:validate` (warning об опущенной паре), а
-  Application не может зависеть от Infrastructure. `BurnRatePolicy::number()` — общий формат чисел для PromQL (без экспоненты и хвостовых нулей).
+  Application не может зависеть от Infrastructure. Числа и длительности PromQL — `PromQlRenderer::number()/duration()`; severity пар — enum `BurnRateSeverity` (`page`/`ticket`).
 - Use cases: `GenerateRules\{Action,Input,Output}` (файлы `prometheus/slo-recording.rules.yml`, `prometheus/slo-alerts.rules.yml`, флаги
   `generation.prometheus.rules/alerts`, `no_events_alert_hours`; warnings — конфликтные SLO и опущенные burn-rate пары) и
   `SyncFiles\{Action,Input,Output}` (stale/missing/extra по своим файлам; в режиме записи пишет stale+missing и удаляет extra).

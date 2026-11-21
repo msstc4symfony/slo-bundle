@@ -162,8 +162,9 @@
   кастует в строку и обратно, затем форматирует по-гошному. promtool `test rules` входные серии НЕ нормализует — тест
   `latency-bucket.test.yml` подаёт `le="1.0"` явно.
 - **Совпадение бакета с порогом** — `abs(bucket*1000 - ms) <= 1e-9*ms` по экспонируемому значению; `round()` больше нет (0.2504 ≠ 250ms).
-- **Дамп каталога**: `CatalogShape` теперь с `format` (= `CatalogDump::FORMAT`, 2), `point_index` (точка → индексы определений) и
-  `conflicted_points`. `CompiledSloCatalog` гидрирует лениво по точке; несовпадение формата = пусто + одно предупреждение, битое определение
+- **Дамп каталога**: `CatalogShape` с `format` (= `CatalogDump::FORMAT`, с батча D — 3), `point_index` (точка → индексы определений),
+  `conflicted_points`, `metric_labels` (точка → `metric_label`) и `message_classes_by_label` (значение метки `message` → классы; метку
+  считает `SeriesCatalogInterface::messageLabel()` при компиляции, поэтому `CatalogDump::toArray()` принимает series catalog). `CompiledSloCatalog` гидрирует лениво по точке; несовпадение формата = пусто + одно предупреждение, битое определение
   пропускается само (остальные SLO точки работают), такая точка повторяется после reset (R2-006); `get()` бросает до reset (R2-005);
   диагностические методы (`all/get/conflicts/shared/ignored/extras`) бросают `RuntimeException` «clear the cache».
   Дешёвые `hasHttpPoints()`/`failureTransports()`/`controllerServiceOf()` (R2-001, для `RouterRouteReader`) в `CatalogDiagnosticsInterface` —
@@ -196,7 +197,8 @@
 ## acc:code-review, батч B
 
 - **Тесты индекса маршрутов** не трогают файловую систему: фейк `tests/Unit/Infrastructure/Symfony/InMemoryRouteIndexStore`
-  (пустой = «индекс не прогрет»). Реальный файл проверяет только `tests/Unit/Infrastructure/Filesystem/RouteIndexFileTest`.
+  (пустой = «индекс не прогрет»). Реальный файл проверяет `tests/Unit/Infrastructure/RouteIndex/RouteIndexFileTest`; фейк и файл гоняются одним контрактным тестом
+  (`RouteIndexStoreContractTestCase`).
 - **`monolog/monolog` убран из `require`** (в `src/` нет импортов Monolog; приходит транзитивно через metrics-bundle и
   monolog-bundle, verifier его не требует). `composer-local.lock` обновлён (`composer update --lock`, нужен доступ к
   GitHub вне песочницы); `composer-ci.lock` был устаревшим и до этого — его перегенерирует владелец после тега metrics-bundle 2.3.0.
@@ -230,3 +232,26 @@
   удваивается только перед ASCII-пунктуацией — обратные слэши FQCN остаются как есть.
 - **Вне debug отсутствующий `route_index.php`** логируется на `slo_bundle` один раз на процесс (под FPM — на каждый запрос с HTTP SLO):
   это сигнал деградации, а не шум.
+
+## acc:code-review high #2, батч D (2026-11-21 UTC)
+
+- **Rector удаляет проверки, противоречащие PHPDoc**: при `@param list<non-empty-string> $components` проверка
+  `array_is_list()`/`in_array('', …)` в конструкторе исчезает как мёртвый код (тест на невалидный ввод падает только после `make fix`).
+  Сырой конфиг принимать как `array<array-key, mixed>`, узкий тип — у свойства после проверки. Rector запускать до тестов.
+- **`@phpstan-ignore id`** гасит одну ошибку: при нескольких ошибках с одним идентификатором на строке идентификатор повторяют
+  (`argument.type, argument.type, argument.type`).
+- **opcache.file_update_protection (2 c)**: только что записанный PHP-файл opcache не кеширует и парсит на каждом include
+  (`route_index.php` на 500 маршрутов — ~1.4 мс против ~2 мкс из кеша). Бенчмарк «cold request» состаривает файл `touch()`; в проде
+  файл после деплоя старше двух секунд, но индекс, сохранённый с пути запроса, первые секунды парсится каждым запросом.
+- **Холодный FPM-запрос** (500 HTTP SLO, прогретый индекс): ~195 мкс, из них ~115 мкс — гидрация одного определения
+  (`CatalogDump::definition()`: инварианты `Classification`/`StatusSet`, перебор кодов в `intersects()`), записи индекса ~20 мкс.
+  Если холодный путь станет узким местом — кешировать гидрированные определения или упростить проверку пересечения статусов.
+- **Runtime-индекс сохраняется** (`RouteIndexFile::persist()`): вне debug, один раз за процесс, только если текущего индекса нет
+  (прогретый файл не перезаписывается); read-only кеш — молча. Сообщение degraded mode теперь говорит, что индекс сохраняется для
+  следующих процессов. Kernel-тест: удалить файл после первой загрузки, контейнер из кеша не перезапускает warmer.
+- **`SortedKeys` отвергает map, который после `ksort` стал бы списком** (ключи ровно 0..n-1 не по порядку): JSON поменял бы объект на
+  массив. Смешанные числовые ключи (`'10'`, `'9'`) допустимы.
+- **`%` в ключах дампа** отвергается централизованно в `CollectSloDefinitionsPass::escape()` (LogicException); `TaggedPointReader` по-прежнему
+  даёт понятную ошибку компиляции раньше.
+- **Покрытие с дробным `--min`** сравнивается в базисных пунктах (`monitored*10000 < round(required*100)*eligible`): float давал
+  «7 из 10000 ниже 0.07».
