@@ -16,14 +16,17 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\SloName;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Action\CleanupAction;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Action\RefundAction;
+use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\AdminController;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\CatalogController;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\ConflictingSloController;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\Invalid\InvalidValuesController;
+use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\Invalid\InvokableSloAndIgnoreController;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\Invalid\SloAndIgnoreController;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\Invalid\WrongOptionsController;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\InvokableController;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\PaymentController;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\RepeatedSloController;
+use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\ReportController;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\SharedSloController;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Handler\AuditPaymentHandler;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Handler\Invalid\IncludeErrorsReceiptHandler;
@@ -31,6 +34,7 @@ use Msstc4Symfony\SloBundle\Test\Fixtures\Handler\Invalid\LegacyPaymentHandler;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Handler\Invalid\SecondSloPaymentHandler;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Handler\ProcessPaymentHandler;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Handler\ReceiptHandler;
+use Msstc4Symfony\SloBundle\Test\Fixtures\Handler\RefundPaymentHandler;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Message\ProcessPayment;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Message\SendReceipt;
 use Msstc4Symfony\SloBundle\Test\Integration\TestContainer;
@@ -126,6 +130,22 @@ final class CollectSloDefinitionsPassTest extends TestCase
         self::assertSame([CatalogController::class => ['list', 'show']], $catalog->extras()->controllers);
     }
 
+    public function testMethodIgnoreOverridesClassSloOnNonInvokableController(): void
+    {
+        $catalog = $this->catalog([ReportController::class]);
+
+        self::assertSame([$this->http(ReportController::class, 'list')], $this->points($this->definition($catalog, 'report.read')));
+        self::assertSame([$this->http(ReportController::class, 'debug') => 'debug only'], $catalog->ignored());
+    }
+
+    public function testMethodSloOverridesClassIgnoreOnNonInvokableController(): void
+    {
+        $catalog = $this->catalog([AdminController::class]);
+
+        self::assertSame([$this->http(AdminController::class, 'status')], $this->points($this->definition($catalog, 'admin.status')));
+        self::assertSame([$this->http(AdminController::class, 'settings') => 'admin area'], $catalog->ignored());
+    }
+
     public function testControllerClassResolvedFromParameterAndUnloadableClassesSkipped(): void
     {
         $catalog = $this->catalog([], static function (ContainerBuilder $container): void {
@@ -199,6 +219,19 @@ final class CollectSloDefinitionsPassTest extends TestCase
         self::assertTrue($catalog->extras()->handlers[0]->async);
         self::assertFalse($catalog->extras()->handlers[1]->async);
         self::assertSame(['dead', 'failed'], $catalog->extras()->failureTransports);
+    }
+
+    public function testAsMessageTransportCountsAsRoutingOnlyWithMessenger(): void
+    {
+        $handler = static function (ContainerBuilder $container): void {
+            $container->register(RefundPaymentHandler::class, RefundPaymentHandler::class)->addTag('messenger.message_handler');
+        };
+
+        self::assertFalse($this->catalog([], $handler)->extras()->handlers[0]->async);
+        self::assertTrue($this->catalog([], static function (ContainerBuilder $container) use ($handler): void {
+            $handler($container);
+            $container->register('messenger.senders_locator', 'stdClass')->setArguments([[SendReceipt::class => ['sync']], null]);
+        })->extras()->handlers[0]->async);
     }
 
     public function testConfiguredFailureTransportsWin(): void
@@ -287,6 +320,7 @@ final class CollectSloDefinitionsPassTest extends TestCase
         $http = static fn (string $class, string $method): string => 'http_route:' . $class . '::' . $method;
 
         yield 'slo and ignore on one point' => [[SloAndIgnoreController::class], null, [], $http(SloAndIgnoreController::class, 'status') . ': #[Slo] and #[IgnoreMonitoring]'];
+        yield 'slo on invoke and ignore on invokable class' => [[InvokableSloAndIgnoreController::class], null, [], $http(InvokableSloAndIgnoreController::class, '__invoke') . ': #[Slo] and #[IgnoreMonitoring]'];
         yield 'invalid window' => [[InvalidValuesController::class], null, [], $http(InvalidValuesController::class, 'window') . ': Invalid SLO window "5m"'];
         yield 'invalid target' => [[InvalidValuesController::class], null, [], $http(InvalidValuesController::class, 'target') . ': Invalid SLO target "120.0"'];
         yield 'invalid threshold' => [[InvalidValuesController::class], null, [], $http(InvalidValuesController::class, 'threshold') . ': Invalid latency threshold "fast"'];

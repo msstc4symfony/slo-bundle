@@ -9,7 +9,8 @@
 
 - Messenger (FrameworkExtension): маршрутизация — аргумент 0 `messenger.senders_locator` (тип сообщения → имена
   sender'ов; ключи — класс, родители, интерфейсы, `Ns\*`, `*` как в `SendersLocator`). Сообщение async, если хоть один
-  ключ даёт непустой список. Без Messenger — false.
+  ключ даёт непустой список; если ни один не совпал — как `SendersLocator`, смотрим `#[AsMessage(transport: ...)]`
+  (IS_INSTANCEOF) на классе, родителях и интерфейсах. Без определения `messenger.senders_locator` — всегда false.
 - Failure-транспорты: явный `defaults.messenger.failure_transports` (не null) побеждает; иначе определение
   `messenger.failure.send_failed_message_to_failure_transport_listener`: аргумент 2 (транспорт → имя failure-транспорта)
   и локатор в аргументе 0 (`ServiceClosureArgument(Reference('messenger.transport.<name>'))`), префикс срезается.

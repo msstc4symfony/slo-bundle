@@ -8,6 +8,7 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\SloName;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\InvokableController;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Message\ProcessPayment;
+use Msstc4Symfony\SloBundle\Test\Fixtures\Message\RefundPayment;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Message\SendReceipt;
 use Msstc4Symfony\SloBundle\Test\Integration\Kernel\MessengerTestKernel;
 use Override;
@@ -48,6 +49,7 @@ final class FrameworkDiscoveryTest extends TestCase
             }
             self::assertTrue($async[ProcessPayment::class] ?? null);
             self::assertFalse($async[SendReceipt::class] ?? null);
+            self::assertTrue($async[RefundPayment::class] ?? null);
             self::assertArrayHasKey('request_duration_histogram_seconds', $catalog->extras()->metricBuckets);
         } finally {
             $kernel->shutdown();

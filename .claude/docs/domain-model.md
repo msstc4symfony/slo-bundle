@@ -25,8 +25,11 @@
 - Точки на компиляции: HTTP — `http_route:Class::method` (маршрут привязывается позже, Task 6), Messenger —
   `messenger_message:<FQCN сообщения>` (SLO на handler = SLO на envelope сообщения), тег — `<type>:<id>` из атрибутов
   тега, операция — `operation:<name>` (имя операции = имя SLO, strategy всегда dedicated).
-- Классовый `#[Slo]`: у invokable-контроллера — только `__invoke`, иначе на каждый публичный нестатический метод
-  (без `__*` и методов `AbstractController`). `#[IgnoreMonitoring]` на классе + `#[Slo]` на методе = одна точка = ошибка.
+- Классовый `#[Slo]`/`#[IgnoreMonitoring]`: у invokable-контроллера — только `__invoke` (класс и `__invoke` — одна цель,
+  `#[Slo]` + `#[IgnoreMonitoring]` между ними = ошибка); у не-invokable — на каждый action-метод, но атрибуты метода
+  перекрывают классовые в обе стороны (метод `#[IgnoreMonitoring]` снимает классовый `#[Slo]`, метод `#[Slo]` — классовый
+  ignore). Action-метод: публичный, не static, не abstract, не `__*` (кроме `__invoke`), без `#[Required]`, не из
+  `AbstractController`. Оба атрибута на одном методе — ошибка; у handler класс и метод складываются (без перекрытия).
 - Ruling 1: одинаковые объявления одного имени сливаются (`withPoint`, точки по алфавиту) и видны в `shared()`;
   различающиеся или повтор имени на одной точке — `conflicts()` (имя → `SloDeclaration` по точкам), такого имени нет в
   `all()/get()/forPoint()`, `conflictedNamesFor(point)` его отдаёт.

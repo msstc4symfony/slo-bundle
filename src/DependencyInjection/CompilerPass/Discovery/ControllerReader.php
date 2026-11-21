@@ -10,6 +10,7 @@ use ReflectionClass;
 use ReflectionMethod;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Contracts\Service\Attribute\Required;
 
 /**
  * Controllers are points "Class::method"; routes are bound later from the route collection (spec 5.2).
@@ -23,6 +24,8 @@ final readonly class ControllerReader
     private const ABSTRACT_CONTROLLER = AbstractController::class;
 
     private const INVOKE = '__invoke';
+
+    private const REQUIRED = Required::class;
 
     public function __construct(private AttributeReader $attributes)
     {
@@ -46,7 +49,10 @@ final readonly class ControllerReader
             foreach ($methods as $name => $method) {
                 $point = PointId::of(PointType::HttpRoute, $class->getName() . '::' . $name);
                 $this->attributes->apply($point, $method);
-                if (!$invokable || $name === self::INVOKE) {
+                // Invokable: class and __invoke are one target, so both apply (and may conflict).
+                // Non-invokable: method-level attributes override the class-level ones for that method.
+                $inherits = $invokable ? $name === self::INVOKE : !AttributeReader::declaresAny($method);
+                if ($inherits) {
                     $this->attributes->apply($point, $class);
                 }
             }
@@ -69,6 +75,7 @@ final readonly class ControllerReader
             if ($name === ''
                 || $method->isStatic()
                 || $method->isAbstract()
+                || $method->getAttributes(self::REQUIRED) !== []
                 || (str_starts_with($name, '__') && $name !== self::INVOKE)
                 || $method->getDeclaringClass()->getName() === self::ABSTRACT_CONTROLLER) {
                 continue;

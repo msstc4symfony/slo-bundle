@@ -50,4 +50,12 @@ final readonly class AttributeReader
 
         return $declared;
     }
+
+    /**
+     * @param ReflectionClass<object>|ReflectionMethod $reflection
+     */
+    public static function declaresAny(ReflectionClass|ReflectionMethod $reflection): bool
+    {
+        return $reflection->getAttributes(Slo::class) !== [] || $reflection->getAttributes(IgnoreMonitoring::class) !== [];
+    }
 }

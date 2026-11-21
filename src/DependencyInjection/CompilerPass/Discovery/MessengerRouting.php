@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\DependencyInjection\CompilerPass\Discovery;
 
+use ReflectionAttribute;
+use ReflectionClass;
 use Symfony\Component\DependencyInjection\Argument\ServiceClosureArgument;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Reference;
+use Symfony\Component\Messenger\Attribute\AsMessage;
 
 /**
  * Reads what FrameworkExtension stored for Messenger: the routing map of `messenger.senders_locator` (argument 0,
@@ -25,7 +28,7 @@ final readonly class MessengerRouting
     /**
      * @param array<string, list<string>> $routing
      */
-    private function __construct(private array $routing)
+    private function __construct(private array $routing, private bool $enabled)
     {
     }
 
@@ -41,20 +44,20 @@ final readonly class MessengerRouting
             }
         }
 
-        return new self($routing);
+        return new self($routing, $container->hasDefinition(self::SENDERS_LOCATOR));
     }
 
     /**
-     * Mirrors SendersLocator: the class, its parents, interfaces, namespace wildcards and "*".
+     * Mirrors SendersLocator: the configured map (class, parents, interfaces, namespace wildcards, "*") and, only when
+     * nothing there matches, #[AsMessage(transport: ...)] on the class hierarchy.
      */
     public function isAsync(string $message): bool
     {
-        $types = [$message];
-        if (class_exists($message) || interface_exists($message)) {
-            $parents = class_parents($message);
-            $interfaces = class_implements($message);
-            $types = [...$types, ...($parents === false ? [] : array_values($parents)), ...($interfaces === false ? [] : array_values($interfaces))];
+        if (!$this->enabled) {
+            return false;
         }
+        $classes = $this->hierarchy($message);
+        $types = $classes;
         $wildcard = $message . '\*';
         while (($position = strrpos($wildcard, '\\', -3)) !== false) {
             $wildcard = substr_replace($wildcard, '\*', $position);
@@ -68,7 +71,7 @@ final readonly class MessengerRouting
             }
         }
 
-        return false;
+        return $this->routedByAttribute($classes);
     }
 
     /**
@@ -97,6 +100,43 @@ final readonly class MessengerRouting
         }
 
         return self::names($names);
+    }
+
+    /**
+     * @return non-empty-list<string> the type itself, then its parents and interfaces when it can be loaded
+     */
+    private function hierarchy(string $message): array
+    {
+        if (!class_exists($message) && !interface_exists($message)) {
+            return [$message];
+        }
+        $parents = class_parents($message);
+        $interfaces = class_implements($message);
+
+        return [$message, ...($parents === false ? [] : array_values($parents)), ...($interfaces === false ? [] : array_values($interfaces))];
+    }
+
+    /**
+     * @param list<string> $classes
+     */
+    private function routedByAttribute(array $classes): bool
+    {
+        if (!class_exists(AsMessage::class)) {
+            return false;
+        }
+        foreach ($classes as $class) {
+            if (!class_exists($class) && !interface_exists($class)) {
+                continue;
+            }
+            foreach ((new ReflectionClass($class))->getAttributes(AsMessage::class, ReflectionAttribute::IS_INSTANCEOF) as $attribute) {
+                $transport = $attribute->newInstance()->transport;
+                if (!in_array($transport, [null, '', []], true)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**

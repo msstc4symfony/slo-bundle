@@ -9,6 +9,7 @@ use Msstc4Symfony\SloBundle\SloBundle;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\InvokableController;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Handler\ProcessPaymentHandler;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Handler\ReceiptHandler;
+use Msstc4Symfony\SloBundle\Test\Fixtures\Handler\RefundPaymentHandler;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Message\ProcessPayment;
 use Msstc4Symfony\SloBundle\Test\Integration\MakeBundleServicesPublicPass;
 use Override;
@@ -84,6 +85,7 @@ final class MessengerTestKernel extends Kernel
 
         $services = $container->services()->defaults()->autowire()->autoconfigure();
         $services->set(ProcessPaymentHandler::class);
+        $services->set(RefundPaymentHandler::class);
         $services->set(ReceiptHandler::class)->tag('messenger.message_handler', ['method' => 'onReceipt']);
         $services->set(InvokableController::class);
     }
