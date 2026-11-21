@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Msstc4Symfony\SloBundle\Test\Unit\Domain\ValueObject;
 
 use InvalidArgumentException;
+use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Classification;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\StatusSet;
 use PHPUnit\Framework\TestCase;
@@ -55,5 +56,36 @@ final class ClassificationTest extends TestCase
         self::assertFalse($base->equals(new Classification($bad, StatusSet::fromList([429]), true, false)));
         self::assertFalse($base->equals(new Classification($bad, $none, false, false)));
         self::assertFalse($base->equals(new Classification($bad, $none, true, true)));
+    }
+
+    public function testApplicabilityMatrix(): void
+    {
+        $matrix = [];
+        foreach (PointType::cases() as $type) {
+            foreach (['badStatuses', 'ineligibleStatuses', 'expectedFailureIsGood', 'countAttempts'] as $field) {
+                if (Classification::appliesTo($field, $type)) {
+                    $matrix[$type->value][] = $field;
+                }
+            }
+        }
+
+        self::assertSame([
+            'http_route' => ['badStatuses', 'ineligibleStatuses'],
+            'messenger_message' => ['countAttempts'],
+            'logic_action' => ['expectedFailureIsGood'],
+            'operation' => ['expectedFailureIsGood'],
+        ], $matrix);
+        self::assertSame([PointType::LogicAction, PointType::Operation], Classification::pointTypesOf('expectedFailureIsGood'));
+        self::assertSame(['http_route'], array_map(static fn (PointType $t): string => $t->value, array_values(array_filter(PointType::cases(), static fn (PointType $t): bool => $t->acceptsIncludeErrors()))));
+    }
+
+    public function testInapplicableFieldsAreThoseThatDifferFromTheDefaultOutsideTheirPointTypes(): void
+    {
+        $custom = new Classification(StatusSet::fromList(['4xx']), StatusSet::fromList(['503']), false, true);
+
+        self::assertSame([], Classification::defaults()->inapplicableFieldsFor(PointType::Operation));
+        self::assertSame(['expectedFailureIsGood', 'countAttempts'], $custom->inapplicableFieldsFor(PointType::HttpRoute));
+        self::assertSame(['badStatuses', 'ineligibleStatuses', 'countAttempts'], $custom->inapplicableFieldsFor(PointType::LogicAction));
+        self::assertSame(['badStatuses', 'ineligibleStatuses', 'expectedFailureIsGood'], $custom->inapplicableFieldsFor(PointType::MessengerMessage));
     }
 }

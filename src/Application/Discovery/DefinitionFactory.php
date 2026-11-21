@@ -86,7 +86,7 @@ final readonly class DefinitionFactory
     {
         $objectives = [];
         foreach ($slo->objectives as $declared) {
-            if ($declared instanceof Latency && $declared->includeErrors && $type !== PointType::HttpRoute) {
+            if ($declared instanceof Latency && $declared->includeErrors && !$type->acceptsIncludeErrors()) {
                 $option('includeErrors applies to http_route points only.');
 
                 continue;
@@ -117,30 +117,25 @@ final readonly class DefinitionFactory
      */
     private function classification(Slo $slo, PointType $type, Closure $fail, Closure $option): ?Classification
     {
-        $isHttp = $type === PointType::HttpRoute;
-        $isMessenger = $type === PointType::MessengerMessage;
-        $hasOutcomes = $type === PointType::LogicAction || $type === PointType::Operation;
-
-        if (!$isHttp && $slo->badStatuses !== null) {
-            $option('badStatuses applies to http_route points only.');
-        }
-        if (!$isHttp && $slo->ineligibleStatuses !== null) {
-            $option('ineligibleStatuses applies to http_route points only.');
-        }
-        if (!$isMessenger && $slo->countAttempts !== null) {
-            $option('countAttempts applies to messenger_message points only.');
-        }
-        if (!$hasOutcomes && $slo->expectedFailureIsGood !== null) {
-            $option('expectedFailureIsGood applies to logic_action and operation points only.');
+        $declared = [
+            'badStatuses' => $slo->badStatuses,
+            'ineligibleStatuses' => $slo->ineligibleStatuses,
+            'countAttempts' => $slo->countAttempts,
+            'expectedFailureIsGood' => $slo->expectedFailureIsGood,
+        ];
+        foreach ($declared as $field => $value) {
+            if ($value !== null && !Classification::appliesTo($field, $type)) {
+                $option(\sprintf('%s applies to %s points only.', $field, implode(' and ', array_map(static fn (PointType $t): string => $t->value, Classification::pointTypesOf($field)))));
+            }
         }
 
         $neutral = Classification::defaults();
 
         return $this->attempt(fn (): Classification => new Classification(
-            $isHttp ? StatusSet::fromList($slo->badStatuses ?? $this->httpBadStatuses) : $neutral->badStatuses,
-            $isHttp ? StatusSet::fromList($slo->ineligibleStatuses ?? $this->httpIneligibleStatuses) : $neutral->ineligibleStatuses,
-            $hasOutcomes ? $slo->expectedFailureIsGood ?? $this->expectedFailureIsGood : $neutral->expectedFailureIsGood,
-            $isMessenger ? $slo->countAttempts ?? $this->countAttempts : $neutral->countAttempts,
+            Classification::appliesTo('badStatuses', $type) ? StatusSet::fromList($slo->badStatuses ?? $this->httpBadStatuses) : $neutral->badStatuses,
+            Classification::appliesTo('ineligibleStatuses', $type) ? StatusSet::fromList($slo->ineligibleStatuses ?? $this->httpIneligibleStatuses) : $neutral->ineligibleStatuses,
+            Classification::appliesTo('expectedFailureIsGood', $type) ? $slo->expectedFailureIsGood ?? $this->expectedFailureIsGood : $neutral->expectedFailureIsGood,
+            Classification::appliesTo('countAttempts', $type) ? $slo->countAttempts ?? $this->countAttempts : $neutral->countAttempts,
         ), $fail);
     }
 

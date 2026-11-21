@@ -10,4 +10,12 @@ enum PointType: string
     case MessengerMessage = 'messenger_message';
     case LogicAction = 'logic_action';
     case Operation = 'operation';
+
+    /**
+     * Only HTTP latency can count error responses: the other point types have no error-but-measured event.
+     */
+    public function acceptsIncludeErrors(): bool
+    {
+        return $this === self::HttpRoute;
+    }
 }
