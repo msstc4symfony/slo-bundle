@@ -38,9 +38,16 @@ final readonly class EventClassifier
         };
     }
 
+    /**
+     * Outcome points: every run that is not an error, even when expected failures count as bad (spec 4.4).
+     * HTTP and Messenger: ruling 3, availability-good events unless includeErrors.
+     */
     private function latency(Objective $objective, Observation $observation, bool $bad): ?EventResult
     {
-        if ($bad && !$objective->includeErrors) {
+        $eligible = $observation->outcome instanceof Outcome
+            ? $observation->outcome !== Outcome::Error
+            : !$bad || $objective->includeErrors;
+        if (!$eligible) {
             return null;
         }
 

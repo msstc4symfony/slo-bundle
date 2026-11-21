@@ -65,7 +65,7 @@ final class MetricBindingResolverTest extends TestCase
         yield 'logic availability expected failure is bad' => [$logic, self::slo(new Availability(99), expectedFailureIsGood: false), ObjectiveKind::Availability, Strategy::Dedicated];
         yield 'logic latency bucket' => [$logic, self::slo(new Latency('1s', 99)), ObjectiveKind::Latency, Strategy::ExistingSeries];
         yield 'logic latency no bucket' => [$logic, self::slo(new Latency('300ms', 99)), ObjectiveKind::Latency, Strategy::Dedicated];
-        yield 'logic latency expected failure is bad' => [$logic, self::slo(new Latency('1s', 99), expectedFailureIsGood: false), ObjectiveKind::Latency, Strategy::Dedicated];
+        yield 'logic latency expected failure is bad' => [$logic, self::slo(new Latency('1s', 99), expectedFailureIsGood: false), ObjectiveKind::Latency, Strategy::ExistingSeries];
         yield 'logic combined' => [$logic, self::slo(new Combined('1s', 99)), ObjectiveKind::Combined, Strategy::Dedicated];
         yield 'operation availability' => [PointType::Operation, self::slo(new Availability(99)), ObjectiveKind::Availability, Strategy::Dedicated];
     }

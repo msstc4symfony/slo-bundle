@@ -159,7 +159,7 @@ final readonly class MetricBindingResolver
 
     private function logic(SloDefinition $definition, Objective $objective, CatalogExtras $extras): ?SeriesBinding
     {
-        if (!$definition->classification()->expectedFailureIsGood || !isset($extras->metricBuckets[self::LOGIC_HISTOGRAM])) {
+        if (!isset($extras->metricBuckets[self::LOGIC_HISTOGRAM])) {
             return null;
         }
 
@@ -174,6 +174,11 @@ final readonly class MetricBindingResolver
         $action = $this->exactOrAlternation('action', $labels);
 
         if ($objective->kind === ObjectiveKind::Availability) {
+            // The series counts expected failures as good: it cannot express expectedFailureIsGood: false.
+            if (!$definition->classification()->expectedFailureIsGood) {
+                return null;
+            }
+
             return new SeriesBinding(
                 self::LOGIC_HISTOGRAM,
                 SeriesBinding::KIND_HISTOGRAM,

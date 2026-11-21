@@ -50,6 +50,16 @@ final class RevisionCalculatorTest extends TestCase
         self::assertSame(self::PINNED, $calculator->revision($this->slo(), ObjectiveKind::Latency, ['failed'])->value);
     }
 
+    public function testOutcomeLatencyRevisionIgnoresExpectedFailureIsGood(): void
+    {
+        $calculator = new RevisionCalculator();
+        $good = $this->slo(type: PointType::LogicAction);
+        $bad = $this->slo(classification: new Classification(StatusSet::fromList(['5xx']), StatusSet::fromList([]), false, false), type: PointType::LogicAction);
+
+        self::assertSame($calculator->revision($good, ObjectiveKind::Latency, [])->value, $calculator->revision($bad, ObjectiveKind::Latency, [])->value);
+        self::assertNotSame($calculator->revision($good, ObjectiveKind::Availability, [])->value, $calculator->revision($bad, ObjectiveKind::Availability, [])->value);
+    }
+
     public function testUndeclaredKindIsRejected(): void
     {
         $this->expectException(InvalidArgumentException::class);

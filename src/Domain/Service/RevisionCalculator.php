@@ -37,6 +37,10 @@ final readonly class RevisionCalculator
             'point_type' => $slo->pointType()->value,
             'threshold_ms' => $objective->threshold?->milliseconds,
         ];
+        // Outcome-point latency covers every non-error run regardless of expectedFailureIsGood (spec 4.4).
+        if ($kind === ObjectiveKind::Latency && \in_array($slo->pointType(), [PointType::LogicAction, PointType::Operation], true)) {
+            unset($input['expected_failure_is_good']);
+        }
         if ($slo->pointType() === PointType::MessengerMessage) {
             $transports = array_values(array_unique($failureTransports));
             sort($transports, SORT_STRING);
