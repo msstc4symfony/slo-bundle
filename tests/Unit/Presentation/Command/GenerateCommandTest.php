@@ -35,13 +35,17 @@ final class GenerateCommandTest extends TestCase
 
         $tester = new CommandTester($command);
         self::assertSame(Command::SUCCESS, $tester->execute([]));
-        self::assertSame(
-            ['/project/observability/prometheus/prometheus.yml', '/project/observability/prometheus/slo-alerts.rules.yml', '/project/observability/prometheus/slo-recording.rules.yml'],
-            array_keys($writer->files),
-        );
+        $paths = array_keys($writer->files);
+        self::assertContains('/project/observability/prometheus/prometheus.yml', $paths);
+        self::assertContains('/project/observability/prometheus/slo-alerts.rules.yml', $paths);
+        self::assertContains('/project/observability/grafana/dashboards/slo-slo-overview.json', $paths);
+        self::assertContains('/project/observability/grafana/provisioning/dashboards/slo.yaml', $paths);
+        self::assertNotContains('/project/observability/prometheus/slo-old.rules.yml', $paths);
+        self::assertCount(10, $paths);
         self::assertStringContainsString('written prometheus/slo-alerts.rules.yml', $tester->getDisplay());
+        self::assertStringContainsString('written grafana/dashboards/slo-http-routes.json', $tester->getDisplay());
         self::assertStringContainsString('deleted prometheus/slo-old.rules.yml', $tester->getDisplay());
-        self::assertStringContainsString('2 file(s) written, 1 deleted in /project/observability', $tester->getDisplay());
+        self::assertStringContainsString('9 file(s) written, 1 deleted in /project/observability', $tester->getDisplay());
 
         $check = new CommandTester($command);
         self::assertSame(Command::SUCCESS, $check->execute(['--check' => true]));
@@ -54,6 +58,8 @@ final class GenerateCommandTest extends TestCase
             '/elsewhere/prometheus/slo-recording.rules.yml' => "old\n",
             '/elsewhere/prometheus/slo-removed.rules.yml' => "x\n",
             '/elsewhere/prometheus/prometheus.yml' => "hand-written\n",
+            '/elsewhere/grafana/dashboards/slo-gone.json' => "{}\n",
+            '/elsewhere/grafana/dashboards/hand-made.json' => "{}\n",
         ]);
         $tester = new CommandTester($this->command($writer));
 
@@ -62,6 +68,10 @@ final class GenerateCommandTest extends TestCase
         self::assertStringContainsString('stale   prometheus/slo-recording.rules.yml', $display);
         self::assertStringContainsString('missing prometheus/slo-alerts.rules.yml', $display);
         self::assertStringContainsString('extra   prometheus/slo-removed.rules.yml', $display);
+        self::assertStringContainsString('missing grafana/dashboards/slo-slo-overview.json', $display);
+        self::assertStringContainsString('missing grafana/provisioning/dashboards/slo.yaml', $display);
+        self::assertStringContainsString('extra   grafana/dashboards/slo-gone.json', $display);
+        self::assertStringNotContainsString('hand-made.json', $display);
         self::assertStringNotContainsString('prometheus.yml', $display);
         self::assertStringContainsString('run slo:generate', $display);
         self::assertSame("old\n", $writer->files['/elsewhere/prometheus/slo-recording.rules.yml']);
@@ -81,7 +91,7 @@ final class GenerateCommandTest extends TestCase
         $container = TestContainer::compile();
         $definition = $container->getDefinition(GenerateCommand::class);
 
-        self::assertSame([null, [], sys_get_temp_dir() . '/infrastructure/observability', true, true, null], \array_slice(array_values($definition->getArguments()), 2));
+        self::assertSame([null, [], sys_get_temp_dir() . '/infrastructure/observability', true, true, null, 'prometheus', 'SLO', []], \array_slice(array_values($definition->getArguments()), 3));
         self::assertSame('slo:generate', $this->command(new InMemoryFileWriter())->getName());
     }
 
@@ -89,6 +99,7 @@ final class GenerateCommandTest extends TestCase
     {
         return new GenerateCommand(
             GenerationFixture::action(GenerationFixture::catalog(checkoutAvailabilityTarget: $availabilityTarget)),
+            GenerationFixture::dashboardsAction(GenerationFixture::catalog(checkoutAvailabilityTarget: $availabilityTarget)),
             new SyncAction($writer),
             $application,
             ['web', 'worker'],
@@ -96,6 +107,9 @@ final class GenerateCommandTest extends TestCase
             true,
             true,
             null,
+            'prometheus',
+            'SLO',
+            [],
         );
     }
 }

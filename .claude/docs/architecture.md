@@ -145,6 +145,37 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
 - `slo:generate [--output] [--check]`: нет `generation.selector.application` → код 2; `--check` → 0 / 1 со списком
   `stale|missing|extra <path>`; warnings — в stderr с префиксом `WARNING`.
 
+## Дашборды Grafana (Task 13)
+
+- Use case `Application/Generation/GenerateDashboards\{Action,Input,Output,DashboardContext}`: собирает `BoundObjectiveCollector` +
+  `Coverage\Analyze\Action` + наличие гистограммы `logic_action_duration_histogram_seconds` в `extras()->metricBuckets` в `DashboardContext` и
+  отдаёт `GeneratedFileSet` (каталоги `grafana/dashboards`, `grafana/provisioning/dashboards`; новых управляемых каталогов нет). Порт
+  `GrafanaFileBuilderInterface` (адаптер `Infrastructure/Grafana/GrafanaFileBuilder`, создаётся фабрикой `GrafanaFileBuilder::standard()`).
+- Файлы: `grafana/dashboards/slo-<slug>.json`, slug = `application-overview|http-routes|messenger|business-operations|slo-overview|
+  monitoring-coverage` (т. е. `slo-slo-overview.json` — буквально по брифу), `grafana/provisioning/dashboards/slo.yaml`
+  (провайдер `slo`, `folder` из `generation.grafana.folder`, `options.path` = `Input::DEFAULT_DASHBOARDS_PATH` `/var/lib/grafana/dashboards`
+  — путь внутри контейнера Grafana, не `output_dir`).
+- `uid` = `slo-` + первые 12 hex `sha256(<короткое имя дашборда><application>)`, например `Application Overview` + `shop`. Заголовок
+  `SLO: <имя> (<application>)`. `schemaVersion` 41, `time now-24h..now`, `refresh 1m`, нет `version`. Переменные: `datasource`
+  (type datasource, default = `generation.grafana.datasource_uid`), `application` (constant), `component` (query, multi, includeAll;
+  default = `generation.selector.components`, если заданы), `environment` (custom, пустой; в запросах не используется — меток `environment` в
+  сериях нет, §5.6). Панели — `${datasource}`.
+- Раскладка: `DashboardBuilder` слева направо по 24 колонкам, id панелей 1..n в порядке раскладки (включая `row`), `gridPos` из размера панели.
+  `DeterministicJson`: рекурсивно отсортированные ключи объектов, списки сохраняют порядок, `PRETTY_PRINT|UNESCAPED_SLASHES|
+  PRESERVE_ZERO_FRACTION`, юникод экранируется (`\u00e9`), перевод строки в конце.
+- Базовые серии (Application Overview, HTTP Routes, Messenger, логика Business Operations) — `symfony_*{application="$application",
+  component=~"$component"}` (`BaseSeries`); SLO-панели (`SloRows`: строка-row на SLO x objective — target, SLI, budget gauge, window state
+  по `slo:window:coverage_ratio` с range-маппингом `<1` -> `warming up`, burn rate 1h/6h = `slo:error_ratio:rate<w> / (1 - slo:objective:target)`)
+  читают записанные `slo:*` по `slo` и `objective`. Все панели с запросами имеют `noValue: "No data"`.
+- Monitoring Coverage — две `text`-панели (Markdown-таблицы: покрытие по видам и все точки): статическая таблица Grafana (TestData/snapshot
+  datasource) не переносима между инсталляциями, Markdown детерминирован и не зависит от временных рядов. Данные — `Analyze\Output` на момент
+  генерации, обновляются только `slo:generate`.
+- `slo:generate` запускает оба генератора и сливает `GeneratedFileSet::merge()` в один `SyncFiles` (`--check` покрывает и grafana).
+  `coverage.http_routes.ignored_routes` идёт в таблицу покрытия.
+- Тесты: golden `tests/Fixtures/Generated/grafana/`, структурный тест (id, uid, ссылки на серии, noValue), интеграция
+  `tests/Integration/Presentation/Command/GenerateCommandTest.php` (`RoutedTestKernel` принимает `sloConfig`). Обновить golden: `GenerationFixture::dashboardsAction`
+  (`GenerationFixture::dashboardsInput()`) и записать `$output->files->files` в `tests/Fixtures/Generated/`.
+
 ### Форма правил
 
 - Базовый селектор: `application="<app>"` + `component=~"<a|b>"` (если компоненты заданы). Strategy B:

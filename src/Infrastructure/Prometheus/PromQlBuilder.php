@@ -88,6 +88,8 @@ final readonly class PromQlBuilder
 
     /**
      * @param non-empty-string $record
+     *
+     * @return non-empty-string
      */
     public function recorded(string $record, BoundObjective $objective): string
     {

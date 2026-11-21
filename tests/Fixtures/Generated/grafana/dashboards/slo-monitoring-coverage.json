@@ -1,0 +1,139 @@
+{
+    "annotations": {
+        "list": []
+    },
+    "editable": false,
+    "graphTooltip": 1,
+    "id": null,
+    "links": [],
+    "panels": [
+        {
+            "gridPos": {
+                "h": 8,
+                "w": 24,
+                "x": 0,
+                "y": 0
+            },
+            "id": 1,
+            "options": {
+                "content": "| Kind | SLO coverage | Measured by a metric |\n| --- | --- | --- |\n| http_route | 50% | 100% |\n| messenger_handler | 50% | 100% |\n| logic_action | 100% | 100% |\n| operation | 100% | 100% |\n\nGenerated from the compiled SLO catalog; it changes only when slo:generate is run.\n",
+                "mode": "markdown"
+            },
+            "title": "Coverage by kind",
+            "type": "text"
+        },
+        {
+            "gridPos": {
+                "h": 8,
+                "w": 24,
+                "x": 0,
+                "y": 8
+            },
+            "id": 2,
+            "options": {
+                "content": "| Point | Kind | Status | SLOs | Note |\n| --- | --- | --- | --- | --- |\n| checkout_pay | http_route | monitored | checkout.pay | - |\n| health | http_route | unmonitored | - | no SLO is declared |\n| Msstc4Symfony\\SloBundle\\Test\\Fixtures\\Handler\\AuditPaymentHandler::__invoke | messenger_handler | unmonitored | - | no SLO is declared |\n| Msstc4Symfony\\SloBundle\\Test\\Fixtures\\Handler\\ProcessPaymentHandler::__invoke | messenger_handler | monitored | payment.process | - |\n",
+                "mode": "markdown"
+            },
+            "title": "Points",
+            "type": "text"
+        }
+    ],
+    "refresh": "1m",
+    "schemaVersion": 41,
+    "tags": [
+        "slo"
+    ],
+    "templating": {
+        "list": [
+            {
+                "current": {
+                    "text": "prometheus",
+                    "value": "prometheus"
+                },
+                "hide": 0,
+                "includeAll": false,
+                "label": "Datasource",
+                "multi": false,
+                "name": "datasource",
+                "options": [],
+                "query": "prometheus",
+                "refresh": 1,
+                "regex": "",
+                "type": "datasource"
+            },
+            {
+                "current": {
+                    "text": "shop",
+                    "value": "shop"
+                },
+                "hide": 2,
+                "label": "Application",
+                "name": "application",
+                "options": [
+                    {
+                        "selected": true,
+                        "text": "shop",
+                        "value": "shop"
+                    }
+                ],
+                "query": "shop",
+                "type": "constant"
+            },
+            {
+                "allValue": ".*",
+                "current": {
+                    "selected": true,
+                    "text": [
+                        "web",
+                        "worker"
+                    ],
+                    "value": [
+                        "web",
+                        "worker"
+                    ]
+                },
+                "datasource": {
+                    "type": "prometheus",
+                    "uid": "${datasource}"
+                },
+                "definition": "label_values(symfony_http_request{application=\"$application\"}, component)",
+                "hide": 0,
+                "includeAll": true,
+                "label": "Component",
+                "multi": true,
+                "name": "component",
+                "options": [],
+                "query": "label_values(symfony_http_request{application=\"$application\"}, component)",
+                "refresh": 2,
+                "regex": "",
+                "sort": 1,
+                "type": "query"
+            },
+            {
+                "current": {
+                    "text": "",
+                    "value": ""
+                },
+                "hide": 0,
+                "label": "Environment",
+                "name": "environment",
+                "options": [
+                    {
+                        "selected": true,
+                        "text": "",
+                        "value": ""
+                    }
+                ],
+                "query": "",
+                "type": "custom"
+            }
+        ]
+    },
+    "time": {
+        "from": "now-24h",
+        "to": "now"
+    },
+    "timezone": "utc",
+    "title": "SLO: Monitoring Coverage (shop)",
+    "uid": "slo-9cc648231190"
+}

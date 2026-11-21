@@ -8,10 +8,14 @@ use Msstc4Symfony\SloBundle\Application\Attribute\Availability;
 use Msstc4Symfony\SloBundle\Application\Attribute\Latency;
 use Msstc4Symfony\SloBundle\Application\Attribute\Slo;
 use Msstc4Symfony\SloBundle\Application\Binding\MetricBindingResolver;
+use Msstc4Symfony\SloBundle\Application\Coverage\Analyze\Action as CoverageAction;
 use Msstc4Symfony\SloBundle\Application\Discovery\CatalogAssembler;
 use Msstc4Symfony\SloBundle\Application\Discovery\CatalogExtras;
+use Msstc4Symfony\SloBundle\Application\Discovery\HandlerInfo;
 use Msstc4Symfony\SloBundle\Application\Generation\BoundObjectiveCollector;
 use Msstc4Symfony\SloBundle\Application\Generation\BurnRatePolicy;
+use Msstc4Symfony\SloBundle\Application\Generation\GenerateDashboards\Action as DashboardsAction;
+use Msstc4Symfony\SloBundle\Application\Generation\GenerateDashboards\Input as DashboardsInput;
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateRules\Action;
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateRules\Input;
 use Msstc4Symfony\SloBundle\Application\Generation\Selector;
@@ -20,9 +24,12 @@ use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
 use Msstc4Symfony\SloBundle\Domain\Service\RevisionCalculator;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
+use Msstc4Symfony\SloBundle\Infrastructure\Grafana\GrafanaFileBuilder;
 use Msstc4Symfony\SloBundle\Infrastructure\Prometheus\PromQlBuilder;
 use Msstc4Symfony\SloBundle\Infrastructure\Prometheus\RuleGroupsBuilder;
 use Msstc4Symfony\SloBundle\Infrastructure\Yaml\DeterministicYaml;
+use Msstc4Symfony\SloBundle\Test\Fixtures\Handler\AuditPaymentHandler;
+use Msstc4Symfony\SloBundle\Test\Fixtures\Handler\ProcessPaymentHandler;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\CatalogFixture;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\InMemoryRouteCatalog;
 
@@ -34,7 +41,7 @@ final class GenerationFixture
 {
     public const CHECKOUT = 'App\Controller\CheckoutController::pay';
 
-    public static function catalog(float $checkoutLatencyTarget = 99.0, float $checkoutAvailabilityTarget = 99.9): CompiledSloCatalog
+    public static function catalog(float $checkoutLatencyTarget = 99.0, float $checkoutAvailabilityTarget = 99.9, bool $logicHistogram = true): CompiledSloCatalog
     {
         return CatalogFixture::build(
             static function (CatalogAssembler $assembler) use ($checkoutLatencyTarget, $checkoutAvailabilityTarget): void {
@@ -43,10 +50,15 @@ final class GenerationFixture
                 $assembler->declare(PointId::of(PointType::Operation, 'report.export'), new Slo('report.export', [new Availability(99)], window: '3d', strategy: 'dedicated'));
             },
             new CatalogExtras(
+                handlers: [
+                    new HandlerInfo(ProcessPaymentHandler::class, 'App\Message\ProcessPayment', true, 'async'),
+                    new HandlerInfo(AuditPaymentHandler::class, 'App\Message\AuditPayment', true, 'async'),
+                ],
                 failureTransports: ['failed'],
                 metricBuckets: [
                     'request_duration_histogram_seconds' => [0.05, 0.1, 0.25, 0.5, 1.0],
                     'messenger_message_handling_duration_histogram_seconds' => [0.1, 0.5, 1.0, 5.0],
+                    ...($logicHistogram ? ['logic_action_duration_histogram_seconds' => [0.1, 0.5, 1.0]] : []),
                 ],
             ),
         );
@@ -54,7 +66,10 @@ final class GenerationFixture
 
     public static function routes(): InMemoryRouteCatalog
     {
-        return new InMemoryRouteCatalog([new RouteInfo('checkout_pay', '/checkout/pay', ['POST'], self::CHECKOUT)]);
+        return new InMemoryRouteCatalog([
+            new RouteInfo('checkout_pay', '/checkout/pay', ['POST'], self::CHECKOUT),
+            new RouteInfo('health', '/health', ['GET'], 'App\Controller\HealthController::check'),
+        ]);
     }
 
     public static function collector(CompiledSloCatalog $catalog): BoundObjectiveCollector
@@ -65,6 +80,16 @@ final class GenerationFixture
     public static function action(CompiledSloCatalog $catalog): Action
     {
         return new Action(self::collector($catalog), new RuleGroupsBuilder(new PromQlBuilder(), new BurnRatePolicy(), new DeterministicYaml()), new BurnRatePolicy(), $catalog);
+    }
+
+    public static function dashboardsAction(CompiledSloCatalog $catalog): DashboardsAction
+    {
+        return new DashboardsAction(self::collector($catalog), new CoverageAction($catalog, $catalog, self::routes()), GrafanaFileBuilder::standard(), $catalog);
+    }
+
+    public static function dashboardsInput(): DashboardsInput
+    {
+        return new DashboardsInput(new Selector('shop', ['worker', 'web']));
     }
 
     /**

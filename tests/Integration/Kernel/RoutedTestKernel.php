@@ -30,11 +30,13 @@ final class RoutedTestKernel extends Kernel
      * @param list<class-string> $controllers registered as services, tagged as controllers
      * @param list<RouteSpec> $routes
      * @param list<string> $ignoredRoutes
+     * @param array<string, mixed> $sloConfig msstc4symfony_slo configuration
      */
     public function __construct(
         private readonly array $controllers,
         private readonly array $routes,
         private readonly array $ignoredRoutes = [],
+        private readonly array $sloConfig = [],
     ) {
         parent::__construct('test', false);
     }
@@ -85,6 +87,10 @@ final class RoutedTestKernel extends Kernel
             'http' => ['ignored_routes' => $this->ignoredRoutes],
         ]);
 
+        if ($this->sloConfig !== []) {
+            $container->extension('msstc4symfony_slo', $this->sloConfig);
+        }
+
         $services = $container->services()->defaults()->autowire()->autoconfigure();
         foreach ($this->controllers as $controller) {
             $services->set($controller)->tag('controller.service_arguments');
@@ -103,6 +109,6 @@ final class RoutedTestKernel extends Kernel
 
     private function scenarioHash(): string
     {
-        return substr(hash('sha256', serialize([$this->controllers, $this->routes, $this->ignoredRoutes])), 0, 12);
+        return substr(hash('sha256', serialize([$this->controllers, $this->routes, $this->ignoredRoutes, $this->sloConfig])), 0, 12);
     }
 }

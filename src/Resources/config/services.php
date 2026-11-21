@@ -9,12 +9,14 @@ use Msstc4Symfony\SloBundle\Application\Coverage\Analyze\Action as CoverageActio
 use Msstc4Symfony\SloBundle\Application\Evaluation\RecordEvent\Action as RecordEventAction;
 use Msstc4Symfony\SloBundle\Application\Generation\BoundObjectiveCollector;
 use Msstc4Symfony\SloBundle\Application\Generation\BurnRatePolicy;
+use Msstc4Symfony\SloBundle\Application\Generation\GenerateDashboards\Action as GenerateDashboardsAction;
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateRules\Action as GenerateRulesAction;
 use Msstc4Symfony\SloBundle\Application\Generation\SyncFiles\Action as SyncFilesAction;
 use Msstc4Symfony\SloBundle\Application\Port\CatalogDiagnosticsInterface;
 use Msstc4Symfony\SloBundle\Application\Port\ClockInterface;
 use Msstc4Symfony\SloBundle\Application\Port\EventWriterInterface;
 use Msstc4Symfony\SloBundle\Application\Port\FileWriterInterface;
+use Msstc4Symfony\SloBundle\Application\Port\GrafanaFileBuilderInterface;
 use Msstc4Symfony\SloBundle\Application\Port\OperationMonitorInterface;
 use Msstc4Symfony\SloBundle\Application\Port\RouteCatalogInterface;
 use Msstc4Symfony\SloBundle\Application\Port\RoutePointIndexInterface;
@@ -24,6 +26,7 @@ use Msstc4Symfony\SloBundle\Domain\Service\EventClassifier;
 use Msstc4Symfony\SloBundle\Domain\Service\RevisionCalculator;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\Filesystem\FileWriter;
+use Msstc4Symfony\SloBundle\Infrastructure\Grafana\GrafanaFileBuilder;
 use Msstc4Symfony\SloBundle\Infrastructure\Logging\FailSafeLogger;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\HttpSloObserver;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MessengerSloObserver;
@@ -102,9 +105,12 @@ return static function (ContainerConfigurator $container): void {
     $services->set(DeterministicYaml::class);
     $services->set(RuleGroupsBuilder::class);
     $services->alias(RuleFileBuilderInterface::class, RuleGroupsBuilder::class);
+    $services->set(GrafanaFileBuilder::class)->factory([GrafanaFileBuilder::class, 'standard']);
+    $services->alias(GrafanaFileBuilderInterface::class, GrafanaFileBuilder::class);
     $services->set(FileWriter::class);
     $services->alias(FileWriterInterface::class, FileWriter::class);
     $services->set(GenerateRulesAction::class);
+    $services->set(GenerateDashboardsAction::class);
     $services->set(SyncFilesAction::class);
     $services->set(GenerateCommand::class)
         ->arg('$application', param('msstc4symfony_slo.generation.selector.application'))
@@ -113,6 +119,9 @@ return static function (ContainerConfigurator $container): void {
         ->arg('$prometheusRules', param('msstc4symfony_slo.generation.prometheus.rules'))
         ->arg('$prometheusAlerts', param('msstc4symfony_slo.generation.prometheus.alerts'))
         ->arg('$noEventsAlertHours', param('msstc4symfony_slo.generation.prometheus.no_events_alert_hours'))
+        ->arg('$datasourceUid', param('msstc4symfony_slo.generation.grafana.datasource_uid'))
+        ->arg('$folder', param('msstc4symfony_slo.generation.grafana.folder'))
+        ->arg('$ignoredRoutes', param('msstc4symfony_slo.coverage.http_routes.ignored_routes'))
     ;
     $services->set(ListCommand::class);
     $services->set(ValidateCommand::class);

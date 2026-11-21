@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Presentation\Command;
 
+use Msstc4Symfony\SloBundle\Application\Generation\GenerateDashboards\Action as GenerateDashboards;
+use Msstc4Symfony\SloBundle\Application\Generation\GenerateDashboards\Input as DashboardsInput;
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateRules\Action as GenerateRules;
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateRules\Input as RulesInput;
 use Msstc4Symfony\SloBundle\Application\Generation\Selector;
@@ -18,15 +20,19 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\ConsoleOutputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
-#[AsCommand(name: 'slo:generate', description: 'Generate Prometheus rules from the SLO catalog; --check exits 1 when the files on disk are out of date')]
+#[AsCommand(name: 'slo:generate', description: 'Generate Prometheus rules and Grafana dashboards from the SLO catalog; --check exits 1 when the files on disk are out of date')]
 final class GenerateCommand extends Command
 {
     /**
      * @param list<string> $components
      * @param positive-int|null $noEventsAlertHours
+     * @param non-empty-string $datasourceUid
+     * @param non-empty-string $folder
+     * @param list<string> $ignoredRoutes
      */
     public function __construct(
         private readonly GenerateRules $rules,
+        private readonly GenerateDashboards $dashboards,
         private readonly SyncFiles $sync,
         private readonly ?string $application,
         private readonly array $components,
@@ -34,6 +40,9 @@ final class GenerateCommand extends Command
         private readonly bool $prometheusRules,
         private readonly bool $prometheusAlerts,
         private readonly ?int $noEventsAlertHours,
+        private readonly string $datasourceUid,
+        private readonly string $folder,
+        private readonly array $ignoredRoutes,
     ) {
         parent::__construct();
     }
@@ -65,8 +74,9 @@ final class GenerateCommand extends Command
         }
         $check = $input->getOption('check') === true;
 
+        $selector = new Selector($this->application, $this->components);
         $generated = ($this->rules)(new RulesInput(
-            new Selector($this->application, $this->components),
+            $selector,
             $this->prometheusRules,
             $this->prometheusAlerts,
             $this->noEventsAlertHours,
@@ -75,7 +85,9 @@ final class GenerateCommand extends Command
             $errors->writeln('WARNING ' . OutputFormatter::escape($warning));
         }
 
-        $result = ($this->sync)(new SyncInput($generated->files, $root, $check));
+        $dashboards = ($this->dashboards)(new DashboardsInput($selector, $this->datasourceUid, $this->folder, $this->ignoredRoutes));
+
+        $result = ($this->sync)(new SyncInput($generated->files->merge($dashboards->files), $root, $check));
 
         if ($check) {
             if ($result->isUpToDate()) {
