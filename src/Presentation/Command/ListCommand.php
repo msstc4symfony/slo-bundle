@@ -18,6 +18,9 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
+/**
+ * @internal the command name, options, output and exit codes are the public contract, not this class
+ */
 #[AsCommand(name: 'slo:list', description: 'List the declared SLOs with their points, routes and revisions')]
 final class ListCommand extends Command
 {

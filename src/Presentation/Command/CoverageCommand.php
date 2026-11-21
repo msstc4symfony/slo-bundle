@@ -18,6 +18,9 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
+/**
+ * @internal the command name, options, output and exit codes are the public contract, not this class
+ */
 #[AsCommand(name: 'slo:coverage', description: 'Report which routes, handlers and actions are covered by an SLO; exits 1 below the required percent')]
 final class CoverageCommand extends Command
 {

@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Test\Unit\Presentation\Command;
 
+use Msstc4Symfony\SloBundle\Application\Generation\Generate\Action as GenerateAction;
+use Msstc4Symfony\SloBundle\Application\Generation\Generate\GenerationConfig;
 use Msstc4Symfony\SloBundle\Application\Generation\SyncFiles\Action as SyncAction;
 use Msstc4Symfony\SloBundle\Presentation\Command\GenerateCommand;
 use Msstc4Symfony\SloBundle\Test\Integration\TestContainer;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Generation\GenerationFixture;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Generation\SyncFiles\InMemoryFileWriter;
+use PHPUnit\Framework\Attributes\TestWith;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
@@ -22,6 +25,19 @@ final class GenerateCommandTest extends TestCase
 
         self::assertSame(Command::INVALID, $tester->execute([]));
         self::assertStringContainsString('msstc4symfony_slo.generation.selector.application', $tester->getDisplay());
+        self::assertSame([], $writer->files);
+    }
+
+    #[TestWith(['/'])]
+    #[TestWith(['///'])]
+    #[TestWith([''])]
+    public function testRootOrEmptyOutputDirectoryIsRejected(string $directory): void
+    {
+        $writer = new InMemoryFileWriter();
+        $tester = new CommandTester($this->command($writer));
+
+        self::assertSame(Command::INVALID, $tester->execute(['--output' => $directory]));
+        self::assertStringContainsString('The output directory must be a non-empty path other than "/".', $tester->getDisplay());
         self::assertSame([], $writer->files);
     }
 
@@ -117,29 +133,22 @@ final class GenerateCommandTest extends TestCase
     public function testCommandIsRegisteredWithTheGenerationParameters(): void
     {
         $container = TestContainer::compile();
-        $definition = $container->getDefinition(GenerateCommand::class);
+        $definition = $container->getDefinition(GenerationConfig::class);
 
-        self::assertSame([null, [], sys_get_temp_dir() . '/infrastructure/observability', true, true, null, 'prometheus', 'SLO', [], false], \array_slice(array_values($definition->getArguments()), 4));
+        self::assertSame([null, [], sys_get_temp_dir() . '/infrastructure/observability', true, true, null, 'prometheus', 'SLO', [], false], array_values($definition->getArguments()));
         self::assertSame('slo:generate', $this->command(new InMemoryFileWriter())->getName());
     }
 
     private function command(InMemoryFileWriter $writer, ?string $application = 'shop', float $availabilityTarget = 99.9, bool $sloth = false): GenerateCommand
     {
-        return new GenerateCommand(
-            GenerationFixture::action(GenerationFixture::catalog(checkoutAvailabilityTarget: $availabilityTarget)),
-            GenerationFixture::dashboardsAction(GenerationFixture::catalog(checkoutAvailabilityTarget: $availabilityTarget)),
-            GenerationFixture::slothAction(GenerationFixture::catalog(checkoutAvailabilityTarget: $availabilityTarget)),
+        $catalog = GenerationFixture::catalog(checkoutAvailabilityTarget: $availabilityTarget);
+
+        return new GenerateCommand(new GenerateAction(
+            GenerationFixture::action($catalog),
+            GenerationFixture::dashboardsAction($catalog),
+            GenerationFixture::slothAction($catalog),
             new SyncAction($writer),
-            $application,
-            ['web', 'worker'],
-            '/project/observability',
-            true,
-            true,
-            null,
-            'prometheus',
-            'SLO',
-            [],
-            $sloth,
-        );
+            new GenerationConfig($application, ['web', 'worker'], '/project/observability', sloth: $sloth),
+        ));
     }
 }

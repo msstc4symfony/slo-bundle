@@ -4,15 +4,9 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Presentation\Command;
 
-use Msstc4Symfony\SloBundle\Application\Generation\GenerateDashboards\Action as GenerateDashboards;
-use Msstc4Symfony\SloBundle\Application\Generation\GenerateDashboards\Input as DashboardsInput;
-use Msstc4Symfony\SloBundle\Application\Generation\GenerateRules\Action as GenerateRules;
-use Msstc4Symfony\SloBundle\Application\Generation\GenerateRules\Input as RulesInput;
-use Msstc4Symfony\SloBundle\Application\Generation\GenerateSloth\Action as GenerateSloth;
-use Msstc4Symfony\SloBundle\Application\Generation\GenerateSloth\Input as SlothInput;
-use Msstc4Symfony\SloBundle\Application\Generation\Selector;
-use Msstc4Symfony\SloBundle\Application\Generation\SyncFiles\Action as SyncFiles;
-use Msstc4Symfony\SloBundle\Application\Generation\SyncFiles\Input as SyncInput;
+use Msstc4Symfony\SloBundle\Application\Generation\Generate\Action as Generate;
+use Msstc4Symfony\SloBundle\Application\Generation\Generate\Exception\InvalidGenerationSettings;
+use Msstc4Symfony\SloBundle\Application\Generation\Generate\Input as GenerateInput;
 use Override;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -22,31 +16,14 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\ConsoleOutputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
+/**
+ * @internal the command name, options, output and exit codes are the public contract, not this class
+ */
 #[AsCommand(name: 'slo:generate', description: 'Generate Prometheus rules, Grafana dashboards and optional Sloth specs from the SLO catalog; --check exits 1 when the files on disk are out of date')]
 final class GenerateCommand extends Command
 {
-    /**
-     * @param list<string> $components
-     * @param positive-int|null $noEventsAlertHours
-     * @param non-empty-string $datasourceUid
-     * @param non-empty-string $folder
-     * @param list<string> $ignoredRoutes
-     */
     public function __construct(
-        private readonly GenerateRules $rules,
-        private readonly GenerateDashboards $dashboards,
-        private readonly GenerateSloth $sloth,
-        private readonly SyncFiles $sync,
-        private readonly ?string $application,
-        private readonly array $components,
-        private readonly string $outputDir,
-        private readonly bool $prometheusRules,
-        private readonly bool $prometheusAlerts,
-        private readonly ?int $noEventsAlertHours,
-        private readonly string $datasourceUid,
-        private readonly string $folder,
-        private readonly array $ignoredRoutes,
-        private readonly bool $slothEnabled = false,
+        private readonly Generate $generate,
     ) {
         parent::__construct();
     }
@@ -64,35 +41,21 @@ final class GenerateCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $errors = $output instanceof ConsoleOutputInterface ? $output->getErrorOutput() : $output;
-        if ($this->application === null || $this->application === '') {
-            $errors->writeln('<error>Set msstc4symfony_slo.generation.selector.application to the "application" label of your metrics: slo:generate never reads it from the runtime environment.</error>');
-
-            return Command::INVALID;
-        }
-        $root = $input->getOption('output') ?? $this->outputDir;
-        $root = \is_string($root) ? rtrim($root, '/') : '';
-        if ($root === '') {
-            $errors->writeln('<error>The output directory must be a non-empty path other than "/".</error>');
-
-            return Command::INVALID;
-        }
         $check = $input->getOption('check') === true;
+        $directory = $input->getOption('output');
 
-        $selector = new Selector($this->application, $this->components);
-        $generated = ($this->rules)(new RulesInput(
-            $selector,
-            $this->prometheusRules,
-            $this->prometheusAlerts,
-            $this->noEventsAlertHours,
-        ));
-        $this->warn($errors, $generated->warnings);
+        try {
+            $generated = ($this->generate)(new GenerateInput(\is_string($directory) ? $directory : null, $check));
+        } catch (InvalidGenerationSettings $e) {
+            $errors->writeln('<error>' . OutputFormatter::escape($e->getMessage()) . '</error>');
 
-        $dashboards = ($this->dashboards)(new DashboardsInput($selector, $this->datasourceUid, $this->folder, $this->ignoredRoutes));
-
-        $sloth = ($this->sloth)(new SlothInput($selector, $this->slothEnabled));
-        $this->warn($errors, $sloth->warnings);
-
-        $result = ($this->sync)(new SyncInput($generated->files->merge($dashboards->files)->merge($sloth->files), $root, $check));
+            return Command::INVALID;
+        }
+        foreach ($generated->warnings as $warning) {
+            $errors->writeln('WARNING ' . OutputFormatter::escape($warning));
+        }
+        $result = $generated->files;
+        $root = $generated->root;
 
         if ($check) {
             if ($result->isUpToDate()) {
@@ -119,15 +82,5 @@ final class GenerateCommand extends Command
         $output->writeln(\sprintf('%d file(s) written, %d deleted in %s', \count($result->missing) + \count($result->stale), \count($result->extra), OutputFormatter::escape($root)));
 
         return Command::SUCCESS;
-    }
-
-    /**
-     * @param list<non-empty-string> $warnings
-     */
-    private function warn(OutputInterface $errors, array $warnings): void
-    {
-        foreach ($warnings as $warning) {
-            $errors->writeln('WARNING ' . OutputFormatter::escape($warning));
-        }
     }
 }

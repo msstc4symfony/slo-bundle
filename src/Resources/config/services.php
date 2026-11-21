@@ -10,6 +10,8 @@ use Msstc4Symfony\SloBundle\Application\Coverage\Analyze\Action as CoverageActio
 use Msstc4Symfony\SloBundle\Application\Evaluation\RecordEvent\Action as RecordEventAction;
 use Msstc4Symfony\SloBundle\Application\Generation\BoundObjectiveCollector;
 use Msstc4Symfony\SloBundle\Application\Generation\BurnRatePolicy;
+use Msstc4Symfony\SloBundle\Application\Generation\Generate\Action as GenerateAction;
+use Msstc4Symfony\SloBundle\Application\Generation\Generate\GenerationConfig;
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateDashboards\Action as GenerateDashboardsAction;
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateRules\Action as GenerateRulesAction;
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateSloth\Action as GenerateSlothAction;
@@ -151,7 +153,7 @@ return static function (ContainerConfigurator $container): void {
     $services->set(GenerateSlothAction::class);
     $services->set(GenerateDashboardsAction::class);
     $services->set(SyncFilesAction::class);
-    $services->set(GenerateCommand::class)
+    $services->set(GenerationConfig::class)
         ->arg('$application', param('msstc4symfony_slo.generation.selector.application'))
         ->arg('$components', param('msstc4symfony_slo.generation.selector.components'))
         ->arg('$outputDir', param('msstc4symfony_slo.generation.output_dir'))
@@ -161,8 +163,10 @@ return static function (ContainerConfigurator $container): void {
         ->arg('$datasourceUid', param('msstc4symfony_slo.generation.grafana.datasource_uid'))
         ->arg('$folder', param('msstc4symfony_slo.generation.grafana.folder'))
         ->arg('$ignoredRoutes', param('msstc4symfony_slo.coverage.http_routes.ignored_routes'))
-        ->arg('$slothEnabled', param('msstc4symfony_slo.generation.sloth'))
+        ->arg('$sloth', param('msstc4symfony_slo.generation.sloth'))
     ;
+    $services->set(GenerateAction::class);
+    $services->set(GenerateCommand::class);
     $services->set(ListCommand::class);
     $services->set(ValidateCommand::class);
     $services->set(SloCacheWarmer::class)

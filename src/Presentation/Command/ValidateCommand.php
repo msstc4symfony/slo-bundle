@@ -12,6 +12,9 @@ use Symfony\Component\Console\Formatter\OutputFormatter;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
+/**
+ * @internal the command name, options, output and exit codes are the public contract, not this class
+ */
 #[AsCommand(name: 'slo:validate', description: 'Validate the SLO catalog against the routes; exits 1 on errors')]
 final class ValidateCommand extends Command
 {
