@@ -36,3 +36,25 @@
   `components` are validated as label values (`[A-Za-z0-9_.:-]{1,128}`).
 - `slo:validate` warns about an SLO on a message that is never routed to a transport; coverage thresholds are compared
   on the exact fraction; dashboards read the 5m window-group records over a 10m lookback, like the alerts.
+
+### Changed
+
+- Bridges record events through the public port `Application\Port\EventRecorderInterface::record(RecordEvent\Input)`
+  (public service); `RecordEvent\Action` is internal.
+- `#[Slo]` takes `strategy: StrategyPreference::Dedicated` (`Domain\Enum\StrategyPreference`) instead of a string;
+  `ObjectiveAttributeInterface::kind()` returns `Domain\Enum\ObjectiveKind`.
+- `SloDefinition` rejects `includeErrors` outside `http_route` points and classification options that do not apply to
+  the point type, so such options can never change a revision.
+- Domain value objects no longer render PromQL (`Window::toPromQl()` and `StatusSet::toRegex()` are gone); the
+  generated rules, dashboards and Sloth specs are unchanged. The overlapping-statuses error names the statuses as
+  declared (`5xx`).
+- The console command classes are marked `@internal`; their names, options, output and exit codes stay public.
+- A compiled catalog with one unreadable definition breaks only that definition's point; without warmed revisions the
+  request path resolves strategies from cheap per-point catalog reads; the cache warmer still writes the route index
+  when the revisions cannot be precomputed.
+- `monolog/monolog` is no longer a direct requirement (nothing in the bundle uses it).
+
+### Documentation
+
+- README: cleaning the series of retired revisions from the Redis storage; Messenger latency uses dedicated counters
+  when the message short name is shared.

@@ -171,7 +171,7 @@
   единственный пользовательский источник ключей с `%` (id тега точки) отклоняется на компиляции.
 - **Числовые имена маршрутов** (`404`) становятся int-ключами PHP-массивов: `RouteIndexData` кастует ключи в строку при каждом чтении
   и принимает int-ключи при разборе файла.
-- **route_index.php версия 2**: секции `routes`, `controllers`, `points`, `revisions` валидируются по отдельности (`RouteIndexFile::points()`,
+- **route_index.php версия 2**: секции `routes`, `controllers`, `points`, `revisions` валидируются по отдельности (`RouteIndexParser::points()` через `RouteIndexFile::points()`,
   `::revisions()`, `::load()`); горячий путь трогает только `points` и `revisions`. `revisions` = `"<slo>|<kind>" => 8 hex | ''`
   (`''` — Strategy A), их считает `SloCacheWarmer` резолвером поверх только что прочитанных маршрутов; `WarmedRevisions`
   (`PrecomputedRevisionsInterface`) отдаёт их `RecordEvent\Action`. В debug или без файла — runtime-резолв как раньше.
@@ -190,3 +190,17 @@
 - **`generation.selector.application/components`** валидируются `/^[A-Za-z0-9_.:-]{1,128}$/D` в дереве конфигурации.
 - **Rector** удаляет неиспользуемые параметры у фикстур-хендлеров (`RemoveUnusedPublicMethodParameterRector`-подобные правила):
   в фикстурах параметр сообщения нужно использовать (`return $message::class;`).
+
+## acc:code-review, батч B
+
+- **Тесты индекса маршрутов** не трогают файловую систему: фейк `tests/Unit/Infrastructure/Symfony/InMemoryRouteIndexStore`
+  (пустой = «индекс не прогрет»). Реальный файл проверяет только `tests/Unit/Infrastructure/Filesystem/RouteIndexFileTest`.
+- **`monolog/monolog` убран из `require`** (в `src/` нет импортов Monolog; приходит транзитивно через metrics-bundle и
+  monolog-bundle, verifier его не требует). `composer-local.lock` обновлён (`composer update --lock`, нужен доступ к
+  GitHub вне песочницы); `composer-ci.lock` был устаревшим и до этого — его перегенерирует владелец после тега metrics-bundle 2.3.0.
+- **Сообщение об пересечении статусов** (`Classification`) теперь в канонической форме (`"5xx"`), а не в RE2 (`"5.."`).
+- **Messenger latency + `includeErrors`** больше невозможна как состояние: инвариант в конструкторе `SloDefinition`, защитная
+  ветка в резолвере удалена.
+- **Ревизии в Redis**: поле хэша `PROMETHEUS_:counter:symfony_slo_events_total` — JSON значений меток; README описывает
+  `metrics:clear` и точечный `HDEL` по ревизии.
+
