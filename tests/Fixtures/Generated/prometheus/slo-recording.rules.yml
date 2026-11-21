@@ -288,7 +288,7 @@ groups:
           slo: payment.process
           window: 30d
         record: 'slo:events:rate5m'
-      - expr: '(sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[5m])) - sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_bucket{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed",le="1"}[5m]))) / (sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[5m])) > 0)'
+      - expr: '(sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[5m])) - sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_bucket{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed",le="1.0"}[5m]))) / (sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[5m])) > 0)'
         labels:
           application: shop
           objective: latency
@@ -302,7 +302,7 @@ groups:
           slo: payment.process
           window: 30d
         record: 'slo:events:rate30m'
-      - expr: '(sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[30m])) - sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_bucket{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed",le="1"}[30m]))) / (sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[30m])) > 0)'
+      - expr: '(sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[30m])) - sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_bucket{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed",le="1.0"}[30m]))) / (sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[30m])) > 0)'
         labels:
           application: shop
           objective: latency
@@ -316,7 +316,7 @@ groups:
           slo: payment.process
           window: 30d
         record: 'slo:events:rate1h'
-      - expr: '(sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[1h])) - sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_bucket{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed",le="1"}[1h]))) / (sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[1h])) > 0)'
+      - expr: '(sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[1h])) - sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_bucket{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed",le="1.0"}[1h]))) / (sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[1h])) > 0)'
         labels:
           application: shop
           objective: latency
@@ -330,7 +330,7 @@ groups:
           slo: payment.process
           window: 30d
         record: 'slo:events:rate6h'
-      - expr: '(sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[6h])) - sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_bucket{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed",le="1"}[6h]))) / (sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[6h])) > 0)'
+      - expr: '(sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[6h])) - sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_bucket{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed",le="1.0"}[6h]))) / (sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[6h])) > 0)'
         labels:
           application: shop
           objective: latency
@@ -389,14 +389,14 @@ groups:
           slo: payment.process
           window: 30d
         record: 'slo:events:rate3d'
-      - expr: '(sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[3d])) - sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_bucket{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed",le="1"}[3d]))) / (sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[3d])) > 0)'
+      - expr: '(sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[3d])) - sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_bucket{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed",le="1.0"}[3d]))) / (sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[3d])) > 0)'
         labels:
           application: shop
           objective: latency
           slo: payment.process
           window: 30d
         record: 'slo:error_ratio:rate3d'
-      - expr: '1 - ((sum(increase(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[30d])) - sum(increase(symfony_messenger_message_handling_duration_histogram_seconds_bucket{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed",le="1"}[30d]))) / (sum(increase(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[30d])) > 0))'
+      - expr: '1 - ((sum(increase(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[30d])) - sum(increase(symfony_messenger_message_handling_duration_histogram_seconds_bucket{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed",le="1.0"}[30d]))) / (sum(increase(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[30d])) > 0))'
         labels:
           application: shop
           objective: latency

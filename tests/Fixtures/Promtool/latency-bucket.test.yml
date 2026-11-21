@@ -1,0 +1,20 @@
+# Prometheus 3 stores a bucket exposed as le="1" as le="1.0": the Strategy A latency rule must read that series.
+# 10 % of the ProcessPayment messages take longer than 1s.
+rule_files:
+  - ../Generated/prometheus/slo-recording.rules.yml
+
+evaluation_interval: 1m
+
+tests:
+  - interval: 1m
+    input_series:
+      - series: 'symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component="worker",message="ProcessPayment",status="handled",transport="async"}'
+        values: '0+100x60'
+      - series: 'symfony_messenger_message_handling_duration_histogram_seconds_bucket{application="shop",component="worker",message="ProcessPayment",status="handled",transport="async",le="1.0"}'
+        values: '0+90x60'
+    promql_expr_test:
+      - expr: round(slo:error_ratio:rate5m{slo="payment.process",objective="latency"}, 0.000001)
+        eval_time: 1h
+        exp_samples:
+          - labels: '{application="shop",objective="latency",slo="payment.process",window="30d"}'
+            value: 0.1

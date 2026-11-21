@@ -214,8 +214,9 @@ final readonly class MetricBindingResolver
             return null;
         }
         foreach ($buckets as $bucket) {
-            if ((int) round($bucket * 1000) === $objective->threshold->milliseconds) {
-                return (string) $bucket;
+            $label = BucketLabel::fromBucket($bucket);
+            if ($label->equalsMilliseconds($objective->threshold->milliseconds)) {
+                return $label->value;
             }
         }
 

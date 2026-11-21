@@ -119,6 +119,26 @@ final class MetricBindingResolverTest extends TestCase
         self::assertSame('0.3', $this->series($binding)->le);
     }
 
+    public function testIntegralBucketRendersPrometheus3LeLabel(): void
+    {
+        $definition = $this->define(PointType::MessengerMessage, self::slo(new Latency('1s', 99)));
+
+        $binding = $this->resolver($definition, $this->extras())->resolve($definition, $definition->objectives()[0]);
+
+        self::assertSame('1.0', $this->series($binding)->le);
+    }
+
+    public function testNearBucketDoesNotMatchTheThreshold(): void
+    {
+        $extras = $this->extras(buckets: ['request_duration_histogram_seconds' => [0.2504, 0.5]]);
+        $definition = $this->define(PointType::HttpRoute, self::slo(new Latency('250ms', 99, true)));
+
+        $binding = $this->resolver($definition, $extras)->resolve($definition, $definition->objectives()[0]);
+
+        self::assertSame(Strategy::Dedicated, $binding->strategy);
+        self::assertTrue($this->resolver($definition, $extras)->thresholdMissesBucket($definition, $definition->objectives()[0]));
+    }
+
     public function testHttpAvailabilitySeries(): void
     {
         $definition = $this->define(PointType::HttpRoute, self::slo(new Availability(99.9), badStatuses: [429, '5xx'], ineligibleStatuses: [404]));
@@ -230,7 +250,7 @@ final class MetricBindingResolverTest extends TestCase
 
         self::assertSame('messenger_message_handling_duration_histogram_seconds', $series->metric);
         self::assertSame('histogram', $series->kind);
-        self::assertSame('1', $series->le);
+        self::assertSame('1.0', $series->le);
         self::assertSame(['message="ProcessPayment"', 'status="handled"', 'transport!~"failed"'], $this->rendered($series->matchers));
     }
 

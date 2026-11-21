@@ -88,6 +88,7 @@ final class PromtoolTest extends TestCase
         yield '5 % bad over 1h at 99.9: page alert' => ['fast-burn.test.yml'];
         yield 'old revision only: no ratio for the new one' => ['revision.test.yml'];
         yield '2 days of a 30d window: warming up, no ticket' => ['warming-up.test.yml'];
+        yield 'Strategy A latency reads the Prometheus 3 le="1.0" bucket' => ['latency-bucket.test.yml'];
     }
 
     /**

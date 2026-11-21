@@ -71,7 +71,7 @@ final class PromQlBuilderTest extends TestCase
         $objective = $this->objective('payment.process', 'latency');
         $matchers = 'application="shop",message="ProcessPayment",status="handled",transport!~"failed"';
         $count = 'symfony_messenger_message_handling_duration_histogram_seconds_count{' . $matchers . '}';
-        $bucket = 'symfony_messenger_message_handling_duration_histogram_seconds_bucket{' . $matchers . ',le="1"}';
+        $bucket = 'symfony_messenger_message_handling_duration_histogram_seconds_bucket{' . $matchers . ',le="1.0"}';
         $selector = new Selector('shop', []);
 
         self::assertSame('sum(rate(' . $count . '[5m]))', $builder->eventsRate($selector, $objective, '5m'));
