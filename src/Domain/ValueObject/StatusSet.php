@@ -134,6 +134,14 @@ final readonly class StatusSet
                 continue;
             }
             [$otherFrom, $otherTo] = self::bounds($other);
+            if ($otherFrom === $from && $otherTo === $to) {
+                // Equal bounds ("5xx" vs "500-599"): the class form sorts last and is the one kept.
+                if (strcmp($other, $item) > 0) {
+                    return true;
+                }
+
+                continue;
+            }
             if ($otherFrom <= $from && $to <= $otherTo) {
                 return true;
             }

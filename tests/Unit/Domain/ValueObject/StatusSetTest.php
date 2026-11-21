@@ -39,6 +39,10 @@ final class StatusSetTest extends TestCase
         yield 'range inside wider range' => [['500-510', '502-505'], ['500-510'], '500|501|502|503|504|505|506|507|508|509|510'];
         yield 'overlapping ranges kept' => [['500-503', '502-505'], ['500-503', '502-505'], '500|501|502|503|502|503|504|505'];
         yield 'other class kept' => [['5xx', 404], ['404', '5xx'], '404|5..'];
+        yield 'class equal to range' => [['5xx', '500-599'], ['5xx'], '5..'];
+        yield 'range equal to class' => [['500-599', '5xx'], ['5xx'], '5..'];
+        yield 'equal bounds with a contained code' => [['500-599', 503, '5xx'], ['5xx'], '5..'];
+        yield 'equal bounds next to another class' => [['400-499', '4xx', 503], ['4xx', '503'], '4..|503'];
     }
 
     /**

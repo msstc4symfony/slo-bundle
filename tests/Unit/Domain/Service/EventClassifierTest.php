@@ -63,6 +63,10 @@ final class EventClassifierTest extends TestCase
         yield 'custom bad 429' => [$av, static fn (): Observation => Observation::http(429, 0.01), $bad, $custom];
         yield 'custom 503 good' => [$av, static fn (): Observation => Observation::http(503, 0.01), $good, $custom];
 
+        $equalBounds = ['classification' => new Classification(StatusSet::fromList(['5xx', '500-599']), StatusSet::fromList([]), true, false)];
+        yield 'equal-bound bad items 503' => [$av, static fn (): Observation => Observation::http(503, 0.01), $bad, $equalBounds];
+        yield 'equal-bound bad items 200' => [$av, static fn (): Observation => Observation::http(200, 0.01), $good, $equalBounds];
+
         $attempts = ['classification' => new Classification(StatusSet::fromList(['5xx']), StatusSet::fromList([]), true, true)];
         foreach ([false, true] as $countAttempts) {
             $opts = $countAttempts ? $attempts : [];
