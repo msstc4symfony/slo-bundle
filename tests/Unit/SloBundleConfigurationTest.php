@@ -106,6 +106,30 @@ final class SloBundleConfigurationTest extends TestCase
     }
 
     /**
+     * @return iterable<string, array{non-empty-string, array<string, mixed>, list<int|string>}>
+     */
+    public static function mapGivenToListNodeProvider(): iterable
+    {
+        yield 'bad statuses' => ['defaults.http.bad_statuses', ['defaults' => ['http' => ['bad_statuses' => ['a' => 500, 'b' => '4xx']]]], [500, '4xx']];
+        yield 'ineligible statuses' => ['defaults.http.ineligible_statuses', ['defaults' => ['http' => ['ineligible_statuses' => ['a' => 404]]]], [404]];
+        yield 'ignored routes' => ['coverage.http_routes.ignored_routes', ['coverage' => ['http_routes' => ['ignored_routes' => ['health' => '_health']]]], ['_health']];
+        yield 'components' => ['generation.selector.components', ['generation' => ['selector' => ['components' => ['web' => 'gateway']]]], ['gateway']];
+    }
+
+    /**
+     * @param non-empty-string $path
+     * @param array<string, mixed> $config
+     * @param list<int|string> $expected
+     */
+    #[DataProvider('mapGivenToListNodeProvider')]
+    public function testMapGivenToAListNodeBecomesTheListParameter(string $path, array $config, array $expected): void
+    {
+        $container = $this->load($config);
+
+        self::assertSame($expected, $container->getParameter('msstc4symfony_slo.' . $path));
+    }
+
+    /**
      * @return iterable<string, array{array<string, mixed>}>
      */
     public static function invalidSelectorProvider(): iterable

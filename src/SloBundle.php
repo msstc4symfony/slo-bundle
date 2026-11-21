@@ -118,8 +118,8 @@ final class SloBundle extends AbstractBundle
                 ->arrayNode('http')
                     ->addDefaultsIfNotSet()
                     ->children()
-                        ->arrayNode('bad_statuses')->scalarPrototype()->end()->defaultValue(['5xx'])->end()
-                        ->arrayNode('ineligible_statuses')->scalarPrototype()->end()->defaultValue([])->end()
+                        ->append($this->listNode('bad_statuses')->scalarPrototype()->end()->defaultValue(['5xx']))
+                        ->append($this->listNode('ineligible_statuses')->scalarPrototype()->end()->defaultValue([]))
                     ->end()
                 ->end()
                 ->arrayNode('logic')
@@ -154,7 +154,7 @@ final class SloBundle extends AbstractBundle
                     ->addDefaultsIfNotSet()
                     ->children()
                         ->append($this->requiredPercentNode(self::DEFAULT_REQUIRED_PERCENT))
-                        ->arrayNode('ignored_routes')->scalarPrototype()->end()->defaultValue([])->end()
+                        ->append($this->listNode('ignored_routes')->scalarPrototype()->end()->defaultValue([]))
                     ->end()
                 ->end()
                 ->arrayNode('messenger_handlers')
@@ -220,15 +220,16 @@ final class SloBundle extends AbstractBundle
                                 ->thenInvalid('application must match ' . self::LABEL_VALUE . ': it becomes a label value in the generated PromQL.')
                             ->end()
                         ->end()
-                        ->arrayNode('components')
-                            ->scalarPrototype()
-                                ->validate()
-                                    ->ifTrue(static fn (mixed $v): bool => !self::isLabelValue($v))
-                                    ->thenInvalid('every component must match ' . self::LABEL_VALUE . ': it becomes a label value in the generated PromQL.')
+                        ->append(
+                            $this->listNode('components')
+                                ->scalarPrototype()
+                                    ->validate()
+                                        ->ifTrue(static fn (mixed $v): bool => !self::isLabelValue($v))
+                                        ->thenInvalid('every component must match ' . self::LABEL_VALUE . ': it becomes a label value in the generated PromQL.')
+                                    ->end()
                                 ->end()
-                            ->end()
-                            ->defaultValue([])
-                        ->end()
+                                ->defaultValue([]),
+                        )
                     ->end()
                 ->end()
                 ->scalarNode('output_dir')->cannotBeEmpty()->defaultValue('%kernel.project_dir%/infrastructure/observability')->end()
@@ -258,6 +259,19 @@ final class SloBundle extends AbstractBundle
     private function node(string $name): ArrayNodeDefinition
     {
         return new ArrayNodeDefinition($name);
+    }
+
+    /**
+     * A prototyped node keeps the keys of a YAML map, and flatten() would split such a map into one parameter per key.
+     *
+     * @param non-empty-string $name
+     */
+    private function listNode(string $name): ArrayNodeDefinition
+    {
+        $node = $this->node($name);
+        $node->beforeNormalization()->ifArray()->then(array_values(...))->end();
+
+        return $node;
     }
 
     private static function isLabelValue(mixed $value): bool
