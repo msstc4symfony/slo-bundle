@@ -17,3 +17,17 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
 - Тестовая обвязка: `tests/Integration/TestContainer.php` (голый `ContainerBuilder`) и
   `tests/Integration/Kernel/TestKernel.php` (FrameworkBundle + MonologBundle + MetricsBundle с `inmemory://` + SloBundle).
 - slo-bundle не зависит от logic-bundle: он только `require-dev` (для тестов) и `suggest`.
+
+## Атрибуты и конфиг (Task 4)
+
+- Атрибуты в `src/Application/Attribute/`: `Slo` (повторяемый, класс/метод), `Availability`, `Latency`, `Combined`
+  (`ObjectiveAttributeInterface::kind()`), `IgnoreMonitoring` (проверяет только непустую причину). Это простые
+  держатели сырых значений: окна, пороги, цели валидирует проход discovery (Task 5), чтобы собрать все ошибки разом.
+- Дерево конфигурации — в `SloBundle::configure()`; нормализованная форма описана `@phpstan-type SloConfig`.
+  `loadExtension()` кладёт каждый лист в параметр `msstc4symfony_slo.<путь>` (`operations` — целиком массивом).
+- `operations.<name>`: только `objectives`, `window`, `expected_failure_is_good` (ключа `strategy` нет — всегда dedicated).
+  Окна/пороги в дереве проверяются лишь как непустые строки.
+- `defaults.messenger.failure_transports`: `null` = автоопределение, список = явное значение
+  (`variableNode`: `arrayNode` не допускает `null` по умолчанию).
+- `generation.output_dir` содержит `%kernel.project_dir%`, поэтому `TestContainer` задаёт `kernel.project_dir`.
+- Rector удаляет пустые публичные методы фикстур — в `tests/Fixtures` методы должны что-то возвращать.
