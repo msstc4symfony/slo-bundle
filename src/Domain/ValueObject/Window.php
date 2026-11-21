@@ -56,6 +56,8 @@ final readonly class Window
 
     /**
      * The same length spelled in the largest exact unit (30d → 1mo, 7d → 1w, 48h → 2d).
+     *
+     * @internal discovery helper, not covered by semantic versioning
      */
     public function canonical(): self
     {

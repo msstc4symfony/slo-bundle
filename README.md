@@ -350,7 +350,9 @@ controllers and handlers, and the tag has to exist by then. `PointTag::TAG` is t
 
 ## Public API
 
-Covered by semantic versioning; everything else is marked `@internal` and may change in any release.
+Covered by semantic versioning; everything else is marked `@internal` and may change in any release. That includes the
+few public methods of the types below that carry `@internal` (helpers of discovery and of the compiled catalog, such as
+`Classification::appliesTo()`, `SloDefinition::withWindow()` or `LatencyThreshold::fromMilliseconds()`).
 
 | Part | Contents |
 |------|----------|

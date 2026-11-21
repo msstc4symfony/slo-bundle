@@ -50,6 +50,8 @@ final readonly class Classification
 
     /**
      * @param ClassificationField $field
+     *
+     * @internal discovery helper, not covered by semantic versioning
      */
     public static function appliesTo(string $field, PointType $type): bool
     {
@@ -60,6 +62,8 @@ final readonly class Classification
      * @param ClassificationField $field
      *
      * @return non-empty-list<PointType>
+     *
+     * @internal discovery helper, not covered by semantic versioning
      */
     public static function pointTypesOf(string $field): array
     {
@@ -68,6 +72,8 @@ final readonly class Classification
 
     /**
      * @return list<ClassificationField> options that do not apply to the point type but differ from their default
+     *
+     * @internal discovery helper, not covered by semantic versioning
      */
     public function inapplicableFieldsFor(PointType $type): array
     {

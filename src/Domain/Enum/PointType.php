@@ -13,6 +13,8 @@ enum PointType: string
 
     /**
      * Only HTTP latency can count error responses: the other point types have no error-but-measured event.
+     *
+     * @internal discovery helper, not covered by semantic versioning
      */
     public function acceptsIncludeErrors(): bool
     {

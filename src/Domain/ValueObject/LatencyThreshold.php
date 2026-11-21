@@ -46,6 +46,9 @@ final readonly class LatencyThreshold
         return new self($milliseconds);
     }
 
+    /**
+     * @internal restores a compiled threshold, not covered by semantic versioning
+     */
     public static function fromMilliseconds(int $milliseconds): self
     {
         if ($milliseconds < 1 || $milliseconds > self::MAX_MILLISECONDS) {

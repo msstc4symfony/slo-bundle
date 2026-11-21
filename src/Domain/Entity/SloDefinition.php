@@ -124,6 +124,8 @@ final readonly class SloDefinition
 
     /**
      * The window is not part of the revision, so its spelling may change without splitting series.
+     *
+     * @internal discovery helper, not covered by semantic versioning
      */
     public function withWindow(Window $window): self
     {
