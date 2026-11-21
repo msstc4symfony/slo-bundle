@@ -9,6 +9,7 @@ use Msstc4Symfony\SloBundle\Application\Attribute\Slo;
 use Msstc4Symfony\SloBundle\Application\Discovery\PointTag;
 use Msstc4Symfony\SloBundle\Application\Discovery\TaggedPoint;
 use Msstc4Symfony\SloBundle\Domain\Entity\SloDefinition;
+use Msstc4Symfony\SloBundle\Domain\Enum\ObjectiveKind;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
 use Msstc4Symfony\SloBundle\Domain\Enum\StrategyPreference;
 use Msstc4Symfony\SloBundle\Domain\Repository\SloCatalogInterface;
@@ -20,6 +21,7 @@ use Msstc4Symfony\SloBundle\Test\Fixtures\Action\RefundAction;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\AdminController;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\CatalogController;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\ConflictingSloController;
+use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\Invalid\BlankIgnoreReasonController;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\Invalid\InvalidValuesController;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\Invalid\InvokableSloAndIgnoreController;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\Invalid\SloAndIgnoreController;
@@ -307,6 +309,19 @@ final class CollectSloDefinitionsPassTest extends TestCase
         self::assertSame(['payment.validation'], $catalog->extras()->operations);
     }
 
+    public function testConfiguredOperationAcceptsACombinedObjective(): void
+    {
+        $catalog = $this->catalog([], null, ['operations' => ['payment.export' => [
+            'objectives' => [['type' => 'combined', 'threshold' => '100ms', 'target' => 99]],
+        ]]]);
+
+        $objectives = $this->definition($catalog, 'payment.export')->objectives();
+        self::assertCount(1, $objectives);
+        self::assertSame(ObjectiveKind::Combined, $objectives[0]->kind);
+        self::assertSame(100, $objectives[0]->threshold?->milliseconds);
+        self::assertSame(99.0, $objectives[0]->target->percent);
+    }
+
     public function testMetricBucketsAndIgnoredRoutesComeFromMetricsBundleParameters(): void
     {
         $catalog = $this->catalog([], static function (ContainerBuilder $container): void {
@@ -390,6 +405,13 @@ final class CollectSloDefinitionsPassTest extends TestCase
         yield 'percent in a tagged point id' => [[], static function (ContainerBuilder $container): void {
             $container->register(RefundAction::class, RefundAction::class)->addTag(PointTag::TAG, [PointTag::TYPE => 'logic_action', PointTag::ID => 'refund%done%']);
         }, [], 'service "' . RefundAction::class . '": tag "msstc4symfony_slo.point" needs attribute "type" (one of http_route|messenger_message|logic_action|operation) and a non-empty "id" without "%".'];
+        yield 'empty tagged point id' => [[], static function (ContainerBuilder $container): void {
+            $container->register(RefundAction::class, RefundAction::class)->addTag(PointTag::TAG, [PointTag::TYPE => 'logic_action', PointTag::ID => '']);
+        }, [], 'service "' . RefundAction::class . '": tag "msstc4symfony_slo.point" needs attribute "type"'];
+        yield 'missing tagged point id' => [[], static function (ContainerBuilder $container): void {
+            $container->register(RefundAction::class, RefundAction::class)->addTag(PointTag::TAG, [PointTag::TYPE => 'logic_action']);
+        }, [], 'service "' . RefundAction::class . '": tag "msstc4symfony_slo.point" needs attribute "type"'];
+        yield 'attribute constructor rejects its value' => [[BlankIgnoreReasonController::class], null, [], $http(BlankIgnoreReasonController::class, 'debug') . ': invalid attribute: IgnoreMonitoring reason must not be blank.'];
         yield 'invalid tagged point type' => [[], static function (ContainerBuilder $container): void {
             $container->register(RefundAction::class, RefundAction::class)->addTag(PointTag::TAG, [PointTag::TYPE => 'job', PointTag::ID => 'refund']);
         }, [], 'service "' . RefundAction::class . '": tag "msstc4symfony_slo.point" needs attribute "type"'];
