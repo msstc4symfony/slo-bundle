@@ -51,7 +51,7 @@ final class CollectSloDefinitionsPass implements CompilerPassInterface
         $controllerReader = new ControllerReader($attributes);
         $controllers = $controllerReader->read($container);
         [$handlers, $warnings] = (new HandlerReader($attributes, $errors))->read($container, MessengerRouting::fromContainer($container));
-        $taggedPoints = (new TaggedPointReader($attributes, $errors))->read($container);
+        [$taggedPoints, $taggedWarnings] = (new TaggedPointReader($attributes, $errors))->read($container);
         $operations = (new OperationReader($assembler))->read($this->parameter($container, 'operations'));
 
         $extras = new CatalogExtras(
@@ -62,7 +62,7 @@ final class CollectSloDefinitionsPass implements CompilerPassInterface
             MessengerRouting::failureTransports($container, $this->parameter($container, 'defaults.messenger.failure_transports')),
             MetricsParameters::buckets($container),
             MetricsParameters::httpIgnoredRoutes($container),
-            $warnings,
+            [...$warnings, ...$taggedWarnings],
             $controllerReader->serviceIds($container),
         );
         $contents = $assembler->assemble(DefaultsReader::factory($container), $errors, $extras);
@@ -74,7 +74,7 @@ final class CollectSloDefinitionsPass implements CompilerPassInterface
         $dump = self::escape(CatalogDump::toArray($contents, new MetricsBundleSeriesCatalog()));
         $container->getDefinition(CompiledSloCatalog::class)->setArgument('$catalog', $dump);
         if ($container->hasDefinition(RouteIndexFile::class)) {
-            $container->getDefinition(RouteIndexFile::class)->setArgument('$fingerprint', self::fingerprint($dump));
+            $container->getDefinition(RouteIndexFile::class)->setArgument('$fingerprint', $this->fingerprint($dump));
         }
     }
 
@@ -111,7 +111,7 @@ final class CollectSloDefinitionsPass implements CompilerPassInterface
      *
      * @return non-empty-string
      */
-    private static function fingerprint(array $dump): string
+    private function fingerprint(array $dump): string
     {
         return hash('xxh128', serialize($dump));
     }

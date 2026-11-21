@@ -24,12 +24,13 @@ final readonly class TaggedPointReader
     }
 
     /**
-     * @return list<TaggedPoint> sorted by point
+     * @return array{list<TaggedPoint>, list<non-empty-string>} points sorted by point, warnings
      */
     public function read(ContainerBuilder $container): array
     {
         $points = [];
         $owners = [];
+        $declared = [];
         foreach ($container->findTaggedServiceIds(PointTag::TAG) as $id => $tags) {
             $class = ServiceClass::reflect($container, $id);
             if (!$class instanceof ReflectionClass) {
@@ -45,20 +46,69 @@ final readonly class TaggedPointReader
                 }
                 $key = $point->toString();
                 if (isset($owners[$key])) {
-                    if ($owners[$key] !== $id) {
-                        $this->errors->add(\sprintf('%s: tagged on services "%s" and "%s"; a tagged point id must be unique.', $key, $owners[$key], $id));
-                    }
+                    $this->checkRepeatedTag($key, $owners[$key], $id, $points[$key]->metricLabel, $tag);
 
                     continue;
                 }
                 $owners[$key] = $id;
                 $points[$key] = new TaggedPoint($point, $this->metricLabel($id, $tag));
-                $this->attributes->apply($point, $class);
+                $declared[$key] = $this->attributes->apply($point, $class);
             }
         }
         ksort($points, SORT_STRING);
 
-        return array_values($points);
+        return $this->withoutSharedMetricLabels($points, $declared);
+    }
+
+    /**
+     * @param array<array-key, mixed> $tag
+     */
+    private function checkRepeatedTag(string $key, string $owner, string $id, ?string $label, array $tag): void
+    {
+        if ($owner !== $id) {
+            $this->errors->add(\sprintf('%s: tagged on services "%s" and "%s"; a tagged point id must be unique.', $key, $owner, $id));
+
+            return;
+        }
+        $other = $this->metricLabel($id, $tag);
+        if ($other !== $label) {
+            $this->errors->add(\sprintf('%s: service "%s" is tagged twice with different "%s" values ("%s", "%s").', $key, $id, PointTag::METRIC_LABEL, $label ?? '', $other ?? ''));
+        }
+    }
+
+    /**
+     * Points of one type sharing a metric_label cannot be told apart in the bridge's series: an SLO on one of them
+     * would count the others' events, so the label is dropped and the SLO falls back to dedicated counters.
+     *
+     * @param array<string, TaggedPoint> $points
+     * @param array<string, bool> $declared point => declares #[Slo]
+     *
+     * @return array{list<TaggedPoint>, list<non-empty-string>}
+     */
+    private function withoutSharedMetricLabels(array $points, array $declared): array
+    {
+        $byLabel = [];
+        foreach ($points as $key => $tagged) {
+            if ($tagged->metricLabel !== null) {
+                $byLabel[$tagged->point->type->value][$tagged->metricLabel][] = $key;
+            }
+        }
+        $warnings = [];
+        foreach ($byLabel as $labels) {
+            foreach ($labels as $label => $keys) {
+                if (\count($keys) < 2) {
+                    continue;
+                }
+                foreach ($keys as $key) {
+                    if ($declared[$key] ?? false) {
+                        $warnings[] = \sprintf('%s: metric_label "%s" is also used by %s; their series cannot be told apart, so the SLO uses dedicated counters.', $key, $label, implode(', ', array_diff($keys, [$key])));
+                    }
+                    $points[$key] = new TaggedPoint($points[$key]->point, null);
+                }
+            }
+        }
+
+        return [array_values($points), $warnings];
     }
 
     /**

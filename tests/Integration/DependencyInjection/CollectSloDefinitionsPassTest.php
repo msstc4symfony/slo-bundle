@@ -298,6 +298,35 @@ final class CollectSloDefinitionsPassTest extends TestCase
         self::assertSame('RefundAction', $tagged[1]->metricLabel);
     }
 
+    public function testAMetricLabelSharedByTwoTaggedPointsIsDroppedSoTheSloUsesDedicatedCounters(): void
+    {
+        $catalog = $this->catalog([], static function (ContainerBuilder $container): void {
+            $container->register(RefundAction::class, RefundAction::class)
+                ->addTag(PointTag::TAG, [PointTag::TYPE => 'logic_action', PointTag::ID => 'refund', PointTag::METRIC_LABEL => 'Action'])
+            ;
+            $container->register(CleanupAction::class, CleanupAction::class)
+                ->addTag(PointTag::TAG, [PointTag::TYPE => 'logic_action', PointTag::ID => 'cleanup', PointTag::METRIC_LABEL => 'Action'])
+            ;
+        });
+
+        self::assertSame([null, null], array_map(static fn (TaggedPoint $t): ?string => $t->metricLabel, $catalog->extras()->taggedPoints));
+        self::assertNull($catalog->metricLabelOf(PointId::of(PointType::LogicAction, 'refund')));
+        self::assertSame(['logic_action:refund: metric_label "Action" is also used by logic_action:cleanup; their series cannot be told apart, so the SLO uses dedicated counters.'], $catalog->extras()->warnings);
+    }
+
+    public function testOneServiceTaggedTwiceWithTheSameMetricLabelIsOnePoint(): void
+    {
+        $catalog = $this->catalog([], static function (ContainerBuilder $container): void {
+            $container->register(RefundAction::class, RefundAction::class)
+                ->addTag(PointTag::TAG, [PointTag::TYPE => 'logic_action', PointTag::ID => 'refund', PointTag::METRIC_LABEL => 'RefundAction'])
+                ->addTag(PointTag::TAG, [PointTag::TYPE => 'logic_action', PointTag::ID => 'refund', PointTag::METRIC_LABEL => 'RefundAction'])
+            ;
+        });
+
+        self::assertSame('RefundAction', $catalog->metricLabelOf(PointId::of(PointType::LogicAction, 'refund')));
+        self::assertSame([], $catalog->extras()->warnings);
+    }
+
     public function testTheRouteIndexFileIsBoundToAFingerprintOfTheCatalog(): void
     {
         $payment = $this->fingerprint([PaymentController::class]);
@@ -441,6 +470,12 @@ final class CollectSloDefinitionsPassTest extends TestCase
             $container->register(RefundAction::class, RefundAction::class)->addTag(PointTag::TAG, [PointTag::TYPE => 'logic_action', PointTag::ID => 'refund']);
             $container->register('second_refund', CleanupAction::class)->addTag(PointTag::TAG, [PointTag::TYPE => 'logic_action', PointTag::ID => 'refund']);
         }, [], 'logic_action:refund: tagged on services "' . RefundAction::class . '" and "second_refund"'];
+        yield 'one service tagged twice with different metric labels' => [[], static function (ContainerBuilder $container): void {
+            $container->register(RefundAction::class, RefundAction::class)
+                ->addTag(PointTag::TAG, [PointTag::TYPE => 'logic_action', PointTag::ID => 'refund', PointTag::METRIC_LABEL => 'RefundAction'])
+                ->addTag(PointTag::TAG, [PointTag::TYPE => 'logic_action', PointTag::ID => 'refund', PointTag::METRIC_LABEL => 'Refund'])
+            ;
+        }, [], 'logic_action:refund: service "' . RefundAction::class . '" is tagged twice with different "metric_label" values ("RefundAction", "Refund").'];
         yield 'invalid default window without any point' => [[], null, ['defaults' => ['window' => '5m']], 'msstc4symfony_slo.defaults: Invalid SLO window "5m"'];
         yield 'overlapping default statuses without any point' => [[], null, ['defaults' => ['http' => ['bad_statuses' => ['5xx'], 'ineligible_statuses' => ['503']]]], 'msstc4symfony_slo.defaults: Bad statuses "5xx" overlap ineligible statuses "503"'];
         yield 'invalid default status' => [[], null, ['defaults' => ['http' => ['bad_statuses' => ['600']]]], 'msstc4symfony_slo.defaults: '];
