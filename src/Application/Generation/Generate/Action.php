@@ -47,7 +47,7 @@ final readonly class Action
 
         $selector = new Selector($application, $this->config->components);
         $rules = ($this->rules)(new RulesInput($selector, $this->config->prometheusRules, $this->config->prometheusAlerts, $this->config->noEventsAlertHours));
-        $dashboards = ($this->dashboards)(new DashboardsInput($selector, $this->config->datasourceUid, $this->config->folder, $this->config->ignoredRoutes));
+        $dashboards = ($this->dashboards)(new DashboardsInput($selector));
         $sloth = ($this->sloth)(new SlothInput($selector, $this->config->sloth));
 
         $files = ($this->sync)(new SyncInput($rules->files->merge($dashboards->files)->merge($sloth->files), $root, $input->check));

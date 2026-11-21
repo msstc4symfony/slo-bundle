@@ -188,10 +188,12 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
 - Use case `Application/Generation/GenerateDashboards\{Action,Input,Output,DashboardContext}`: собирает `BoundObjectiveCollector` +
   `Coverage\Analyze\Action` + наличие гистограммы logic (`SeriesCatalogInterface::histogramFor()` + `metricBuckets()`) в `DashboardContext` и
   отдаёт `GeneratedFileSet` (каталоги `grafana/dashboards`, `grafana/provisioning/dashboards`; новых управляемых каталогов нет). Порт
-  `GrafanaFileBuilderInterface` (адаптер `Infrastructure/Grafana/GrafanaFileBuilder`, создаётся фабрикой `GrafanaFileBuilder::standard()`).
+  `GrafanaFileBuilderInterface` (адаптер `Infrastructure/Grafana/GrafanaFileBuilder`, создаётся фабрикой
+  `GrafanaFileBuilder::standard($datasourceUid, $folder)` из `generation.grafana.*`: опции Grafana — настройки адаптера, не Application;
+  `Input` = только `Selector`, `ignoredRoutes` coverage-таблицы приходит в `GenerateDashboards\Action` из `coverage.http_routes.ignored_routes`).
 - Файлы: `grafana/dashboards/slo-<slug>.json`, slug = `application-overview|http-routes|messenger|business-operations|slo-overview|
   monitoring-coverage` (т. е. `slo-slo-overview.json` — буквально по брифу), `grafana/provisioning/dashboards/slo.yaml`
-  (провайдер `slo`, `folder` из `generation.grafana.folder`, `options.path` = `Input::DEFAULT_DASHBOARDS_PATH` `/var/lib/grafana/dashboards`
+  (провайдер `slo`, `folder` из `generation.grafana.folder`, `options.path` = `GrafanaFileBuilder::DASHBOARDS_PATH` `/var/lib/grafana/dashboards`
   — путь внутри контейнера Grafana, не `output_dir`).
 - `uid` = `slo-` + первые 12 hex `sha256(<короткое имя дашборда><application>)`, например `Application Overview` + `shop`. Заголовок
   `SLO: <имя> (<application>)`. `schemaVersion` 41, `time now-24h..now`, `refresh 1m`, нет `version`. Переменные: `datasource`

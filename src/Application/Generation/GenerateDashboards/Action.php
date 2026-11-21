@@ -25,12 +25,16 @@ final readonly class Action
 
     public const PROVISIONING_FILE = self::PROVISIONING_DIRECTORY . '/slo.yaml';
 
+    /**
+     * @param list<string> $ignoredRoutes routes excluded from the coverage table (coverage.http_routes.ignored_routes)
+     */
     public function __construct(
         private BoundObjectiveCollector $objectives,
         private AnalyzeCoverage $coverage,
         private GrafanaFileBuilderInterface $builder,
         private CatalogDiagnosticsInterface $diagnostics,
         private SeriesCatalogInterface $series,
+        private array $ignoredRoutes = [],
     ) {
     }
 
@@ -38,9 +42,8 @@ final readonly class Action
     {
         $context = new DashboardContext(
             $input->selector,
-            $input->datasourceUid,
             $this->objectives->collect(),
-            ($this->coverage)(new CoverageInput($input->ignoredRoutes)),
+            ($this->coverage)(new CoverageInput($this->ignoredRoutes)),
             $this->hasLogicHistogram(),
         );
 
@@ -48,7 +51,7 @@ final readonly class Action
             [self::DASHBOARDS_DIRECTORY, self::PROVISIONING_DIRECTORY],
             [
                 ...$this->builder->dashboards($context),
-                new GeneratedFile(self::PROVISIONING_FILE, $this->builder->provisioning($input->folder, $input->dashboardsPath)),
+                new GeneratedFile(self::PROVISIONING_FILE, $this->builder->provisioning()),
             ],
         ));
     }

@@ -17,18 +17,27 @@ use Override;
  */
 final readonly class GrafanaFileBuilder implements GrafanaFileBuilderInterface
 {
+    /** Where the generated dashboards are mounted in the Grafana container, the provisioning `options.path`. */
+    public const DASHBOARDS_PATH = '/var/lib/grafana/dashboards';
+
     /**
      * @param list<DashboardInterface> $dashboards
+     * @param non-empty-string $folder Grafana folder the dashboards are placed into
      */
     public function __construct(
         private array $dashboards,
         private DashboardBuilder $builder,
         private DeterministicJson $json,
         private DeterministicYaml $yaml,
+        private string $folder = 'SLO',
     ) {
     }
 
-    public static function standard(): self
+    /**
+     * @param non-empty-string $datasourceUid default of the dashboards' `datasource` variable
+     * @param non-empty-string $folder
+     */
+    public static function standard(string $datasourceUid = 'prometheus', string $folder = 'SLO'): self
     {
         $panels = new PanelFactory();
         $rows = new SloRows($panels, new PromQlBuilder());
@@ -42,9 +51,10 @@ final readonly class GrafanaFileBuilder implements GrafanaFileBuilderInterface
                 new SloOverview($panels, $rows),
                 new MonitoringCoverage($panels),
             ],
-            new DashboardBuilder(),
+            new DashboardBuilder($datasourceUid),
             new DeterministicJson(),
             new DeterministicYaml(),
+            $folder,
         );
     }
 
@@ -63,16 +73,16 @@ final readonly class GrafanaFileBuilder implements GrafanaFileBuilderInterface
     }
 
     #[Override]
-    public function provisioning(string $folder, string $dashboardsPath): string
+    public function provisioning(): string
     {
         return $this->yaml->dump([
             'apiVersion' => 1,
             'providers' => [[
                 'allowUiUpdates' => false,
                 'disableDeletion' => false,
-                'folder' => $folder,
+                'folder' => $this->folder,
                 'name' => 'slo',
-                'options' => ['path' => $dashboardsPath],
+                'options' => ['path' => self::DASHBOARDS_PATH],
                 'type' => 'file',
             ]],
         ]);

@@ -7,6 +7,7 @@ namespace Msstc4Symfony\SloBundle\Test\Unit\Application\Generation\GenerateDashb
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateDashboards\Input;
 use Msstc4Symfony\SloBundle\Application\Generation\GeneratedFile;
 use Msstc4Symfony\SloBundle\Application\Generation\Selector;
+use Msstc4Symfony\SloBundle\Infrastructure\Grafana\GrafanaFileBuilder;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Generation\GenerationFixture;
 use PHPUnit\Framework\TestCase;
 
@@ -193,9 +194,9 @@ final class ActionTest extends TestCase
         self::assertStringContainsString('| health | http_route | unmonitored | - | no SLO is declared |', $points);
     }
 
-    public function testProvisioningPointsAtTheConfiguredFolderAndDashboardDirectory(): void
+    public function testProvisioningPointsAtTheConfiguredFolderAndTheGrafanaDashboardDirectory(): void
     {
-        $output = GenerationFixture::dashboardsAction(GenerationFixture::catalog())(new Input(new Selector('shop', []), 'prom-main', 'Reliability', [], '/srv/dashboards'));
+        $output = GenerationFixture::dashboardsAction(GenerationFixture::catalog(), GrafanaFileBuilder::standard('prom-main', 'Reliability'))(new Input(new Selector('shop', [])));
 
         self::assertSame(
             <<<'YAML'
@@ -206,7 +207,7 @@ final class ActionTest extends TestCase
                     folder: Reliability
                     name: slo
                     options:
-                      path: /srv/dashboards
+                      path: /var/lib/grafana/dashboards
                     type: file
 
                 YAML,
@@ -215,6 +216,16 @@ final class ActionTest extends TestCase
         $dashboard = JsonView::decode($this->file($output->files->files, 'grafana/dashboards/slo-slo-overview.json'));
         self::assertSame('prom-main', $dashboard->get('templating.list.0.current.value'));
         self::assertSame('shop', $dashboard->get('templating.list.1.query'));
+    }
+
+    public function testIgnoredRoutesOfTheCoverageConfigAreLeftOutOfTheCoverageTable(): void
+    {
+        $output = GenerationFixture::dashboardsAction(GenerationFixture::catalog(), null, ['health'])(GenerationFixture::dashboardsInput());
+        $points = JsonView::decode($this->file($output->files->files, 'grafana/dashboards/slo-monitoring-coverage.json'))->get('panels.1.options.content');
+
+        self::assertIsString($points);
+        self::assertStringContainsString('| checkout_pay | http_route | monitored |', $points);
+        self::assertStringNotContainsString('| health | http_route | unmonitored |', $points);
     }
 
     /**

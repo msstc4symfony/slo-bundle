@@ -16,13 +16,11 @@ use Msstc4Symfony\SloBundle\Application\Generation\Selector;
 final readonly class DashboardContext
 {
     /**
-     * @param non-empty-string $datasourceUid default of the `datasource` variable
      * @param list<BoundObjective> $objectives
      * @param bool $logicHistogram metrics-bundle declares the logic action duration histogram
      */
     public function __construct(
         public Selector $selector,
-        public string $datasourceUid,
         public array $objectives,
         public Coverage $coverage,
         public bool $logicHistogram,

@@ -6,7 +6,9 @@ namespace Msstc4Symfony\SloBundle\Test\Unit\Presentation\Command;
 
 use Msstc4Symfony\SloBundle\Application\Generation\Generate\Action as GenerateAction;
 use Msstc4Symfony\SloBundle\Application\Generation\Generate\GenerationConfig;
+use Msstc4Symfony\SloBundle\Application\Generation\GenerateDashboards\Action as GenerateDashboardsAction;
 use Msstc4Symfony\SloBundle\Application\Generation\SyncFiles\Action as SyncAction;
+use Msstc4Symfony\SloBundle\Infrastructure\Grafana\GrafanaFileBuilder;
 use Msstc4Symfony\SloBundle\Presentation\Command\GenerateCommand;
 use Msstc4Symfony\SloBundle\Test\Integration\TestContainer;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Generation\GenerationFixture;
@@ -135,7 +137,9 @@ final class GenerateCommandTest extends TestCase
         $container = TestContainer::compile();
         $definition = $container->getDefinition(GenerationConfig::class);
 
-        self::assertSame([null, [], sys_get_temp_dir() . '/infrastructure/observability', true, true, null, 'prometheus', 'SLO', [], false], array_values($definition->getArguments()));
+        self::assertSame([null, [], sys_get_temp_dir() . '/infrastructure/observability', true, true, null, false], array_values($definition->getArguments()));
+        self::assertSame(['prometheus', 'SLO'], array_values($container->getDefinition(GrafanaFileBuilder::class)->getArguments()));
+        self::assertSame([], $container->getDefinition(GenerateDashboardsAction::class)->getArgument(5));
         self::assertSame('slo:generate', $this->command(new InMemoryFileWriter())->getName());
     }
 

@@ -38,6 +38,13 @@ final readonly class DashboardBuilder
     public const SCHEMA_VERSION = 41;
 
     /**
+     * @param non-empty-string $datasourceUid default of the `datasource` variable
+     */
+    public function __construct(private string $datasourceUid = 'prometheus')
+    {
+    }
+
+    /**
      * @return DashboardJson
      */
     public function build(DashboardInterface $dashboard, DashboardContext $context): array
@@ -117,7 +124,7 @@ final readonly class DashboardBuilder
 
         return [
             [
-                'current' => ['text' => $context->datasourceUid, 'value' => $context->datasourceUid],
+                'current' => ['text' => $this->datasourceUid, 'value' => $this->datasourceUid],
                 'hide' => 0,
                 'includeAll' => false,
                 'label' => 'Datasource',

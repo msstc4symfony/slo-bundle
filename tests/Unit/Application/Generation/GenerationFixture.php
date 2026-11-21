@@ -92,9 +92,12 @@ final class GenerationFixture
         return new SlothAction(self::collector($catalog), new SlothSpecBuilder(new PromQlBuilder(), new DeterministicYaml()));
     }
 
-    public static function dashboardsAction(CompiledSloCatalog $catalog): DashboardsAction
+    /**
+     * @param list<string> $ignoredRoutes
+     */
+    public static function dashboardsAction(CompiledSloCatalog $catalog, ?GrafanaFileBuilder $builder = null, array $ignoredRoutes = []): DashboardsAction
     {
-        return new DashboardsAction(self::collector($catalog), new CoverageAction($catalog, $catalog, self::routes(), new MetricsBundleSeriesCatalog()), GrafanaFileBuilder::standard(), $catalog, new MetricsBundleSeriesCatalog());
+        return new DashboardsAction(self::collector($catalog), new CoverageAction($catalog, $catalog, self::routes(), new MetricsBundleSeriesCatalog()), $builder ?? GrafanaFileBuilder::standard(), $catalog, new MetricsBundleSeriesCatalog(), $ignoredRoutes);
     }
 
     public static function dashboardsInput(): DashboardsInput

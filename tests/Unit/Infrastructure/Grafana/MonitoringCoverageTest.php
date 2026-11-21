@@ -40,7 +40,7 @@ final class MonitoringCoverageTest extends TestCase
             array_map(static fn (CoverageKind $kind): KindCoverage => new KindCoverage($kind, 0, 0, 100.0), CoverageKind::cases()),
             0,
         );
-        $panels = (new MonitoringCoverage(new PanelFactory()))->panels(new DashboardContext(new Selector('shop', []), 'prometheus', [], $coverage, false));
+        $panels = (new MonitoringCoverage(new PanelFactory()))->panels(new DashboardContext(new Selector('shop', []), [], $coverage, false));
         $content = $panels[1]->json['options']['content'] ?? null;
         self::assertIsString($content);
 

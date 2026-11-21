@@ -151,7 +151,11 @@ return static function (ContainerConfigurator $container): void {
     $services->set(DeterministicYaml::class);
     $services->set(RuleGroupsBuilder::class);
     $services->alias(RuleFileBuilderInterface::class, RuleGroupsBuilder::class);
-    $services->set(GrafanaFileBuilder::class)->factory([GrafanaFileBuilder::class, 'standard']);
+    $services->set(GrafanaFileBuilder::class)
+        ->factory([GrafanaFileBuilder::class, 'standard'])
+        ->arg('$datasourceUid', param('msstc4symfony_slo.generation.grafana.datasource_uid'))
+        ->arg('$folder', param('msstc4symfony_slo.generation.grafana.folder'))
+    ;
     $services->alias(GrafanaFileBuilderInterface::class, GrafanaFileBuilder::class);
     $services->set(FileWriter::class);
     $services->alias(FileWriterInterface::class, FileWriter::class);
@@ -159,7 +163,9 @@ return static function (ContainerConfigurator $container): void {
     $services->alias(SlothSpecBuilderInterface::class, SlothSpecBuilder::class);
     $services->set(GenerateRulesAction::class);
     $services->set(GenerateSlothAction::class);
-    $services->set(GenerateDashboardsAction::class);
+    $services->set(GenerateDashboardsAction::class)
+        ->arg('$ignoredRoutes', param('msstc4symfony_slo.coverage.http_routes.ignored_routes'))
+    ;
     $services->set(SyncFilesAction::class);
     $services->set(GenerationConfig::class)
         ->arg('$application', param('msstc4symfony_slo.generation.selector.application'))
@@ -168,9 +174,6 @@ return static function (ContainerConfigurator $container): void {
         ->arg('$prometheusRules', param('msstc4symfony_slo.generation.prometheus.rules'))
         ->arg('$prometheusAlerts', param('msstc4symfony_slo.generation.prometheus.alerts'))
         ->arg('$noEventsAlertHours', param('msstc4symfony_slo.generation.prometheus.no_events_alert_hours'))
-        ->arg('$datasourceUid', param('msstc4symfony_slo.generation.grafana.datasource_uid'))
-        ->arg('$folder', param('msstc4symfony_slo.generation.grafana.folder'))
-        ->arg('$ignoredRoutes', param('msstc4symfony_slo.coverage.http_routes.ignored_routes'))
         ->arg('$sloth', param('msstc4symfony_slo.generation.sloth'))
     ;
     $services->set(GenerateAction::class);

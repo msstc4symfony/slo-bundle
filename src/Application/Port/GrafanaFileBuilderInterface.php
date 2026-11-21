@@ -20,8 +20,7 @@ interface GrafanaFileBuilderInterface
     public function dashboards(DashboardContext $context): array;
 
     /**
-     * @param non-empty-string $folder Grafana folder the dashboards are placed into
-     * @param non-empty-string $dashboardsPath directory of the dashboard files as seen by Grafana
+     * The file-provisioning config; the Grafana folder and the dashboards path are settings of the adapter.
      */
-    public function provisioning(string $folder, string $dashboardsPath): string;
+    public function provisioning(): string;
 }
