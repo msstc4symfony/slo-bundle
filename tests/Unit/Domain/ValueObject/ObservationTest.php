@@ -35,11 +35,33 @@ final class ObservationTest extends TestCase
 
     public function testOutcome(): void
     {
-        $observation = Observation::outcome(Outcome::ExpectedFailure, 1.5);
+        $observation = Observation::outcome(PointType::LogicAction, Outcome::ExpectedFailure, 1.5);
 
         self::assertSame(PointType::LogicAction, $observation->pointType);
         self::assertSame(Outcome::ExpectedFailure, $observation->outcome);
         self::assertSame(1.5, $observation->durationSeconds);
+    }
+
+    public function testOperationOutcomeKeepsItsPointType(): void
+    {
+        self::assertSame(PointType::Operation, Observation::outcome(PointType::Operation, Outcome::Success, 0.1)->pointType);
+    }
+
+    /**
+     * @return iterable<string, array{PointType}>
+     */
+    public static function provideNonOutcomeTypes(): iterable
+    {
+        yield 'http' => [PointType::HttpRoute];
+        yield 'messenger' => [PointType::MessengerMessage];
+    }
+
+    #[DataProvider('provideNonOutcomeTypes')]
+    public function testOutcomeRejectsPointTypesWithoutOutcomes(PointType $type): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('"' . $type->value . '"');
+        Observation::outcome($type, Outcome::Success, 0.1);
     }
 
     /**

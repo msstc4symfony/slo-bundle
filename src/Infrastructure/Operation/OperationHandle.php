@@ -66,7 +66,7 @@ final class OperationHandle implements OperationHandleInterface
 
         try {
             $elapsed = max(0, $this->clock->now() - $this->startedAt) / 1_000_000_000;
-            ($this->record)(new Input($this->point, Observation::outcome($this->outcome ?? Outcome::Success, $elapsed)));
+            ($this->record)(new Input($this->point, Observation::outcome($this->point->type, $this->outcome ?? Outcome::Success, $elapsed)));
         } catch (Throwable $e) {
             $this->logger->warning('SLO operation event was not recorded.', ['operation' => $this->point->id, 'exception' => $e]);
         }

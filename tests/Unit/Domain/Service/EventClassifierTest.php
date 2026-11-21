@@ -89,16 +89,16 @@ final class EventClassifierTest extends TestCase
         yield 'delivery handled null duration availability' => [$av, static fn (): Observation => Observation::delivery(DeliveryStatus::Handled, false, null), $good];
         yield 'delivery failed combined' => [$comb, static fn (): Observation => Observation::delivery(DeliveryStatus::Failed, false, 0.01), $bad];
 
-        yield 'outcome success' => [$av, static fn (): Observation => Observation::outcome(Outcome::Success, 0.01), $good];
-        yield 'outcome error' => [$av, static fn (): Observation => Observation::outcome(Outcome::Error, 0.01), $bad];
-        yield 'outcome expected failure good' => [$av, static fn (): Observation => Observation::outcome(Outcome::ExpectedFailure, 0.01), $good];
-        yield 'outcome expected failure bad' => [$av, static fn (): Observation => Observation::outcome(Outcome::ExpectedFailure, 0.01), $bad, ['classification' => new Classification(StatusSet::fromList(['5xx']), StatusSet::fromList([]), false, false)]];
-        yield 'outcome expected failure latency eligible' => [$lat, static fn (): Observation => Observation::outcome(Outcome::ExpectedFailure, 0.1), $good];
-        yield 'outcome expected failure not good latency' => [$lat, static fn (): Observation => Observation::outcome(Outcome::ExpectedFailure, 0.1), null, ['classification' => new Classification(StatusSet::fromList(['5xx']), StatusSet::fromList([]), false, false)]];
-        yield 'outcome error latency not eligible' => [$lat, static fn (): Observation => Observation::outcome(Outcome::Error, 0.1), null];
-        yield 'outcome success slow latency' => [$lat, static fn (): Observation => Observation::outcome(Outcome::Success, 0.5), $bad];
-        yield 'outcome error combined' => [$comb, static fn (): Observation => Observation::outcome(Outcome::Error, 0.01), $bad];
-        yield 'outcome success fast combined' => [$comb, static fn (): Observation => Observation::outcome(Outcome::Success, 0.01), $good];
+        yield 'outcome success' => [$av, static fn (): Observation => Observation::outcome(PointType::LogicAction, Outcome::Success, 0.01), $good];
+        yield 'outcome error' => [$av, static fn (): Observation => Observation::outcome(PointType::LogicAction, Outcome::Error, 0.01), $bad];
+        yield 'outcome expected failure good' => [$av, static fn (): Observation => Observation::outcome(PointType::LogicAction, Outcome::ExpectedFailure, 0.01), $good];
+        yield 'outcome expected failure bad' => [$av, static fn (): Observation => Observation::outcome(PointType::LogicAction, Outcome::ExpectedFailure, 0.01), $bad, ['classification' => new Classification(StatusSet::fromList(['5xx']), StatusSet::fromList([]), false, false)]];
+        yield 'outcome expected failure latency eligible' => [$lat, static fn (): Observation => Observation::outcome(PointType::LogicAction, Outcome::ExpectedFailure, 0.1), $good];
+        yield 'outcome expected failure not good latency' => [$lat, static fn (): Observation => Observation::outcome(PointType::LogicAction, Outcome::ExpectedFailure, 0.1), null, ['classification' => new Classification(StatusSet::fromList(['5xx']), StatusSet::fromList([]), false, false)]];
+        yield 'outcome error latency not eligible' => [$lat, static fn (): Observation => Observation::outcome(PointType::LogicAction, Outcome::Error, 0.1), null];
+        yield 'outcome success slow latency' => [$lat, static fn (): Observation => Observation::outcome(PointType::LogicAction, Outcome::Success, 0.5), $bad];
+        yield 'outcome error combined' => [$comb, static fn (): Observation => Observation::outcome(PointType::LogicAction, Outcome::Error, 0.01), $bad];
+        yield 'outcome success fast combined' => [$comb, static fn (): Observation => Observation::outcome(PointType::LogicAction, Outcome::Success, 0.01), $good];
     }
 
     /**

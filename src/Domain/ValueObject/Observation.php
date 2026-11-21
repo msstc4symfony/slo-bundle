@@ -38,8 +38,12 @@ final readonly class Observation
         return new self(PointType::MessengerMessage, null, $status, $onFailureTransport, null, $durationSeconds);
     }
 
-    public static function outcome(Outcome $outcome, float $durationSeconds): self
+    public static function outcome(PointType $type, Outcome $outcome, float $durationSeconds): self
     {
-        return new self(PointType::LogicAction, null, null, false, $outcome, $durationSeconds);
+        if ($type !== PointType::LogicAction && $type !== PointType::Operation) {
+            throw new InvalidArgumentException(\sprintf('Point type "%s" has no outcome observations: expected logic_action or operation.', $type->value));
+        }
+
+        return new self($type, null, null, false, $outcome, $durationSeconds);
     }
 }
