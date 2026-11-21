@@ -19,8 +19,7 @@ final class RouteIndexFileContractTest extends RouteIndexStoreContractTestCase
     #[Override]
     protected function setUp(): void
     {
-        $this->dir = sys_get_temp_dir() . '/msstc4symfony-slo-route-index-contract-' . getmypid();
-        (new Filesystem())->remove($this->dir);
+        $this->dir = sys_get_temp_dir() . '/msstc4symfony-slo-route-index-contract-' . getmypid() . '-' . bin2hex(random_bytes(6));
     }
 
     #[Override]
@@ -43,5 +42,11 @@ final class RouteIndexFileContractTest extends RouteIndexStoreContractTestCase
     protected function reopen(RouteIndexStoreInterface $store): RouteIndexStoreInterface
     {
         return new RouteIndexFile($this->dir, false, self::FINGERPRINT);
+    }
+
+    #[Override]
+    protected function anotherCacheDir(): string
+    {
+        return $this->dir . '/warming';
     }
 }

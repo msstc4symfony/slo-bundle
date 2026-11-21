@@ -19,6 +19,14 @@ final class InMemoryRouteIndexStoreContractTest extends RouteIndexStoreContractT
     #[Override]
     protected function reopen(RouteIndexStoreInterface $store): RouteIndexStoreInterface
     {
-        return $store;
+        self::assertInstanceOf(InMemoryRouteIndexStore::class, $store);
+
+        return $store->reopen();
+    }
+
+    #[Override]
+    protected function anotherCacheDir(): string
+    {
+        return '/cache/warming';
     }
 }

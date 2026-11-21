@@ -188,17 +188,24 @@ final class SloCacheWarmerTest extends TestCase
         $revisions = new RevisionResolver(new RevisionCalculator(), $catalog);
         (new SloCacheWarmer(new Action($catalog, $catalog, $routes, $resolver), new RouterRouteReader($router, $catalog), new RouteIndexBuilder($catalog, new MetricBindingResolver(new InMemoryRouteCatalog(), $catalog, new MetricsBundleSeriesCatalog()), $revisions, $this->logger()), $this->logger(), $store))->warmUp(self::CACHE_DIR);
 
+        $warmed = $store->written[self::CACHE_DIR] ?? null;
+        self::assertNotNull($warmed);
+        self::assertSame(['payment.create|latency', 'payment.process|latency'], array_keys($warmed->revisions()));
+
+        // The warmed recorder cannot compute a revision: every one it writes comes from the warmed index.
+        $noRuntimeRevisions = new RevisionResolver(new RevisionCalculator(), new FailingCatalog($catalog, ['failureTransports']));
         $writes = [];
-        foreach ([new WarmedRevisions($store), new FixedPrecomputedRevisions()] as $precomputed) {
+        foreach ([[new WarmedRevisions(new InMemoryRouteIndexStore($warmed)), $noRuntimeRevisions], [new FixedPrecomputedRevisions(), $revisions]] as [$precomputed, $runtime]) {
             $writer = new InMemoryEventWriter();
-            $recorder = new RecordEvent($catalog, $resolver, $revisions, new EventClassifier(), $writer, $this->logger(), $precomputed);
+            $logger = $this->logger();
+            $recorder = new RecordEvent($catalog, $resolver, $runtime, new EventClassifier(), $writer, $logger, $precomputed);
             $recorder->record(new Input($http, Observation::http(200, 0.1)));
             $recorder->record(new Input($messenger, Observation::delivery(DeliveryStatus::Handled, false, 0.1)));
             $writes[] = $writer->writes;
+            self::assertSame([], $logger->records);
         }
 
         self::assertCount(2, $writes[0]);
-        self::assertSame(['payment.create|latency', 'payment.process|latency'], array_keys(($store->written[self::CACHE_DIR] ?? null)?->revisions() ?? []));
         self::assertSame($writes[1], $writes[0]);
     }
 

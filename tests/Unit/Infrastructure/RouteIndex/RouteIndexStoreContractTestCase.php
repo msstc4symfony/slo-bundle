@@ -15,6 +15,7 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\SloName;
 use Msstc4Symfony\SloBundle\Infrastructure\RouteIndex\RouteIndexData;
 use Msstc4Symfony\SloBundle\Infrastructure\RouteIndex\RouteIndexStoreInterface;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 
 /**
  * Behaviour every RouteIndexStoreInterface implementation shares, so the in-memory fake cannot drift from the file.
@@ -67,6 +68,49 @@ abstract class RouteIndexStoreContractTestCase extends TestCase
         self::assertEquals($this->data(), $this->reopen($store)->load());
     }
 
+    public function testAFailingBuildNeverThrowsAndStoresNothing(): void
+    {
+        $store = $this->store(null);
+        $store->pointsFor('pay_create');
+
+        $store->persist(static fn (): RouteIndexData => throw new RuntimeException('catalog broken'));
+
+        self::assertNull($this->reopen($store)->load());
+    }
+
+    public function testPersistBuildsAtMostOncePerProcess(): void
+    {
+        $store = $this->store(null);
+        $builds = 0;
+        $build = function () use (&$builds): RouteIndexData {
+            $builds++;
+
+            return $this->data();
+        };
+
+        $store->persist($build);
+        $store->persist($build);
+
+        self::assertSame(1, $builds);
+    }
+
+    public function testWritingAnotherCacheDirectoryDoesNotChangeTheReads(): void
+    {
+        $store = $this->store($this->data());
+
+        $store->write($this->anotherCacheDir(), RouteIndexData::fromRoutes([], []));
+
+        self::assertEquals($this->data(), $store->load());
+        self::assertEquals($this->data(), $this->reopen($store)->load());
+    }
+
+    public function testAMalformedRevisionReadsAsNull(): void
+    {
+        $store = $this->store(RouteIndexData::fromRoutes([], [], ['pay.create|latency' => 'ABCDEF12']));
+
+        self::assertNull($store->revisionOf($this->key('pay.create', ObjectiveKind::Latency)));
+    }
+
     /**
      * @param RouteIndexData|null $stored the index the store holds before the test, null for none
      */
@@ -76,6 +120,11 @@ abstract class RouteIndexStoreContractTestCase extends TestCase
      * The store as the next process sees it.
      */
     abstract protected function reopen(RouteIndexStoreInterface $store): RouteIndexStoreInterface;
+
+    /**
+     * A cache directory being warmed that the store does not read.
+     */
+    abstract protected function anotherCacheDir(): string;
 
     protected function data(): RouteIndexData
     {

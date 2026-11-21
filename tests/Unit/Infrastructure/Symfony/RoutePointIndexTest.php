@@ -128,13 +128,17 @@ final class RoutePointIndexTest extends TestCase
             self::throwException(new RuntimeException('router broken')),
             [new RouteInfo('pay_create', '/pay', [], 'App\Pay::create')],
         );
-        $index = new RoutePointIndex($routes, $this->catalog(), $this->noFile(), new RecordingLogger(), RouteIndexFixture::builder($this->catalog(), $this->catalog()));
+        $store = $this->noFile();
+        $index = new RoutePointIndex($routes, $this->catalog(), $store, new RecordingLogger(), RouteIndexFixture::builder($this->catalog(), $this->catalog()));
 
         self::assertSame([], $index->pointsFor('pay_create'));
+        self::assertCount(0, $store->persisted);
         $index->reset();
         self::assertCount(1, $index->pointsFor('pay_create'));
         $index->reset();
         self::assertCount(1, $index->pointsFor('pay_create'));
+        self::assertCount(1, $store->persisted, 'the successful rebuild after the reset is stored');
+        self::assertSame(['http_route:App\Pay::create'], $this->strings($store->persisted[0]->pointsFor('pay_create')));
     }
 
     public function testWarmedIndexIsUsedWithoutReadingRoutes(): void
