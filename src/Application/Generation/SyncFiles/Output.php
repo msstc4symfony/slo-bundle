@@ -12,7 +12,7 @@ final readonly class Output
     /**
      * @param list<string> $stale on disk with other contents
      * @param list<string> $missing generated but not on disk
-     * @param list<string> $extra on disk in a managed directory but not generated
+     * @param list<string> $extra owned file name in a managed directory, but no longer generated
      */
     public function __construct(
         public array $stale,

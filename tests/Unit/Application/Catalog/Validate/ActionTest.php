@@ -119,6 +119,19 @@ final class ActionTest extends TestCase
         self::assertSame(['SLO report.export availability: page burn-rate alert 1h/5m omitted, factor 14.4 x error budget 0.1 >= 1'], $output->warnings);
     }
 
+    public function testAlertsWithoutRecordingRulesAreAWarning(): void
+    {
+        $catalog = CatalogFixture::build(static function (): void {
+        });
+        $resolver = new MetricBindingResolver(new InMemoryRouteCatalog(), $catalog);
+
+        $output = (new Action($catalog, $catalog, new InMemoryRouteCatalog(), $resolver, prometheusRules: false))();
+
+        self::assertTrue($output->isValid());
+        self::assertSame(['generation.prometheus.alerts is enabled but generation.prometheus.rules is not: the alert rules read slo:* records that are not generated'], $output->warnings);
+        self::assertSame([], (new Action($catalog, $catalog, new InMemoryRouteCatalog(), $resolver, prometheusRules: false, prometheusAlerts: false))()->warnings);
+    }
+
     public function testCleanCatalogIsValid(): void
     {
         $catalog = CatalogFixture::build(function ($assembler): void {

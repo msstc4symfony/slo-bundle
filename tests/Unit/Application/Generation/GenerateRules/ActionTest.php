@@ -66,9 +66,10 @@ final class ActionTest extends TestCase
         self::assertIsArray($recording['groups']);
 
         $groups = [];
+        $intervals = [];
         foreach ($recording['groups'] as $group) {
             self::assertIsArray($group);
-            self::assertSame('1m', $group['interval']);
+            $intervals[] = $group['interval'];
             self::assertIsString($group['name']);
             self::assertIsArray($group['rules']);
             $groups[$group['name']] = array_map(static function (mixed $rule): string {
@@ -81,26 +82,21 @@ final class ActionTest extends TestCase
             }, $group['rules']);
         }
 
-        self::assertSame(['slo-checkout.pay', 'slo-payment.process', 'slo-report.export'], array_keys($groups));
-        $records = static fn (string $objective, string $strategy): array => [
-            'slo:events:rate5m ' . $objective . ' ' . $strategy,
-            'slo:error_ratio:rate5m ' . $objective . ' ' . $strategy,
-            'slo:events:rate30m ' . $objective . ' ' . $strategy,
-            'slo:error_ratio:rate30m ' . $objective . ' ' . $strategy,
-            'slo:events:rate1h ' . $objective . ' ' . $strategy,
-            'slo:error_ratio:rate1h ' . $objective . ' ' . $strategy,
-            'slo:events:rate6h ' . $objective . ' ' . $strategy,
-            'slo:error_ratio:rate6h ' . $objective . ' ' . $strategy,
-            'slo:events:rate3d ' . $objective . ' ' . $strategy,
-            'slo:error_ratio:rate3d ' . $objective . ' ' . $strategy,
-            'slo:sli:ratio ' . $objective . ' ' . $strategy,
-            'slo:objective:target ' . $objective . ' ' . $strategy,
-            'slo:error_budget:remaining ' . $objective . ' ' . $strategy,
-            'slo:window:coverage_ratio ' . $objective . ' ' . $strategy,
-        ];
-        self::assertSame([...$records('availability', 'A'), ...$records('latency', 'B')], $groups['slo-checkout.pay']);
-        self::assertSame([...$records('availability', 'A'), ...$records('latency', 'A')], $groups['slo-payment.process']);
-        self::assertSame($records('availability', 'B'), $groups['slo-report.export']);
+        self::assertSame(['slo-checkout.pay', 'slo-checkout.pay-window', 'slo-payment.process', 'slo-payment.process-window', 'slo-report.export', 'slo-report.export-window'], array_keys($groups));
+        self::assertSame(['1m', '5m', '1m', '5m', '1m', '5m'], $intervals);
+        $fast = static fn (string $objective, string $strategy): array => array_map(static fn (string $record): string => $record . ' ' . $objective . ' ' . $strategy, [
+            'slo:events:rate5m', 'slo:error_ratio:rate5m', 'slo:events:rate30m', 'slo:error_ratio:rate30m',
+            'slo:events:rate1h', 'slo:error_ratio:rate1h', 'slo:events:rate6h', 'slo:error_ratio:rate6h', 'slo:objective:target',
+        ]);
+        $slow = static fn (string $objective, string $strategy): array => array_map(static fn (string $record): string => $record . ' ' . $objective . ' ' . $strategy, [
+            'slo:events:rate3d', 'slo:error_ratio:rate3d', 'slo:sli:ratio', 'slo:error_budget:remaining', 'slo:window:coverage_ratio',
+        ]);
+        self::assertSame([...$fast('availability', 'A'), ...$fast('latency', 'B')], $groups['slo-checkout.pay']);
+        self::assertSame([...$slow('availability', 'A'), ...$slow('latency', 'B')], $groups['slo-checkout.pay-window']);
+        self::assertSame([...$fast('availability', 'A'), ...$fast('latency', 'A')], $groups['slo-payment.process']);
+        self::assertSame([...$slow('availability', 'A'), ...$slow('latency', 'A')], $groups['slo-payment.process-window']);
+        self::assertSame($fast('availability', 'B'), $groups['slo-report.export']);
+        self::assertSame($slow('availability', 'B'), $groups['slo-report.export-window']);
     }
 
     public function testNoEventsAlertIsOptIn(): void
@@ -123,6 +119,27 @@ final class ActionTest extends TestCase
         $none = $action(GenerationFixture::input(rules: false, alerts: false));
         self::assertSame([], $this->paths($none));
         self::assertSame(['prometheus'], $none->files->managedDirectories);
+    }
+
+    public function testAlertsWithoutRecordingRulesAreWarned(): void
+    {
+        $action = GenerationFixture::action(GenerationFixture::catalog());
+
+        self::assertSame(
+            ['generation.prometheus.alerts is enabled but generation.prometheus.rules is not: the alert rules read slo:* records that are not generated'],
+            $action(GenerationFixture::input(rules: false))->warnings,
+        );
+        self::assertSame([], $action(GenerationFixture::input(alerts: false))->warnings);
+        self::assertSame([], $action(GenerationFixture::input(rules: false, alerts: false))->warnings);
+    }
+
+    public function testAlertsReadTheWindowGroupRecordsOverALookback(): void
+    {
+        $alerts = $this->alerts(GenerationFixture::action(GenerationFixture::catalog())(GenerationFixture::input()));
+
+        self::assertStringContainsString('last_over_time(slo:error_ratio:rate3d{slo="checkout.pay",objective="availability"}[10m]) > 0.001', $alerts);
+        self::assertStringContainsString('last_over_time(slo:window:coverage_ratio{slo="checkout.pay",objective="availability"}[10m]) >= 1', $alerts);
+        self::assertStringNotContainsString('last_over_time(slo:error_ratio:rate6h', $alerts);
     }
 
     public function testOmittedBurnRatePairsAreWarnedAndLeftOut(): void

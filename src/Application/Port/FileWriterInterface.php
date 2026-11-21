@@ -19,7 +19,7 @@ interface FileWriterInterface
     public function write(string $root, GeneratedFile $file): void;
 
     /**
-     * @return list<string> relative paths (including $directory) of every regular file below $directory, sorted
+     * @return list<string> relative paths (including $directory) of the regular files directly in $directory, sorted
      */
     public function list(string $root, string $directory): array;
 

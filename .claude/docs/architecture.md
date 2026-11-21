@@ -135,7 +135,8 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
   Application не может зависеть от Infrastructure. `BurnRatePolicy::number()` — общий формат чисел для PromQL (без экспоненты и хвостовых нулей).
 - Use cases: `GenerateRules\{Action,Input,Output}` (файлы `prometheus/slo-recording.rules.yml`, `prometheus/slo-alerts.rules.yml`, флаги
   `generation.prometheus.rules/alerts`, `no_events_alert_hours`; warnings — конфликтные SLO и опущенные burn-rate пары) и
-  `SyncFiles\{Action,Input,Output}` (stale/missing/extra по управляемым каталогам; в режиме записи пишет stale+missing и удаляет extra).
+  `SyncFiles\{Action,Input,Output}` (stale/missing/extra по своим файлам; в режиме записи пишет stale+missing и удаляет extra).
+  `rules: false` при `alerts: true` → warning в `slo:generate` и `slo:validate` (`GenerateRules\Action::configurationWarnings()`).
 - Порты: `FileWriterInterface` (read/write/list/delete относительно корня; адаптер `Infrastructure/Filesystem/FileWriter` пишет через
   временный файл + rename) и `RuleFileBuilderInterface` (адаптер `Infrastructure/Prometheus/RuleGroupsBuilder`).
 - `Infrastructure/Prometheus/PromQlBuilder` — все выражения; `RuleGroupsBuilder` — группы `slo-<name>`, `interval: 1m`;
@@ -152,9 +153,12 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
   `_count - _bucket{le}`; пустые badMatchers → `vector(0)`.
 - Все выражения агрегируются `sum(...)` до одной серии; метки ставит правило: `slo`, `objective`, `window` (окно как объявлено, `1mo`),
   `revision` только у B. Плохая серия может отсутствовать (нет ни одного bad-события) → `(bad or vector(0))`; знаменатель `(total > 0)` → NoData.
-- Записи: `slo:events:rate<w>`, `slo:error_ratio:rate<w>` (w = 5m, 30m, 1h, 6h, 3d), `slo:sli:ratio` (increase за окно),
-  `slo:objective:target` (`vector(target/100)`), `slo:error_budget:remaining` (`1 - bad / ((total > 0) * (1 - target))`),
+- Две группы на SLO: `slo-<name>` (1m) — `slo:events:rate<w>`, `slo:error_ratio:rate<w>` для 5m, 30m, 1h, 6h и
+  `slo:objective:target` (`vector(target/100)`); `slo-<name>-window` (5m) — rate3d, `slo:sli:ratio` (increase за окно),
+  `slo:error_budget:remaining` = `1 - (1 - slo:sli:ratio{...}) / (1 - target)` (из записи выше в той же группе, NoData сохраняется),
   `slo:window:coverage_ratio` = `clamp((time() - min_over_time(timestamp(sum(<total>))[<W+1h>:1h])) / W, 0, 1)`.
-- Алерты: `SloErrorBudgetBurn` page = `(1h & 5m) or (6h & 30m)` одним правилом, ticket = `(3d & 6h) and on() (coverage >= 1)`;
+- Алерты (группа `slo-<name>`, 1m): `SloErrorBudgetBurn` page = `(1h & 5m) or (6h & 30m)` одним правилом, ticket =
+  `(last_over_time(rate3d[10m]) & 6h) and on() (last_over_time(coverage[10m]) >= 1)` — записи 5m-группы читаются через
+  `last_over_time(...[10m])`, чтобы запоздавшая оценка не давала дыр;
   пороги — готовые числа `factor × (1 - target)`; `SloNoEvents` (severity ticket) = `(sum(increase(<total>[Nh])) or vector(0)) == 0`.
   Аннотация только `summary` (имя, objective, target, окно), без runbook.

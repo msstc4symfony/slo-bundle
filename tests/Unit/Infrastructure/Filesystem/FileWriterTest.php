@@ -39,7 +39,7 @@ final class FileWriterTest extends TestCase
         self::assertSame([], glob($this->root . '/prometheus/.*.tmp*'));
     }
 
-    public function testListsRegularFilesRecursivelyAndSorted(): void
+    public function testListsOnlyTheFilesDirectlyInTheDirectorySorted(): void
     {
         $writer = new FileWriter();
         $writer->write($this->root, new GeneratedFile('grafana/dashboards/b.json', '{}'));
@@ -47,7 +47,10 @@ final class FileWriterTest extends TestCase
         $writer->write($this->root, new GeneratedFile('grafana/a.json', '{}'));
         $writer->write($this->root, new GeneratedFile('prometheus/x.yml', 'x'));
 
-        self::assertSame(['grafana/a.json', 'grafana/dashboards/b.json', 'grafana/provisioning/slo.yaml'], $writer->list($this->root, 'grafana'));
+        $writer->write($this->root, new GeneratedFile('grafana/0.json', '{}'));
+
+        self::assertSame(['grafana/0.json', 'grafana/a.json'], $writer->list($this->root, 'grafana'));
+        self::assertSame(['grafana/dashboards/b.json'], $writer->list($this->root, 'grafana/dashboards'));
         self::assertSame([], $writer->list($this->root, 'sloth'));
     }
 

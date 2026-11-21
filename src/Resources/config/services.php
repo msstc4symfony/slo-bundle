@@ -85,7 +85,10 @@ return static function (ContainerConfigurator $container): void {
     $services->alias(OperationMonitorInterface::class, OperationMonitor::class)->public();
 
     $services->set(ListAction::class);
-    $services->set(ValidateAction::class);
+    $services->set(ValidateAction::class)
+        ->arg('$prometheusRules', param('msstc4symfony_slo.generation.prometheus.rules'))
+        ->arg('$prometheusAlerts', param('msstc4symfony_slo.generation.prometheus.alerts'))
+    ;
     $services->set(CoverageAction::class);
     $services->set(CoverageCommand::class)
         ->arg('$ignoredRoutes', param('msstc4symfony_slo.coverage.http_routes.ignored_routes'))

@@ -27,14 +27,21 @@ final class GenerateCommandTest extends TestCase
 
     public function testWritesTheFilesIntoTheConfiguredDirectoryAndThenChecksClean(): void
     {
-        $writer = new InMemoryFileWriter();
+        $writer = new InMemoryFileWriter([
+            '/project/observability/prometheus/prometheus.yml' => "hand-written\n",
+            '/project/observability/prometheus/slo-old.rules.yml' => "removed slo\n",
+        ]);
         $command = $this->command($writer);
 
         $tester = new CommandTester($command);
         self::assertSame(Command::SUCCESS, $tester->execute([]));
-        self::assertSame(['/project/observability/prometheus/slo-alerts.rules.yml', '/project/observability/prometheus/slo-recording.rules.yml'], array_keys($writer->files));
+        self::assertSame(
+            ['/project/observability/prometheus/prometheus.yml', '/project/observability/prometheus/slo-alerts.rules.yml', '/project/observability/prometheus/slo-recording.rules.yml'],
+            array_keys($writer->files),
+        );
         self::assertStringContainsString('written prometheus/slo-alerts.rules.yml', $tester->getDisplay());
-        self::assertStringContainsString('2 file(s) written, 0 deleted in /project/observability', $tester->getDisplay());
+        self::assertStringContainsString('deleted prometheus/slo-old.rules.yml', $tester->getDisplay());
+        self::assertStringContainsString('2 file(s) written, 1 deleted in /project/observability', $tester->getDisplay());
 
         $check = new CommandTester($command);
         self::assertSame(Command::SUCCESS, $check->execute(['--check' => true]));
@@ -45,7 +52,8 @@ final class GenerateCommandTest extends TestCase
     {
         $writer = new InMemoryFileWriter([
             '/elsewhere/prometheus/slo-recording.rules.yml' => "old\n",
-            '/elsewhere/prometheus/removed.rules.yml' => "x\n",
+            '/elsewhere/prometheus/slo-removed.rules.yml' => "x\n",
+            '/elsewhere/prometheus/prometheus.yml' => "hand-written\n",
         ]);
         $tester = new CommandTester($this->command($writer));
 
@@ -53,7 +61,8 @@ final class GenerateCommandTest extends TestCase
         $display = $tester->getDisplay();
         self::assertStringContainsString('stale   prometheus/slo-recording.rules.yml', $display);
         self::assertStringContainsString('missing prometheus/slo-alerts.rules.yml', $display);
-        self::assertStringContainsString('extra   prometheus/removed.rules.yml', $display);
+        self::assertStringContainsString('extra   prometheus/slo-removed.rules.yml', $display);
+        self::assertStringNotContainsString('prometheus.yml', $display);
         self::assertStringContainsString('run slo:generate', $display);
         self::assertSame("old\n", $writer->files['/elsewhere/prometheus/slo-recording.rules.yml']);
     }

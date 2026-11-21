@@ -8,8 +8,6 @@ use FilesystemIterator;
 use Msstc4Symfony\SloBundle\Application\Generation\GeneratedFile;
 use Msstc4Symfony\SloBundle\Application\Port\FileWriterInterface;
 use Override;
-use RecursiveDirectoryIterator;
-use RecursiveIteratorIterator;
 use RuntimeException;
 use SplFileInfo;
 
@@ -65,10 +63,9 @@ final readonly class FileWriter implements FileWriterInterface
         }
 
         $paths = [];
-        $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($base, FilesystemIterator::SKIP_DOTS));
-        foreach ($files as $file) {
+        foreach (new FilesystemIterator($base, FilesystemIterator::SKIP_DOTS) as $file) {
             if ($file instanceof SplFileInfo && $file->isFile()) {
-                $paths[] = $directory . '/' . str_replace('\\', '/', substr($file->getPathname(), \strlen($base) + 1));
+                $paths[] = $directory . '/' . $file->getFilename();
             }
         }
         sort($paths, SORT_STRING);

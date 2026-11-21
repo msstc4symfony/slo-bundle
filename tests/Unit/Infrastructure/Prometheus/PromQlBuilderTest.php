@@ -41,8 +41,8 @@ final class PromQlBuilderTest extends TestCase
             $builder->sliRatio(GenerationFixture::input()->selector, $objective),
         );
         self::assertSame(
-            '1 - ((sum(increase(' . self::HTTP_BAD . '[30d])) or vector(0)) / ((sum(increase(' . self::HTTP_TOTAL . '[30d])) > 0) * 0.001))',
-            $builder->budgetRemaining(GenerationFixture::input()->selector, $objective),
+            '1 - (1 - slo:sli:ratio{slo="checkout.pay",objective="availability"}) / 0.001',
+            $builder->budgetRemaining($objective),
         );
         self::assertSame(
             'clamp((time() - min_over_time(timestamp(sum(' . self::HTTP_TOTAL . '))[721h:1h])) / 2592000, 0, 1)',
@@ -60,7 +60,8 @@ final class PromQlBuilderTest extends TestCase
 
         self::assertSame('sum(rate(' . $total . '[30m]))', $builder->eventsRate(GenerationFixture::input()->selector, $objective, '30m'));
         self::assertSame('(sum(rate(' . $bad . '[5m])) or vector(0)) / (sum(rate(' . $total . '[5m])) > 0)', $builder->errorRatio(GenerationFixture::input()->selector, $objective, '5m'));
-        self::assertSame('1 - ((sum(increase(' . $bad . '[3d])) or vector(0)) / ((sum(increase(' . $total . '[3d])) > 0) * 0.01))', $builder->budgetRemaining(GenerationFixture::input()->selector, $objective));
+        self::assertSame('1 - ((sum(increase(' . $bad . '[3d])) or vector(0)) / (sum(increase(' . $total . '[3d])) > 0))', $builder->sliRatio(GenerationFixture::input()->selector, $objective));
+        self::assertSame('1 - (1 - slo:sli:ratio{slo="report.export",objective="availability"}) / 0.01', $builder->budgetRemaining($objective));
         self::assertSame('clamp((time() - min_over_time(timestamp(sum(' . $total . '))[73h:1h])) / 259200, 0, 1)', $builder->coverageRatio(GenerationFixture::input()->selector, $objective));
     }
 

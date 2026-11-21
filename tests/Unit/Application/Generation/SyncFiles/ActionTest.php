@@ -12,46 +12,43 @@ use PHPUnit\Framework\TestCase;
 
 final class ActionTest extends TestCase
 {
-    public function testCheckReportsStaleMissingAndExtraFilesWithoutTouchingTheDisk(): void
+    private const DISK = [
+        '/out/prometheus/slo-current.rules.yml' => "same\n",
+        '/out/prometheus/slo-stale.rules.yml' => "old\n",
+        '/out/prometheus/slo-old.rules.yml' => "removed slo\n",
+        '/out/prometheus/prometheus.yml' => "hand-written\n",
+        '/out/prometheus/.gitkeep' => '',
+        '/out/prometheus/nested/x.yml' => "x\n",
+        '/out/prometheus/nested/slo-x.rules.yml' => "x\n",
+        '/out/unmanaged/slo-keep.rules.yml' => "x\n",
+    ];
+
+    public function testCheckReportsStaleMissingAndExtraOwnedFilesWithoutTouchingTheDisk(): void
     {
-        $disk = [
-            '/out/prometheus/current.yml' => "same\n",
-            '/out/prometheus/stale.yml' => "old\n",
-            '/out/prometheus/nested/extra.yml' => "x\n",
-            '/out/unmanaged/keep.yml' => "x\n",
-        ];
-        $writer = new InMemoryFileWriter($disk);
+        $writer = new InMemoryFileWriter(self::DISK);
 
         $output = (new Action($writer))(new Input($this->set(), '/out', true));
 
         self::assertFalse($output->isUpToDate());
-        self::assertSame(['prometheus/stale.yml'], $output->stale);
-        self::assertSame(['prometheus/missing.yml'], $output->missing);
-        self::assertSame(['prometheus/nested/extra.yml'], $output->extra);
-        self::assertSame($disk, $writer->files);
+        self::assertSame(['prometheus/slo-stale.rules.yml'], $output->stale);
+        self::assertSame(['prometheus/slo-missing.rules.yml'], $output->missing);
+        self::assertSame(['prometheus/slo-old.rules.yml'], $output->extra);
+        self::assertSame(self::DISK, $writer->files);
     }
 
-    public function testWriteCreatesAndUpdatesAndRemovesExtraFilesOfManagedDirectoriesOnly(): void
+    public function testWriteUpdatesOwnedFilesAndNeverTouchesForeignOnes(): void
     {
-        $writer = new InMemoryFileWriter([
-            '/out/prometheus/current.yml' => "same\n",
-            '/out/prometheus/stale.yml' => "old\n",
-            '/out/prometheus/nested/extra.yml' => "x\n",
-            '/out/unmanaged/keep.yml' => "x\n",
-        ]);
+        $writer = new InMemoryFileWriter(self::DISK);
 
         $output = (new Action($writer))(new Input($this->set(), '/out', false));
 
-        self::assertSame(['prometheus/stale.yml'], $output->stale);
-        self::assertSame(
-            [
-                '/out/prometheus/current.yml' => "same\n",
-                '/out/prometheus/missing.yml' => "new\n",
-                '/out/prometheus/stale.yml' => "new\n",
-                '/out/unmanaged/keep.yml' => "x\n",
-            ],
-            $writer->files,
-        );
+        self::assertSame(['prometheus/slo-old.rules.yml'], $output->extra);
+        $expected = self::DISK;
+        unset($expected['/out/prometheus/slo-old.rules.yml']);
+        $expected['/out/prometheus/slo-stale.rules.yml'] = "new\n";
+        $expected['/out/prometheus/slo-missing.rules.yml'] = "new\n";
+        ksort($expected);
+        self::assertSame($expected, $writer->files);
         self::assertTrue((new Action($writer))(new Input($this->set(), '/out', true))->isUpToDate());
     }
 
@@ -59,7 +56,7 @@ final class ActionTest extends TestCase
     {
         $output = (new Action(new InMemoryFileWriter()))(new Input($this->set(), '/out', true));
 
-        self::assertSame(['prometheus/current.yml', 'prometheus/missing.yml', 'prometheus/stale.yml'], $output->missing);
+        self::assertSame(['prometheus/slo-current.rules.yml', 'prometheus/slo-missing.rules.yml', 'prometheus/slo-stale.rules.yml'], $output->missing);
         self::assertSame([], $output->stale);
         self::assertSame([], $output->extra);
     }
@@ -67,9 +64,9 @@ final class ActionTest extends TestCase
     private function set(): GeneratedFileSet
     {
         return new GeneratedFileSet(['prometheus'], [
-            new GeneratedFile('prometheus/current.yml', "same\n"),
-            new GeneratedFile('prometheus/stale.yml', "new\n"),
-            new GeneratedFile('prometheus/missing.yml', "new\n"),
+            new GeneratedFile('prometheus/slo-current.rules.yml', "same\n"),
+            new GeneratedFile('prometheus/slo-stale.rules.yml', "new\n"),
+            new GeneratedFile('prometheus/slo-missing.rules.yml', "new\n"),
         ]);
     }
 }

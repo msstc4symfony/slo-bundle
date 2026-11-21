@@ -40,22 +40,46 @@ final class GeneratedFilesTest extends TestCase
 
     public function testSetSortsFilesAndMergesManagedDirectories(): void
     {
-        $prometheus = new GeneratedFileSet(['prometheus'], [new GeneratedFile('prometheus/b.yml', 'b'), new GeneratedFile('prometheus/a.yml', 'a')]);
-        $grafana = new GeneratedFileSet(['grafana'], [new GeneratedFile('grafana/dashboards/x.json', '{}')]);
+        $prometheus = new GeneratedFileSet(['prometheus'], [new GeneratedFile('prometheus/slo-b.rules.yml', 'b'), new GeneratedFile('prometheus/slo-a.rules.yml', 'a')]);
+        $grafana = new GeneratedFileSet(['grafana/dashboards'], [new GeneratedFile('grafana/dashboards/slo-x.json', '{}')]);
 
         $merged = $prometheus->merge($grafana);
 
-        self::assertSame(['prometheus/a.yml', 'prometheus/b.yml'], array_map(static fn (GeneratedFile $f): string => $f->relativePath, $prometheus->files));
-        self::assertSame(['grafana', 'prometheus'], $merged->managedDirectories);
-        self::assertSame(['grafana/dashboards/x.json', 'prometheus/a.yml', 'prometheus/b.yml'], array_map(static fn (GeneratedFile $f): string => $f->relativePath, $merged->files));
+        self::assertSame(['prometheus/slo-a.rules.yml', 'prometheus/slo-b.rules.yml'], array_map(static fn (GeneratedFile $f): string => $f->relativePath, $prometheus->files));
+        self::assertSame(['grafana/dashboards', 'prometheus'], $merged->managedDirectories);
+        self::assertSame(['grafana/dashboards/slo-x.json', 'prometheus/slo-a.rules.yml', 'prometheus/slo-b.rules.yml'], array_map(static fn (GeneratedFile $f): string => $f->relativePath, $merged->files));
+    }
+
+    public function testOnlyNamePatternedFilesDirectlyInAManagedDirectoryAreOwned(): void
+    {
+        $set = new GeneratedFileSet(['prometheus', 'grafana/provisioning/dashboards', 'sloth'], []);
+
+        self::assertTrue($set->owns('prometheus/slo-old.rules.yml'));
+        self::assertTrue($set->owns('grafana/provisioning/dashboards/slo.yaml'));
+        self::assertTrue($set->owns('sloth/slo-checkout.pay.yml'));
+        self::assertFalse($set->owns('prometheus/prometheus.yml'));
+        self::assertFalse($set->owns('prometheus/rules.yml'));
+        self::assertFalse($set->owns('prometheus/.gitkeep'));
+        self::assertFalse($set->owns('prometheus/nested/slo-x.rules.yml'));
+        self::assertFalse($set->owns('grafana/provisioning/dashboards/other.yaml'));
+        self::assertFalse($set->owns('grafana/dashboards/slo-x.json'));
+        self::assertFalse($set->owns('slo-x.rules.yml'));
     }
 
     public function testSetRejectsAFileOutsideItsManagedDirectories(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('"sloth/a.yml" is outside the managed directories prometheus');
+        $this->expectExceptionMessage('"sloth/slo-a.yml" is not an owned file of the managed directories prometheus');
 
-        new GeneratedFileSet(['prometheus'], [new GeneratedFile('sloth/a.yml', 'a')]);
+        new GeneratedFileSet(['prometheus'], [new GeneratedFile('sloth/slo-a.yml', 'a')]);
+    }
+
+    public function testSetRejectsAFileNotMatchingTheOwnedPattern(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('"prometheus/prometheus.yml"');
+
+        new GeneratedFileSet(['prometheus'], [new GeneratedFile('prometheus/prometheus.yml', 'a')]);
     }
 
     public function testSetRejectsAFileDirectlyInTheRoot(): void
@@ -68,19 +92,19 @@ final class GeneratedFilesTest extends TestCase
     public function testSetRejectsDuplicatePaths(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('"prometheus/a.yml" is generated twice');
+        $this->expectExceptionMessage('"prometheus/slo-a.rules.yml" is generated twice');
 
-        (new GeneratedFileSet(['prometheus'], [new GeneratedFile('prometheus/a.yml', 'a')]))
-            ->merge(new GeneratedFileSet(['prometheus'], [new GeneratedFile('prometheus/a.yml', 'b')]))
+        (new GeneratedFileSet(['prometheus'], [new GeneratedFile('prometheus/slo-a.rules.yml', 'a')]))
+            ->merge(new GeneratedFileSet(['prometheus'], [new GeneratedFile('prometheus/slo-a.rules.yml', 'b')]))
         ;
     }
 
     public function testSetRejectsAnInvalidManagedDirectory(): void
     {
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('"../x"');
+        $this->expectExceptionMessage('"grafana" is not a generated directory');
 
-        new GeneratedFileSet(['../x'], []);
+        new GeneratedFileSet(['grafana'], []);
     }
 
     public function testSelectorSortsAndDeduplicatesComponents(): void

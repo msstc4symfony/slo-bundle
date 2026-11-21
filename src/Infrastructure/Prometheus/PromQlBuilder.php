@@ -50,15 +50,14 @@ final readonly class PromQlBuilder
         return \sprintf('1 - (%s / (%s > 0))', $this->bad($series, 'increase', $window), $this->sum('increase', $series['total'], $window));
     }
 
-    public function budgetRemaining(Selector $selector, BoundObjective $objective): string
+    /**
+     * Derived from the slo:sli:ratio recorded earlier in the same group: no SLI, no budget.
+     */
+    public function budgetRemaining(BoundObjective $objective): string
     {
-        $series = $this->series($selector, $objective);
-        $window = $objective->definition->window()->toPromQl();
-
         return \sprintf(
-            '1 - (%s / ((%s > 0) * %s))',
-            $this->bad($series, 'increase', $window),
-            $this->sum('increase', $series['total'], $window),
+            '1 - (1 - %s) / %s',
+            $this->recorded('slo:sli:ratio', $objective),
             BurnRatePolicy::number($objective->objective->target->errorBudgetRatio()),
         );
     }

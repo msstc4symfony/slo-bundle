@@ -36,7 +36,7 @@ final readonly class Action
         $extra = [];
         foreach ($input->files->managedDirectories as $directory) {
             foreach ($this->writer->list($input->root, $directory) as $path) {
-                if (!isset($generated[$path])) {
+                if (!isset($generated[$path]) && $input->files->owns($path)) {
                     $extra[] = $path;
                 }
             }

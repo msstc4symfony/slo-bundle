@@ -37,7 +37,7 @@ final class InMemoryFileWriter implements FileWriterInterface
         $paths = [];
         foreach (array_keys($this->files) as $path) {
             $path = (string) $path;
-            if (str_starts_with($path, $prefix)) {
+            if (str_starts_with($path, $prefix) && !str_contains(substr($path, \strlen($prefix)), '/')) {
                 $paths[] = substr($path, \strlen($root) + 1);
             }
         }

@@ -13,7 +13,7 @@ groups:
       - alert: SloErrorBudgetBurn
         annotations:
           summary: 'SLO checkout.pay availability burns its error budget (target 99.9%, window 30d)'
-        expr: '(slo:error_ratio:rate3d{slo="checkout.pay",objective="availability"} > 0.001 and slo:error_ratio:rate6h{slo="checkout.pay",objective="availability"} > 0.001) and on() (slo:window:coverage_ratio{slo="checkout.pay",objective="availability"} >= 1)'
+        expr: '(last_over_time(slo:error_ratio:rate3d{slo="checkout.pay",objective="availability"}[10m]) > 0.001 and slo:error_ratio:rate6h{slo="checkout.pay",objective="availability"} > 0.001) and on() (last_over_time(slo:window:coverage_ratio{slo="checkout.pay",objective="availability"}[10m]) >= 1)'
         labels:
           objective: availability
           severity: ticket
@@ -29,7 +29,7 @@ groups:
       - alert: SloErrorBudgetBurn
         annotations:
           summary: 'SLO checkout.pay latency burns its error budget (target 99%, window 30d)'
-        expr: '(slo:error_ratio:rate3d{slo="checkout.pay",objective="latency"} > 0.01 and slo:error_ratio:rate6h{slo="checkout.pay",objective="latency"} > 0.01) and on() (slo:window:coverage_ratio{slo="checkout.pay",objective="latency"} >= 1)'
+        expr: '(last_over_time(slo:error_ratio:rate3d{slo="checkout.pay",objective="latency"}[10m]) > 0.01 and slo:error_ratio:rate6h{slo="checkout.pay",objective="latency"} > 0.01) and on() (last_over_time(slo:window:coverage_ratio{slo="checkout.pay",objective="latency"}[10m]) >= 1)'
         labels:
           objective: latency
           severity: ticket
@@ -48,7 +48,7 @@ groups:
       - alert: SloErrorBudgetBurn
         annotations:
           summary: 'SLO payment.process availability burns its error budget (target 99.5%, window 30d)'
-        expr: '(slo:error_ratio:rate3d{slo="payment.process",objective="availability"} > 0.005 and slo:error_ratio:rate6h{slo="payment.process",objective="availability"} > 0.005) and on() (slo:window:coverage_ratio{slo="payment.process",objective="availability"} >= 1)'
+        expr: '(last_over_time(slo:error_ratio:rate3d{slo="payment.process",objective="availability"}[10m]) > 0.005 and slo:error_ratio:rate6h{slo="payment.process",objective="availability"} > 0.005) and on() (last_over_time(slo:window:coverage_ratio{slo="payment.process",objective="availability"}[10m]) >= 1)'
         labels:
           objective: availability
           severity: ticket
@@ -64,7 +64,7 @@ groups:
       - alert: SloErrorBudgetBurn
         annotations:
           summary: 'SLO payment.process latency burns its error budget (target 99%, window 30d)'
-        expr: '(slo:error_ratio:rate3d{slo="payment.process",objective="latency"} > 0.01 and slo:error_ratio:rate6h{slo="payment.process",objective="latency"} > 0.01) and on() (slo:window:coverage_ratio{slo="payment.process",objective="latency"} >= 1)'
+        expr: '(last_over_time(slo:error_ratio:rate3d{slo="payment.process",objective="latency"}[10m]) > 0.01 and slo:error_ratio:rate6h{slo="payment.process",objective="latency"} > 0.01) and on() (last_over_time(slo:window:coverage_ratio{slo="payment.process",objective="latency"}[10m]) >= 1)'
         labels:
           objective: latency
           severity: ticket
@@ -83,7 +83,7 @@ groups:
       - alert: SloErrorBudgetBurn
         annotations:
           summary: 'SLO report.export availability burns its error budget (target 99%, window 3d)'
-        expr: '(slo:error_ratio:rate3d{slo="report.export",objective="availability"} > 0.001 and slo:error_ratio:rate6h{slo="report.export",objective="availability"} > 0.001) and on() (slo:window:coverage_ratio{slo="report.export",objective="availability"} >= 1)'
+        expr: '(last_over_time(slo:error_ratio:rate3d{slo="report.export",objective="availability"}[10m]) > 0.001 and slo:error_ratio:rate6h{slo="report.export",objective="availability"} > 0.001) and on() (last_over_time(slo:window:coverage_ratio{slo="report.export",objective="availability"}[10m]) >= 1)'
         labels:
           objective: availability
           severity: ticket

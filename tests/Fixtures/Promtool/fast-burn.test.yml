@@ -24,10 +24,11 @@ tests:
         exp_samples:
           - labels: 'slo:sli:ratio{objective="availability",slo="checkout.pay",window="30d"}'
             value: 0.95
-      - expr: slo:error_budget:remaining{slo="checkout.pay",objective="availability"}
+      # Derived from the recorded SLI, so the float error of (1 - 0.95) / 0.001 is rounded away.
+      - expr: round(slo:error_budget:remaining{slo="checkout.pay",objective="availability"}, 0.000001)
         eval_time: 1h
         exp_samples:
-          - labels: 'slo:error_budget:remaining{objective="availability",slo="checkout.pay",window="30d"}'
+          - labels: '{objective="availability",slo="checkout.pay",window="30d"}'
             value: -49
       - expr: slo:objective:target{slo="checkout.pay",objective="availability"}
         eval_time: 1h

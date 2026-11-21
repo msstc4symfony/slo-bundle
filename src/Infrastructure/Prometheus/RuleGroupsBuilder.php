@@ -15,15 +15,33 @@ use Msstc4Symfony\SloBundle\Infrastructure\Yaml\DeterministicYaml;
 use Override;
 
 /**
- * Recording rules and multi-window burn-rate alerts, one rule group per SLO (`slo-<name>`, evaluated every minute).
+ * Recording rules and multi-window burn-rate alerts. Per SLO: `slo-<name>` every minute (short rates, target, alerts) and
+ * `slo-<name>-window` every 5 minutes (3d rates, SLI, budget, coverage: scans over the whole window).
  *
  * @phpstan-type RuleShape array{record?: non-empty-string, alert?: non-empty-string, expr: string, labels: array<non-empty-string, string>, annotations?: array{summary: non-empty-string}}
  */
 final readonly class RuleGroupsBuilder implements RuleFileBuilderInterface
 {
-    private const RATE_WINDOWS = ['5m', '30m', '1h', '6h', '3d'];
+    private const FAST_RATE_WINDOWS = ['5m', '30m', '1h', '6h'];
 
-    private const INTERVAL = '1m';
+    /**
+     * Long-range records are expensive; they run in the 5m window group.
+     */
+    private const SLOW_RATE_WINDOWS = ['3d'];
+
+    private const FAST = 'fast';
+
+    private const SLOW = 'slow';
+
+    /**
+     * Group key => [name suffix, evaluation interval].
+     */
+    private const GROUPS = [self::FAST => ['', '1m'], self::SLOW => ['-window', '5m']];
+
+    /**
+     * Range over which alerts read records of the 5m group, so a late evaluation never leaves a gap.
+     */
+    private const SLOW_RECORD_LOOKBACK = '10m';
 
     public function __construct(
         private PromQlBuilder $promQl,
@@ -37,17 +55,25 @@ final readonly class RuleGroupsBuilder implements RuleFileBuilderInterface
     {
         return $this->document($objectives, function (BoundObjective $objective) use ($selector): array {
             $labels = $this->recordingLabels($objective);
-            $rules = [];
-            foreach (self::RATE_WINDOWS as $window) {
-                $rules[] = ['record' => 'slo:events:rate' . $window, 'expr' => $this->promQl->eventsRate($selector, $objective, $window), 'labels' => $labels];
-                $rules[] = ['record' => 'slo:error_ratio:rate' . $window, 'expr' => $this->promQl->errorRatio($selector, $objective, $window), 'labels' => $labels];
+            $record = $this->record(...);
+            $fast = [];
+            foreach (self::FAST_RATE_WINDOWS as $window) {
+                $fast[] = $record($labels, 'slo:events:rate' . $window, $this->promQl->eventsRate($selector, $objective, $window));
+                $fast[] = $record($labels, 'slo:error_ratio:rate' . $window, $this->promQl->errorRatio($selector, $objective, $window));
             }
-            $rules[] = ['record' => 'slo:sli:ratio', 'expr' => $this->promQl->sliRatio($selector, $objective), 'labels' => $labels];
-            $rules[] = ['record' => 'slo:objective:target', 'expr' => \sprintf('vector(%s)', BurnRatePolicy::number($objective->objective->target->percent / 100)), 'labels' => $labels];
-            $rules[] = ['record' => 'slo:error_budget:remaining', 'expr' => $this->promQl->budgetRemaining($selector, $objective), 'labels' => $labels];
-            $rules[] = ['record' => 'slo:window:coverage_ratio', 'expr' => $this->promQl->coverageRatio($selector, $objective), 'labels' => $labels];
+            $fast[] = $record($labels, 'slo:objective:target', \sprintf('vector(%s)', BurnRatePolicy::number($objective->objective->target->percent / 100)));
 
-            return $rules;
+            $slow = [];
+            foreach (self::SLOW_RATE_WINDOWS as $window) {
+                $slow[] = $record($labels, 'slo:events:rate' . $window, $this->promQl->eventsRate($selector, $objective, $window));
+                $slow[] = $record($labels, 'slo:error_ratio:rate' . $window, $this->promQl->errorRatio($selector, $objective, $window));
+            }
+            // Rules of a group run in order: the budget reads the ratio recorded just above.
+            $slow[] = $record($labels, 'slo:sli:ratio', $this->promQl->sliRatio($selector, $objective));
+            $slow[] = $record($labels, 'slo:error_budget:remaining', $this->promQl->budgetRemaining($objective));
+            $slow[] = $record($labels, 'slo:window:coverage_ratio', $this->promQl->coverageRatio($selector, $objective));
+
+            return [self::FAST => $fast, self::SLOW => $slow];
         });
     }
 
@@ -66,7 +92,7 @@ final readonly class RuleGroupsBuilder implements RuleFileBuilderInterface
             foreach ($windows as $pair) {
                 if ($pair->severity === 'ticket') {
                     // Fast-burn pages need at most 6h of history; the 3d pair waits for a fully covered window.
-                    $expr = \sprintf('%s and on() (%s >= 1)', $this->burning($objective, $pair), $this->promQl->recorded('slo:window:coverage_ratio', $objective));
+                    $expr = \sprintf('%s and on() (%s >= 1)', $this->burning($objective, $pair), $this->read('slo:window:coverage_ratio', $objective, true));
                     $rules[] = $this->alert('SloErrorBudgetBurn', $expr, $objective, 'ticket', 'burns its error budget');
                 }
             }
@@ -74,30 +100,55 @@ final readonly class RuleGroupsBuilder implements RuleFileBuilderInterface
                 $rules[] = $this->alert('SloNoEvents', $this->promQl->noEvents($selector, $objective, $noEventsAlertHours), $objective, 'ticket', \sprintf('recorded no events in %dh', $noEventsAlertHours));
             }
 
-            return $rules;
+            return [self::FAST => $rules];
         });
     }
 
     /**
      * @param list<BoundObjective> $objectives sorted by SLO name
-     * @param Closure(BoundObjective): list<RuleShape> $rules
+     * @param Closure(BoundObjective): array<self::FAST|self::SLOW, list<RuleShape>> $rules
      */
     private function document(array $objectives, Closure $rules): string
     {
         $bySlo = [];
         foreach ($objectives as $objective) {
             $name = $objective->definition->name()->value;
-            $bySlo[$name] = [...$bySlo[$name] ?? [], ...$rules($objective)];
+            foreach ($rules($objective) as $key => $groupRules) {
+                $bySlo[$name][$key] = [...$bySlo[$name][$key] ?? [], ...$groupRules];
+            }
         }
 
         $groups = [];
-        foreach ($bySlo as $name => $groupRules) {
-            if ($groupRules !== []) {
-                $groups[] = ['name' => 'slo-' . $name, 'interval' => self::INTERVAL, 'rules' => $groupRules];
+        foreach ($bySlo as $name => $byKey) {
+            foreach (self::GROUPS as $key => [$suffix, $interval]) {
+                if (($byKey[$key] ?? []) !== []) {
+                    $groups[] = ['name' => 'slo-' . $name . $suffix, 'interval' => $interval, 'rules' => $byKey[$key]];
+                }
             }
         }
 
         return $this->yaml->dump(['groups' => $groups]);
+    }
+
+    /**
+     * @param array<non-empty-string, string> $labels
+     * @param non-empty-string $name
+     *
+     * @return RuleShape
+     */
+    private function record(array $labels, string $name, string $expr): array
+    {
+        return ['record' => $name, 'expr' => $expr, 'labels' => $labels];
+    }
+
+    /**
+     * @param non-empty-string $record
+     */
+    private function read(string $record, BoundObjective $objective, bool $slow): string
+    {
+        $selector = $this->promQl->recorded($record, $objective);
+
+        return $slow ? \sprintf('last_over_time(%s[%s])', $selector, self::SLOW_RECORD_LOOKBACK) : $selector;
     }
 
     /**
@@ -123,9 +174,9 @@ final readonly class RuleGroupsBuilder implements RuleFileBuilderInterface
 
         return \sprintf(
             '(%s > %s and %s > %s)',
-            $this->promQl->recorded('slo:error_ratio:rate' . $pair->longWindow, $objective),
+            $this->read('slo:error_ratio:rate' . $pair->longWindow, $objective, \in_array($pair->longWindow, self::SLOW_RATE_WINDOWS, true)),
             $threshold,
-            $this->promQl->recorded('slo:error_ratio:rate' . $pair->shortWindow, $objective),
+            $this->read('slo:error_ratio:rate' . $pair->shortWindow, $objective, \in_array($pair->shortWindow, self::SLOW_RATE_WINDOWS, true)),
             $threshold,
         );
     }

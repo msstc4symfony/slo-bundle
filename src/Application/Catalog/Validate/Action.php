@@ -7,6 +7,7 @@ namespace Msstc4Symfony\SloBundle\Application\Catalog\Validate;
 use Msstc4Symfony\SloBundle\Application\Binding\MetricBindingResolver;
 use Msstc4Symfony\SloBundle\Application\Discovery\SloDeclaration;
 use Msstc4Symfony\SloBundle\Application\Generation\BurnRatePolicy;
+use Msstc4Symfony\SloBundle\Application\Generation\GenerateRules\Action as GenerateRules;
 use Msstc4Symfony\SloBundle\Application\Port\CatalogDiagnosticsInterface;
 use Msstc4Symfony\SloBundle\Application\Port\RouteCatalogInterface;
 use Msstc4Symfony\SloBundle\Domain\Enum\ObjectiveKind;
@@ -23,6 +24,8 @@ final readonly class Action
         private RouteCatalogInterface $routes,
         private MetricBindingResolver $bindings,
         private BurnRatePolicy $burnRates = new BurnRatePolicy(),
+        private bool $prometheusRules = true,
+        private bool $prometheusAlerts = true,
     ) {
     }
 
@@ -61,7 +64,7 @@ final readonly class Action
             }
         }
 
-        $warnings = $this->diagnostics->extras()->warnings;
+        $warnings = [...$this->diagnostics->extras()->warnings, ...GenerateRules::configurationWarnings($this->prometheusRules, $this->prometheusAlerts)];
         foreach ($this->catalog->all() as $definition) {
             foreach ($definition->objectives() as $objective) {
                 array_push($warnings, ...$this->burnRates->warnings($definition->name()->value, $objective->kind->value, $definition->window(), $objective->target));

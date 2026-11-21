@@ -30,7 +30,7 @@ final readonly class Action
     public function __invoke(Input $input): Output
     {
         $objectives = $this->objectives->collect();
-        $warnings = [];
+        $warnings = self::configurationWarnings($input->recordingRules, $input->alertRules);
         foreach (array_keys($this->diagnostics->conflicts()) as $name) {
             $warnings[] = \sprintf('SLO %s is declared differently on several points and gets no rules, see slo:validate', $name);
         }
@@ -52,5 +52,15 @@ final readonly class Action
         }
 
         return new Output(new GeneratedFileSet([self::DIRECTORY], $files), $warnings);
+    }
+
+    /**
+     * @return list<non-empty-string>
+     */
+    public static function configurationWarnings(bool $recordingRules, bool $alertRules): array
+    {
+        return $alertRules && !$recordingRules
+            ? ['generation.prometheus.alerts is enabled but generation.prometheus.rules is not: the alert rules read slo:* records that are not generated']
+            : [];
     }
 }
