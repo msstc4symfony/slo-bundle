@@ -87,3 +87,20 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
 - `Infrastructure/MetricsBundle/SloMetric::EVENTS` = `slo_events_total` (counter; метки `slo`, `objective` ENUM, `revision`, `result` ENUM). Регистрируется `RegisterSloMetricPass` (TYPE_BEFORE_OPTIMIZATION, приоритет 0, как у metrics-bridge-logic): добавляет enum в параметр `msstc4symfony_metrics.metric_enums` (идемпотентно); без MetricsBundle компиляция падает с `LogicException`.
 - Порт `Application/Port/EventWriterInterface`, адаптер `MetricsEventWriter` (один `increment` на (событие, цель)).
 - `Application/Evaluation/RecordEvent/Action` (`__invoke(Input{point, observation})`): для каждого SLO точки и каждой цели с `isDedicated()` классифицирует и пишет; результат `isDedicated` + ревизия мемоизируются по (slo, kind) на процесс; любой `Throwable` логируется (канал `slo_bundle`, warning, контекст slo/point/exception) и не пробрасывается. Конфликтные имена (`conflictedNamesFor`): один warning на имя за процесс, записи нет. `ResetInterface` (тег `kernel.reset`) очищает memo и набор предупреждений.
+
+## Наблюдатели HTTP и Messenger (Task 9)
+
+- `Infrastructure/MetricsBundle/HttpSloObserver` (`HttpMeasurementObserverInterface`) и `MessengerSloObserver`
+  (`MessengerMeasurementObserverInterface`) — тегируются автоконфигурацией metrics-bundle, своих тегов нет. Длительность
+  берётся только из measurement (второго таймера нет).
+- HTTP: `route === null` → ничего; иначе `RoutePointIndexInterface::pointsFor(route)` → для каждой точки
+  `Observation::http(status, duration)` → `RecordEvent\Action`. Пустой список → ранний выход (одна выборка из массива).
+- `Application/Port/RoutePointIndexInterface` + `Infrastructure/Symfony/RoutePointIndex`: имя маршрута → `list<PointId>`
+  (контроллер `Class::method` из `RouteCatalogInterface::all()`), в индекс попадают только точки с SLO или с
+  конфликтным именем (чтобы Action выдал warning о конфликте). Строится лениво один раз за процесс; ошибка построения
+  мемоизируется пустым индексом (один warning, HTTP SLO больше ничего не пишут до перезапуска).
+- Messenger: `PointId(messenger_message, messageClass)`; нет SLO и конфликтов → ранний выход; иначе
+  `Observation::delivery(DeliveryStatus::from(status->value), transport ∈ extras()->failureTransports, duration)`.
+- Оба наблюдателя ловят любой `Throwable` (в т.ч. от логгера) и логируют в `slo_bundle`.
+- `RecordEvent\Action`: ошибка резолвера/ревизии мемоизируется по (slo, kind) как «пропуск» и логируется один раз
+  (контекст `slo`, `objective`, `point`, `exception`); поиск конфликтов в отдельном guard; все вызовы логгера защищены.

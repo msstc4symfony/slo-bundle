@@ -9,11 +9,15 @@ use Msstc4Symfony\SloBundle\Application\Evaluation\RecordEvent\Action as RecordE
 use Msstc4Symfony\SloBundle\Application\Port\CatalogDiagnosticsInterface;
 use Msstc4Symfony\SloBundle\Application\Port\EventWriterInterface;
 use Msstc4Symfony\SloBundle\Application\Port\RouteCatalogInterface;
+use Msstc4Symfony\SloBundle\Application\Port\RoutePointIndexInterface;
 use Msstc4Symfony\SloBundle\Domain\Repository\SloCatalogInterface;
 use Msstc4Symfony\SloBundle\Domain\Service\EventClassifier;
 use Msstc4Symfony\SloBundle\Domain\Service\RevisionCalculator;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
+use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\HttpSloObserver;
+use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MessengerSloObserver;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MetricsEventWriter;
+use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RoutePointIndex;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouterRouteCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\SloCacheWarmer;
 use Msstc4Symfony\SloBundle\Presentation\Command\ListCommand;
@@ -44,6 +48,12 @@ return static function (ContainerConfigurator $container): void {
         ->tag('kernel.reset', ['method' => 'reset'])
         ->tag('monolog.logger', ['channel' => 'slo_bundle'])
     ;
+
+    // Observers are tagged by metrics-bundle autoconfiguration.
+    $services->set(RoutePointIndex::class)->tag('monolog.logger', ['channel' => 'slo_bundle']);
+    $services->alias(RoutePointIndexInterface::class, RoutePointIndex::class);
+    $services->set(HttpSloObserver::class)->tag('monolog.logger', ['channel' => 'slo_bundle']);
+    $services->set(MessengerSloObserver::class)->tag('monolog.logger', ['channel' => 'slo_bundle']);
 
     $services->set(ListAction::class);
     $services->set(ValidateAction::class);

@@ -67,3 +67,18 @@
 - Метрики-бандл читает `msstc4symfony_metrics.metric_enums` через `#[Autowire(param:)]`, т.е. значение подставляется после BEFORE_OPTIMIZATION; поэтому проход SloBundle на этой стадии успевает добавить enum.
 - `TestContainer::compile()` теперь по умолчанию задаёт пустой `metric_enums` и заглушку `MetricRecorderInterface` (`NullMetricRecorder`); `withMetricsBundle: false` воспроизводит ошибку отсутствия MetricsBundle. Старый тест «параметры метрик отсутствуют» стал недостижим (без параметра проход падает) и сужен до `http.ignored_routes`.
 - Для HTTP `isDedicated()` обращается к роутеру (ленивый каталог маршрутов); дорого только на первом событии, далее memo.
+
+## Наблюдатели и kernel-тесты (Task 9)
+
+- `messenger:consume` без `--no-reset` вызывает `services_resetter` после каждого сообщения, а `InMemoryTransport::reset()`
+  очищает очередь: повтор (retry) теряется и воркер ждёт `--time-limit`. В тестах передавать `'--no-reset' => null`
+  (опция VALUE_OPTIONAL: `true` превращается в интервал 1, т.е. сброс после каждого сообщения).
+- `messenger:stats` не умеет считать `in-memory://` (не `MessageCountAwareInterface`) — проверять очередь через
+  `InMemoryTransport::get()` из тестового контейнера (`messenger.transport.<name>`).
+- Экспорт metrics-bundle пишет `symfony_slo_events_total{application,component,slo,objective,revision,result}` — порядок
+  меток зафиксирован в `tests/Integration/Kernel/SloEventsExport` (регэксп падает на любой другой форме).
+- Синхронно обработанные сообщения не вызывают Messenger-наблюдатель (нет событий воркера) — событий SLO нет.
+- HTTP kernel-тест полагается на то, что тривиальный контроллер после прогревочного запроса укладывается в 200ms;
+  пограничные пороги проверяются юнит-тестами наблюдателя с построенными measurement.
+- Availability у Messenger по умолчанию Strategy A (ничего не пишется) — фикстуры kernel-тестов используют
+  `strategy: 'dedicated'`, чтобы видеть счётчики.

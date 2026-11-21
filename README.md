@@ -35,6 +35,18 @@ Symfony Flex registers the bundle automatically; without Flex add it to `config/
 Msstc4Symfony\SloBundle\SloBundle::class => ['all' => true],
 ```
 
+## What is measured
+
+Events come from the metrics-bundle measurement observers, with the duration metrics-bundle measured (no second timer):
+
+- HTTP: one event per recorded main request of a route whose controller has `#[Slo]`. Unrouted requests, `OPTIONS`,
+  `http.ignored_routes`, sub-requests and fragments are not events; the page that renders a fragment is one event.
+  An uncaught exception is classified by the resulting status (500 by default), once.
+- Messenger: one event per final worker outcome of an envelope (`handled`, or `failed` after the last retry);
+  retries are events only with `countAttempts: true`, anything consumed from a failure transport
+  (`messenger:failed:retry`) never is. Batch handlers (`BatchHandlerInterface`) are counted per envelope like any async message.
+  Synchronously handled messages are not measured (`slo:coverage` reports them as `unsupported`).
+
 ## Layers
 
 `src/` follows the canonical layout of [bundle-standard](https://github.com/msstc4symfony/bundle-standard)

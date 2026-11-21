@@ -12,6 +12,7 @@ use Msstc4Symfony\SloBundle\Application\Discovery\CatalogAssembler;
 use Msstc4Symfony\SloBundle\Application\Evaluation\RecordEvent\Action;
 use Msstc4Symfony\SloBundle\Application\Evaluation\RecordEvent\Input;
 use Msstc4Symfony\SloBundle\Application\Port\EventWriterInterface;
+use Msstc4Symfony\SloBundle\Application\Port\RouteCatalogInterface;
 use Msstc4Symfony\SloBundle\Application\Port\RouteInfo;
 use Msstc4Symfony\SloBundle\Domain\Enum\ObjectiveKind;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
@@ -20,12 +21,14 @@ use Msstc4Symfony\SloBundle\Domain\Service\RevisionCalculator;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Observation;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
+use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouterRouteCatalog;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\CatalogFixture;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\InMemoryRouteCatalog;
 use Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Symfony\RecordingLogger;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
+use Symfony\Component\Routing\RouterInterface;
 
 final class ActionTest extends TestCase
 {
@@ -131,6 +134,66 @@ final class ActionTest extends TestCase
         self::assertSame($writer->writes[0], $writer->writes[1]);
     }
 
+    public function testBindingIsResolvedOncePerObjectiveOverManyEvents(): void
+    {
+        $routes = $this->createMock(RouteCatalogInterface::class);
+        $routes->expects(self::exactly(2))->method('routesFor')->willReturn([new RouteInfo('payment_create', '/payments', [], self::CONTROLLER)]);
+        $catalog = $this->paymentCatalog();
+        $writer = new InMemoryEventWriter();
+        $action = $this->action($catalog, $writer, new RecordingLogger(), $routes);
+
+        for ($i = 0; $i < 5; $i++) {
+            $action(new Input($this->point(), Observation::http(200, 0.1)));
+        }
+
+        self::assertCount(5, $writer->writes);
+    }
+
+    public function testThrowingRouterIsMemoisedAsSkipAndLoggedOncePerObjective(): void
+    {
+        $router = $this->createMock(RouterInterface::class);
+        $router->expects(self::exactly(2))->method('getRouteCollection')->willThrowException(new RuntimeException('router broken'));
+        $catalog = $this->paymentCatalog();
+        $writer = new InMemoryEventWriter();
+        $logger = new RecordingLogger();
+        $action = $this->action($catalog, $writer, $logger, new RouterRouteCatalog($router, $catalog));
+
+        for ($i = 0; $i < 5; $i++) {
+            $action(new Input($this->point(), Observation::http(200, 0.1)));
+        }
+
+        self::assertSame([], $writer->writes);
+        self::assertCount(2, $logger->records);
+        self::assertSame(['availability', 'latency'], array_map(static fn (array $context): mixed => $context['objective'] ?? null, $logger->contexts));
+        self::assertSame('payment.create', $logger->contexts[0]['slo']);
+        self::assertInstanceOf(RuntimeException::class, $logger->contexts[0]['exception']);
+    }
+
+    public function testThrowingLoggerDoesNotEscape(): void
+    {
+        $logger = self::createStub(LoggerInterface::class);
+        $logger->method('warning')->willThrowException(new RuntimeException('logger broken'));
+        $action = $this->action($this->paymentCatalog(), new ThrowingEventWriter(), $logger);
+
+        $action(new Input($this->point(), Observation::http(200, 0.1)));
+
+        $this->expectNotToPerformAssertions();
+    }
+
+    public function testFailingConflictLookupDoesNotStopRecording(): void
+    {
+        $catalog = new ConflictLookupFailingCatalog($this->paymentCatalog());
+        $writer = new InMemoryEventWriter();
+        $logger = new RecordingLogger();
+        $action = new Action($catalog, new MetricBindingResolver(new InMemoryRouteCatalog([new RouteInfo('payment_create', '/payments', [], self::CONTROLLER)]), $catalog->inner), new RevisionCalculator(), new EventClassifier(), $writer, $logger);
+
+        $action(new Input($this->point(), Observation::http(200, 0.1)));
+
+        self::assertCount(1, $writer->writes);
+        self::assertCount(1, $logger->records);
+        self::assertSame('http_route:' . self::CONTROLLER, $logger->contexts[0]['point']);
+    }
+
     private function point(): PointId
     {
         return PointId::of(PointType::HttpRoute, self::CONTROLLER);
@@ -143,9 +206,9 @@ final class ActionTest extends TestCase
         });
     }
 
-    private function action(CompiledSloCatalog $catalog, EventWriterInterface $writer, LoggerInterface $logger): Action
+    private function action(CompiledSloCatalog $catalog, EventWriterInterface $writer, LoggerInterface $logger, ?RouteCatalogInterface $routes = null): Action
     {
-        $routes = new InMemoryRouteCatalog([new RouteInfo('payment_create', '/payments', [], self::CONTROLLER)]);
+        $routes ??= new InMemoryRouteCatalog([new RouteInfo('payment_create', '/payments', [], self::CONTROLLER)]);
 
         return new Action($catalog, new MetricBindingResolver($routes, $catalog), new RevisionCalculator(), new EventClassifier(), $writer, $logger);
     }
