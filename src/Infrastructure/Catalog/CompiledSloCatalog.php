@@ -38,6 +38,9 @@ final class CompiledSloCatalog implements SloCatalogInterface, CatalogDiagnostic
     /** @var array<string, list<SloDefinition>> declared points only */
     private array $byPoint = [];
 
+    /** @var array<string, true> points memoised without an unreadable definition: retried after reset */
+    private array $partialPoints = [];
+
     private ?CatalogContents $contents = null;
 
     private ?CatalogExtras $extras = null;
@@ -74,10 +77,11 @@ final class CompiledSloCatalog implements SloCatalogInterface, CatalogDiagnostic
     public function get(SloName $name): ?SloDefinition
     {
         if ($this->byName === null) {
-            $this->byName = [];
+            $byName = [];
             foreach ($this->all() as $definition) {
-                $this->byName[$definition->name()->value] = $definition;
+                $byName[$definition->name()->value] = $definition;
             }
+            $this->byName = $byName;
         }
 
         return $this->byName[$name->value] ?? null;
@@ -91,18 +95,18 @@ final class CompiledSloCatalog implements SloCatalogInterface, CatalogDiagnostic
             return $this->byPoint[$key];
         }
         // Only declared points are memoised: callers also ask for arbitrary undeclared ones (operation names, messages).
-        if (!$this->isCurrentFormat() || !isset($this->catalog['point_index'][$key])) {
+        if (!$this->ensureCurrentFormat() || !isset($this->catalog['point_index'][$key])) {
             return [];
         }
 
         $definitions = [];
-        try {
-            foreach ($this->catalog['point_index'][$key] as $index) {
+        foreach ($this->catalog['point_index'][$key] as $index) {
+            try {
                 $definitions[] = $this->hydrated[$index] ??= CatalogDump::definition($this->catalog['definitions'][$index]);
+            } catch (Throwable $e) {
+                $this->warnUnreadable($e);
+                $this->partialPoints[$key] = true;
             }
-        } catch (Throwable $e) {
-            $this->warnUnreadable($e);
-            $definitions = [];
         }
 
         return $this->byPoint[$key] = $definitions;
@@ -117,7 +121,7 @@ final class CompiledSloCatalog implements SloCatalogInterface, CatalogDiagnostic
     #[Override]
     public function conflictedNamesFor(PointId $point): array
     {
-        return $this->isCurrentFormat() ? $this->catalog['conflicted_points'][$point->toString()] ?? [] : [];
+        return $this->ensureCurrentFormat() ? $this->catalog['conflicted_points'][$point->toString()] ?? [] : [];
     }
 
     #[Override]
@@ -145,31 +149,35 @@ final class CompiledSloCatalog implements SloCatalogInterface, CatalogDiagnostic
     #[Override]
     public function extras(): CatalogExtras
     {
-        return $this->extras ??= $this->contents->extras ?? $this->read('extras', fn (): CatalogExtras => CatalogDump::extrasFromArray($this->catalog['extras']));
+        if ($this->contents instanceof CatalogContents) {
+            return $this->contents->extras;
+        }
+
+        return $this->extras ??= $this->read('extras', fn (): CatalogExtras => CatalogDump::extrasFromArray($this->catalog['extras']));
     }
 
     #[Override]
     public function hasHttpPoints(): bool
     {
-        return $this->isCurrentFormat() && $this->catalog['extras']['has_http_points'];
+        return $this->ensureCurrentFormat() && $this->catalog['extras']['has_http_points'];
     }
 
     #[Override]
     public function failureTransports(): array
     {
-        return $this->isCurrentFormat() ? $this->catalog['extras']['failure_transports'] : [];
+        return $this->ensureCurrentFormat() ? $this->catalog['extras']['failure_transports'] : [];
     }
 
     #[Override]
     public function metricBuckets(string $metric): ?array
     {
-        return $this->isCurrentFormat() ? $this->catalog['extras']['metric_buckets'][$metric] ?? null : null;
+        return $this->ensureCurrentFormat() ? $this->catalog['extras']['metric_buckets'][$metric] ?? null : null;
     }
 
     #[Override]
     public function metricLabelOf(PointId $point): ?string
     {
-        if (!$this->isCurrentFormat()) {
+        if (!$this->ensureCurrentFormat()) {
             return null;
         }
         $key = $point->toString();
@@ -185,23 +193,26 @@ final class CompiledSloCatalog implements SloCatalogInterface, CatalogDiagnostic
     #[Override]
     public function controllerServiceOf(string $serviceId): ?string
     {
-        return $this->isCurrentFormat() ? $this->catalog['extras']['controller_services'][$serviceId] ?? null : null;
+        return $this->ensureCurrentFormat() ? $this->catalog['extras']['controller_services'][$serviceId] ?? null : null;
     }
 
     #[Override]
     public function handledMessageClasses(): array
     {
-        return $this->isCurrentFormat() ? array_column($this->catalog['extras']['handlers'], 'message_class') : [];
+        return $this->ensureCurrentFormat() ? array_column($this->catalog['extras']['handlers'], 'message_class') : [];
     }
 
     /**
-     * Retries a dump that could not be read; successfully hydrated data is kept (the dump is fixed per container).
+     * Retries a dump that could not be read and points with an unreadable definition; successfully hydrated data is
+     * kept (the dump is fixed per container).
      */
     #[Override]
     public function reset(): void
     {
         $this->unreadable = [];
         $this->unreadableWarned = false;
+        $this->byPoint = array_diff_key($this->byPoint, $this->partialPoints);
+        $this->partialPoints = [];
     }
 
     private function contents(): CatalogContents
@@ -223,8 +234,9 @@ final class CompiledSloCatalog implements SloCatalogInterface, CatalogDiagnostic
             throw $this->unreadable[$section];
         }
         try {
-            if ($this->catalog['format'] !== CatalogDump::FORMAT) {
-                throw new UnexpectedValueException(\sprintf('SLO catalog dump format %d, expected %d.', $this->catalog['format'], CatalogDump::FORMAT));
+            $format = $this->catalog['format'] ?? 0;
+            if ($format !== CatalogDump::FORMAT) {
+                throw $this->formatMismatch($format);
             }
 
             return $hydrate();
@@ -233,15 +245,23 @@ final class CompiledSloCatalog implements SloCatalogInterface, CatalogDiagnostic
         }
     }
 
-    private function isCurrentFormat(): bool
+    /**
+     * Runtime guard: false (with the one-time warning) when the dump was written by another bundle version.
+     */
+    private function ensureCurrentFormat(): bool
     {
         $format = $this->catalog['format'] ?? 0;
         if ($format === CatalogDump::FORMAT) {
             return true;
         }
-        $this->warnUnreadable(new UnexpectedValueException(\sprintf('SLO catalog dump format %d, expected %d.', $format, CatalogDump::FORMAT)));
+        $this->warnUnreadable($this->formatMismatch($format));
 
         return false;
+    }
+
+    private function formatMismatch(int $format): UnexpectedValueException
+    {
+        return new UnexpectedValueException(\sprintf('SLO catalog dump format %d, expected %d.', $format, CatalogDump::FORMAT));
     }
 
     private function warnUnreadable(Throwable $e): void

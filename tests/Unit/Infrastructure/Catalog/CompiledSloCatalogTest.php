@@ -15,10 +15,10 @@ use Msstc4Symfony\SloBundle\Application\Discovery\DiscoveryErrors;
 use Msstc4Symfony\SloBundle\Domain\Entity\SloDefinition;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
+use Msstc4Symfony\SloBundle\Domain\ValueObject\SloName;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
 use Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Symfony\RecordingLogger;
 use PHPUnit\Framework\TestCase;
-use ReflectionProperty;
 use RuntimeException;
 
 /**
@@ -45,8 +45,9 @@ final class CompiledSloCatalogTest extends TestCase
 
         $catalog = new CompiledSloCatalog($dump, $logger);
 
-        $catalog->forPoint($this->create());
-        self::assertSame([], $catalog->forPoint($this->create()));
+        for ($i = 0; $i < 2; $i++) {
+            self::assertSame([], $catalog->forPoint($this->create()));
+        }
         self::assertSame('payment.process', $catalog->forPoint($this->pay())[0]->name()->value);
         self::assertSame(['payment.conflict'], $catalog->conflictedNamesFor($this->create()));
         self::assertTrue($catalog->hasHttpPoints());
@@ -121,17 +122,51 @@ final class CompiledSloCatalogTest extends TestCase
         self::assertSame([], $staleCatalog->handledMessageClasses());
     }
 
-    public function testUndeclaredPointsAreNotMemoised(): void
+    public function testUndeclaredPointsReadAsEmptyWithoutAWarning(): void
     {
-        $catalog = new CompiledSloCatalog($this->dump(), new RecordingLogger());
-        $memo = new ReflectionProperty(CompiledSloCatalog::class, 'byPoint');
+        $logger = new RecordingLogger();
+        $catalog = new CompiledSloCatalog($this->dump(), $logger);
 
         for ($i = 0; $i < 3; $i++) {
             self::assertSame([], $catalog->forPoint(PointId::of(PointType::Operation, 'dynamic.' . $i)));
         }
-        $catalog->forPoint($this->pay());
 
-        self::assertSame(['messenger_message:' . self::PAY], array_keys((array) $memo->getValue($catalog)));
+        self::assertSame($catalog->forPoint($this->pay()), $catalog->forPoint($this->pay()));
+        self::assertSame([], $logger->records);
+    }
+
+    public function testFailedGetKeepsThrowingUntilReset(): void
+    {
+        $catalog = new CompiledSloCatalog($this->corruptDump(), new RecordingLogger());
+        $name = SloName::fromString('payment.process');
+
+        $first = $this->failure(static fn (): ?SloDefinition => $catalog->get($name));
+        self::assertSame($first, $this->failure(static fn (): ?SloDefinition => $catalog->get($name)));
+        $catalog->reset();
+        self::assertSame($first->getMessage(), $this->failure(static fn (): ?SloDefinition => $catalog->get($name))->getMessage());
+    }
+
+    public function testCorruptDefinitionSkipsOnlyItselfAndItsPointIsRetriedAfterReset(): void
+    {
+        $assembler = new CatalogAssembler();
+        $assembler->declare($this->create(), new Slo('payment.create', [new Availability(99.9)]));
+        $assembler->declare($this->create(), new Slo('payment.health', [new Availability(99)]));
+
+        $errors = new DiscoveryErrors();
+        $dump = CatalogDump::toArray($assembler->assemble(new DefinitionFactory('30d', ['5xx'], [], true, false), $errors, new CatalogExtras()));
+        $dump['definitions'] = array_map(static fn (array $d): array => $d['name'] === 'payment.create' ? ['window' => '5m'] + $d : $d, $dump['definitions']);
+        $logger = new RecordingLogger();
+        $catalog = new CompiledSloCatalog($dump, $logger);
+
+        for ($i = 0; $i < 2; $i++) {
+            self::assertSame(['payment.health'], $this->names($catalog->forPoint($this->create())));
+        }
+        self::assertCount(1, $logger->records);
+
+        $catalog->reset();
+
+        self::assertSame(['payment.health'], $this->names($catalog->forPoint($this->create())));
+        self::assertCount(2, $logger->records);
     }
 
     public function testHydratesTheSameDefinitionOnceForEveryPoint(): void
@@ -156,6 +191,16 @@ final class CompiledSloCatalogTest extends TestCase
         }
 
         self::fail('Expected a RuntimeException.');
+    }
+
+    /**
+     * @param list<SloDefinition> $definitions
+     *
+     * @return list<string>
+     */
+    private function names(array $definitions): array
+    {
+        return array_map(static fn (SloDefinition $d): string => $d->name()->value, $definitions);
     }
 
     private function create(): PointId
