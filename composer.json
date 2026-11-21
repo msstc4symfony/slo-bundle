@@ -1,5 +1,5 @@
 {
-  "name": "msstc4symfony/skeleton-bundle",
+  "name": "msstc4symfony/slo-bundle",
   "license": "MIT",
   "authors": [
     {
@@ -8,7 +8,7 @@
     }
   ],
   "type": "symfony-bundle",
-  "description": "Starter template for msstc4symfony Symfony bundles",
+  "description": "Declarative SLI/SLO for Symfony: discovery, coverage gate, good/bad counters, Prometheus rules and Grafana dashboards",
   "minimum-stability": "stable",
   "keywords": [
     "php",
@@ -17,12 +17,12 @@
   "prefer-stable": true,
   "autoload": {
     "psr-4": {
-      "Msstc4Symfony\\SkeletonBundle\\": "src/"
+      "Msstc4Symfony\\SloBundle\\": "src/"
     }
   },
   "autoload-dev": {
     "psr-4": {
-      "Msstc4Symfony\\SkeletonBundle\\Test\\": "tests/"
+      "Msstc4Symfony\\SloBundle\\Test\\": "tests/"
     }
   },
   "require": {

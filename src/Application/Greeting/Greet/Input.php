@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Msstc4Symfony\SkeletonBundle\Application\Greeting\Greet;
+namespace Msstc4Symfony\SloBundle\Application\Greeting\Greet;
 
 use InvalidArgumentException;
 

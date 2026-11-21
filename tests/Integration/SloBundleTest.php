@@ -2,28 +2,28 @@
 
 declare(strict_types=1);
 
-namespace Msstc4Symfony\SkeletonBundle\Test\Integration;
+namespace Msstc4Symfony\SloBundle\Test\Integration;
 
-use Msstc4Symfony\SkeletonBundle\Application\Greeting\Greet\Action;
-use Msstc4Symfony\SkeletonBundle\Application\Greeting\Greet\Input;
-use Msstc4Symfony\SkeletonBundle\SkeletonBundle;
+use Msstc4Symfony\SloBundle\Application\Greeting\Greet\Action;
+use Msstc4Symfony\SloBundle\Application\Greeting\Greet\Input;
+use Msstc4Symfony\SloBundle\SloBundle;
 use PHPUnit\Framework\Attributes\TestWith;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 
-final class SkeletonBundleTest extends TestCase
+final class SloBundleTest extends TestCase
 {
     public function testExtensionAlias(): void
     {
-        self::assertSame('msstc4symfony_skeleton', (new SkeletonBundle())->getContainerExtension()?->getAlias());
+        self::assertSame('msstc4symfony_slo', (new SloBundle())->getContainerExtension()?->getAlias());
     }
 
     public function testActionGreetsWithTheDefaultGreeting(): void
     {
         $container = TestContainer::compile();
 
-        self::assertSame('Hello', $container->getParameter(SkeletonBundle::GREETING_PARAMETER));
+        self::assertSame('Hello', $container->getParameter(SloBundle::GREETING_PARAMETER));
         self::assertSame('Hello, Ada!', $this->action($container)(new Input('Ada'))->message);
     }
 

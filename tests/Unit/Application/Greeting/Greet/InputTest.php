@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Msstc4Symfony\SkeletonBundle\Test\Unit\Application\Greeting\Greet;
+namespace Msstc4Symfony\SloBundle\Test\Unit\Application\Greeting\Greet;
 
 use InvalidArgumentException;
-use Msstc4Symfony\SkeletonBundle\Application\Greeting\Greet\Input;
+use Msstc4Symfony\SloBundle\Application\Greeting\Greet\Input;
 use PHPUnit\Framework\Attributes\TestWith;
 use PHPUnit\Framework\TestCase;
 

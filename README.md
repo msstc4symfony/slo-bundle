@@ -1,24 +1,9 @@
-# msstc4symfony/skeleton-bundle
+# msstc4symfony/slo-bundle
 
-![Build Status](https://github.com/msstc4symfony/skeleton-bundle/actions/workflows/checks.yml/badge.svg?branch=main)
+![Build Status](https://github.com/msstc4symfony/slo-bundle/actions/workflows/checks.yml/badge.svg?branch=main)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Starter template for msstc4symfony Symfony bundles
-
-<!-- init:start -->
-## Using this template
-
-This block, `bin/init` and its test disappear when the template is initialised.
-
-1. On GitHub: **Use this template → Create a new repository** named `msstc4symfony/<name>-bundle`, then clone it.
-2. `php bin/init OutboxInbox "Transactional outbox and inbox for Messenger"` — PascalCase name without
-   the `Bundle` suffix. It renames the namespace, package, config alias and description, resets the
-   changelog, refreshes `composer-ci.lock` and fails if anything named after the template is left.
-3. The Infection thresholds in `checks.yml` are the template's: re-measure them (`make infection`) for the new bundle.
-   A `vendor/` installed before `bin/init` has the old namespace: rerun `COMPOSER=composer-ci.json composer install`.
-   Then replace the `Greet` example with real code, review `git diff`, then `git add -A && git commit -m "init commit"`.
-4. Green CI, then release `v1.0.0` as usual.
-<!-- init:end -->
+Declarative SLI/SLO for Symfony: discovery, coverage gate, good/bad counters, Prometheus rules and Grafana dashboards
 
 ## Compatibility
 
@@ -33,28 +18,28 @@ Symfony 8.x needs PHP 8.4; on PHP 8.2 and 8.3 Composer installs Symfony 7.4.
 The package is not on Packagist yet, so register its GitHub repository first:
 
 ```sh
-composer config repositories.msstc4symfony-skeleton-bundle vcs https://github.com/msstc4symfony/skeleton-bundle
-composer require msstc4symfony/skeleton-bundle
+composer config repositories.msstc4symfony-slo-bundle vcs https://github.com/msstc4symfony/slo-bundle
+composer require msstc4symfony/slo-bundle
 ```
 
 Symfony Flex registers the bundle automatically; without Flex add it to `config/bundles.php`:
 
 ```php
-Msstc4Symfony\SkeletonBundle\SkeletonBundle::class => ['all' => true],
+Msstc4Symfony\SloBundle\SloBundle::class => ['all' => true],
 ```
 
 ## Configuration
 
 ```yaml
-msstc4symfony_skeleton:
+msstc4symfony_slo:
     greeting: Hello   # non-empty string
 ```
 
 ## Usage
 
 ```php
-use Msstc4Symfony\SkeletonBundle\Application\Greeting\Greet\Action;
-use Msstc4Symfony\SkeletonBundle\Application\Greeting\Greet\Input;
+use Msstc4Symfony\SloBundle\Application\Greeting\Greet\Action;
+use Msstc4Symfony\SloBundle\Application\Greeting\Greet\Input;
 
 final readonly class Welcome
 {

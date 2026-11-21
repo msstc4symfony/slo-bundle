@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Msstc4Symfony\SkeletonBundle;
+namespace Msstc4Symfony\SloBundle;
 
 use Override;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
@@ -13,11 +13,11 @@ use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
 /**
  * @phpstan-type BundleConfig array{greeting: non-empty-string}
  */
-final class SkeletonBundle extends AbstractBundle
+final class SloBundle extends AbstractBundle
 {
-    public const GREETING_PARAMETER = 'msstc4symfony_skeleton.greeting';
+    public const GREETING_PARAMETER = 'msstc4symfony_slo.greeting';
 
-    protected string $extensionAlias = 'msstc4symfony_skeleton';
+    protected string $extensionAlias = 'msstc4symfony_slo';
 
     #[Override]
     public function configure(DefinitionConfigurator $definition): void
