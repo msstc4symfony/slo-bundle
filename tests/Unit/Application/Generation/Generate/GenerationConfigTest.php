@@ -17,6 +17,7 @@ final class GenerationConfigTest extends TestCase
 
         self::assertSame(['shop', ['web'], '/out', false, true, 6, true], [$config->application, $config->components, $config->outputDir, $config->prometheusRules, $config->prometheusAlerts, $config->noEventsAlertHours, $config->sloth]);
         self::assertNull((new GenerationConfig(null, [], '/out'))->application);
+        self::assertNull((new GenerationConfig('', [], '/out'))->application, 'an env placeholder resolved to "" is not configured');
     }
 
     /**
@@ -24,7 +25,6 @@ final class GenerationConfigTest extends TestCase
      */
     public static function provideInvalid(): iterable
     {
-        yield 'empty application' => ['', [], '/out', null, 'application'];
         yield 'empty component' => ['shop', ['web', ''], '/out', null, 'components'];
         yield 'components not a list' => ['shop', ['a' => 'web'], '/out', null, 'components'];
         yield 'non-string component' => ['shop', [1], '/out', null, 'components'];
@@ -42,7 +42,7 @@ final class GenerationConfigTest extends TestCase
         $this->expectExceptionMessage($setting);
 
         // Reason: the values are outside the declared types on purpose, the constructor guards what the config tree rejects.
-        // @phpstan-ignore argument.type, argument.type, argument.type
+        // @phpstan-ignore argument.type, argument.type
         new GenerationConfig($application, $components, $outputDir, noEventsAlertHours: $hours);
     }
 }

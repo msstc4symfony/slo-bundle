@@ -13,11 +13,14 @@ use InvalidArgumentException;
  */
 final readonly class GenerationConfig
 {
+    /** @var non-empty-string|null value of the `application` label, null until configured (slo:generate then refuses to run) */
+    public ?string $application;
+
     /** @var list<non-empty-string> */
     public array $components;
 
     /**
-     * @param non-empty-string|null $application value of the `application` label, null until configured (slo:generate then refuses to run)
+     * @param string|null $application '' (an env placeholder resolved to nothing) counts as not configured
      * @param array<array-key, mixed> $components the configured list, checked here
      * @param non-empty-string $outputDir
      * @param positive-int|null $noEventsAlertHours
@@ -25,7 +28,7 @@ final readonly class GenerationConfig
      * @throws InvalidArgumentException for a value the configuration tree rejects
      */
     public function __construct(
-        public ?string $application,
+        ?string $application,
         array $components,
         public string $outputDir,
         public bool $prometheusRules = true,
@@ -33,9 +36,7 @@ final readonly class GenerationConfig
         public ?int $noEventsAlertHours = null,
         public bool $sloth = false,
     ) {
-        if ($application === '') {
-            throw new InvalidArgumentException('generation.selector.application must not be empty.');
-        }
+        $this->application = $application === '' ? null : $application;
         $valid = array_values(array_filter($components, static fn (mixed $component): bool => \is_string($component) && $component !== ''));
         if ($valid !== $components) {
             throw new InvalidArgumentException(\sprintf('generation.selector.components must be a list of non-empty strings, got %s.', json_encode($components)));

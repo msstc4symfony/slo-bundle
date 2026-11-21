@@ -11,6 +11,7 @@ use Msstc4Symfony\SloBundle\Application\Generation\Generate\Input;
 use Msstc4Symfony\SloBundle\Application\Generation\SyncFiles\Action as SyncAction;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Generation\GenerationFixture;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Generation\SyncFiles\InMemoryFileWriter;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\TestWith;
 use PHPUnit\Framework\TestCase;
 
@@ -52,12 +53,46 @@ final class ActionTest extends TestCase
         self::assertStringStartsWith('Sloth has no per-SLO window', $output->warnings[array_key_last($output->warnings)] ?? '');
     }
 
-    public function testMissingApplicationIsRejectedBeforeAnythingIsWritten(): void
+    public function testRulesAndAlertsSettingsReachTheGeneratedFiles(): void
+    {
+        $alertsOff = ($this->action(new InMemoryFileWriter(), alerts: false))(new Input());
+        self::assertContains('prometheus/slo-recording.rules.yml', $alertsOff->files->missing);
+        self::assertNotContains('prometheus/slo-alerts.rules.yml', $alertsOff->files->missing);
+
+        $rulesOff = ($this->action(new InMemoryFileWriter(), rules: false))(new Input());
+        self::assertNotContains('prometheus/slo-recording.rules.yml', $rulesOff->files->missing);
+        self::assertContains('prometheus/slo-alerts.rules.yml', $rulesOff->files->missing);
+        self::assertStringStartsWith('generation.prometheus.alerts is enabled but generation.prometheus.rules is not', $rulesOff->warnings[0] ?? '');
+
+        $writer = new InMemoryFileWriter();
+        ($this->action($writer, noEventsAlertHours: 6))(new Input());
+        $alerts = $writer->files['/project/observability/prometheus/slo-alerts.rules.yml'] ?? '';
+        self::assertStringContainsString('SloNoEvents', $alerts);
+        self::assertStringContainsString('recorded no events in 6h', $alerts);
+
+        $writer = new InMemoryFileWriter();
+        ($this->action($writer))(new Input());
+        self::assertStringNotContainsString('SloNoEvents', $writer->files['/project/observability/prometheus/slo-alerts.rules.yml'] ?? '');
+    }
+
+    /**
+     * An env placeholder can resolve to an empty application at runtime, after the configuration tree checked it.
+     *
+     * @return iterable<string, array{string|null}>
+     */
+    public static function missingApplicationProvider(): iterable
+    {
+        yield 'not configured' => [null];
+        yield 'resolved to an empty string' => [''];
+    }
+
+    #[DataProvider('missingApplicationProvider')]
+    public function testMissingApplicationIsRejectedBeforeAnythingIsWritten(?string $application): void
     {
         $writer = new InMemoryFileWriter();
 
         try {
-            ($this->action($writer, application: null))(new Input());
+            ($this->action($writer, application: $application))(new Input());
             self::fail('Expected InvalidGenerationSettings.');
         } catch (InvalidGenerationSettings $e) {
             self::assertStringContainsString('generation.selector.application', $e->getMessage());
@@ -77,9 +112,9 @@ final class ActionTest extends TestCase
     }
 
     /**
-     * @param non-empty-string|null $application
+     * @param positive-int|null $noEventsAlertHours
      */
-    private function action(InMemoryFileWriter $writer, ?string $application = 'shop', bool $sloth = false, float $availabilityTarget = 99.9): Action
+    private function action(InMemoryFileWriter $writer, ?string $application = 'shop', bool $sloth = false, float $availabilityTarget = 99.9, bool $rules = true, bool $alerts = true, ?int $noEventsAlertHours = null): Action
     {
         $catalog = GenerationFixture::catalog(checkoutAvailabilityTarget: $availabilityTarget);
 
@@ -88,7 +123,7 @@ final class ActionTest extends TestCase
             GenerationFixture::dashboardsAction($catalog),
             GenerationFixture::slothAction($catalog),
             new SyncAction($writer),
-            new GenerationConfig($application, ['web'], '/project/observability', sloth: $sloth),
+            new GenerationConfig($application, ['web'], '/project/observability', $rules, $alerts, $noEventsAlertHours, $sloth),
         );
     }
 }
