@@ -30,12 +30,14 @@ final class ExpectedFailureClassifierSelector
     public static function select(ContainerBuilder $container, ?Closure $exists = null): string
     {
         $exists ??= static fn (string $name): bool => class_exists($name) || interface_exists($name) || enum_exists($name);
-        $container->addResource(new ClassExistenceResource(ActionOutcome::class, false));
-        $container->addResource(new ClassExistenceResource(ExpectedFailureInterface::class, false));
+        $hasOutcome = $exists(ActionOutcome::class);
+        $hasExpectedFailure = $exists(ExpectedFailureInterface::class);
+        $container->addResource(new ClassExistenceResource(ActionOutcome::class, $hasOutcome));
+        $container->addResource(new ClassExistenceResource(ExpectedFailureInterface::class, $hasExpectedFailure));
 
         return match (true) {
-            $exists(ActionOutcome::class) => ActionOutcomeClassifier::class,
-            $exists(ExpectedFailureInterface::class) => ExpectedFailureInterfaceClassifier::class,
+            $hasOutcome => ActionOutcomeClassifier::class,
+            $hasExpectedFailure => ExpectedFailureInterfaceClassifier::class,
             default => NullExpectedFailureClassifier::class,
         };
     }
