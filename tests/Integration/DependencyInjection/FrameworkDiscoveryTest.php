@@ -12,9 +12,12 @@ use Msstc4Symfony\SloBundle\Test\Fixtures\Message\RefundPayment;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Message\SendReceipt;
 use Msstc4Symfony\SloBundle\Test\Integration\Kernel\MessengerTestKernel;
 use Override;
+use PHPUnit\Framework\Attributes\RequiresMethod;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Filesystem\Filesystem;
+use Symfony\Component\Messenger\MessageBusInterface;
 
+#[RequiresMethod(MessageBusInterface::class, 'dispatch')]
 final class FrameworkDiscoveryTest extends TestCase
 {
     #[Override]

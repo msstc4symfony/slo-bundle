@@ -18,10 +18,11 @@ use Symfony\Component\DependencyInjection\Compiler\PassConfig;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\HttpKernel\Kernel;
+use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
 
 /**
- * HTTP, Messenger and operation points on in-memory storage; the environment "failing_storage" makes the SLO writer's recorder throw.
+ * HTTP, Messenger (when installed) and operation points on in-memory storage; the environment "failing_storage" makes the SLO writer's recorder throw.
  */
 final class HardeningKernel extends Kernel
 {
@@ -66,21 +67,25 @@ final class HardeningKernel extends Kernel
 
     protected function configureContainer(ContainerConfigurator $container): void
     {
-        $container->extension('framework', [
+        $framework = [
             'secret' => 'test',
             'http_method_override' => false,
             'test' => true,
             'router' => ['utf8' => true],
             'php_errors' => ['log' => false],
-            'messenger' => [
+        ];
+        $messenger = interface_exists(MessageBusInterface::class);
+        if ($messenger) {
+            $framework['messenger'] = [
                 'failure_transport' => self::FAILED,
                 'transports' => [
                     self::ASYNC => ['dsn' => 'in-memory://', 'retry_strategy' => ['max_retries' => 0, 'delay' => 0]],
                     self::FAILED => 'in-memory://',
                 ],
                 'routing' => [ChargeCard::class => self::ASYNC],
-            ],
-        ]);
+            ];
+        }
+        $container->extension('framework', $framework);
         $container->extension('monolog', ['handlers' => ['capture' => ['type' => 'service', 'id' => TestHandler::class]]]);
         $container->extension('msstc4symfony_metrics', [
             'storage' => ['dsn' => 'inmemory://'],
@@ -97,7 +102,9 @@ final class HardeningKernel extends Kernel
         $services->set(TestHandler::class)->public();
         $services->set(ThrowingRecorder::class)->public();
         $services->set(CheckoutController::class)->autowire()->autoconfigure()->tag('controller.service_arguments');
-        $services->set(ChargeCardHandler::class)->autowire()->autoconfigure();
+        if ($messenger) {
+            $services->set(ChargeCardHandler::class)->autowire()->autoconfigure();
+        }
     }
 
     protected function configureRoutes(RoutingConfigurator $routes): void

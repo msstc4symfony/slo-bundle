@@ -9,6 +9,7 @@ use Msstc4Symfony\SloBundle\Test\Fixtures\Runtime\ChargeCard;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Runtime\ChargeCardHandler;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Runtime\WriteAudit;
 use Override;
+use PHPUnit\Framework\Attributes\RequiresMethod;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Console\Tester\CommandTester;
@@ -16,6 +17,7 @@ use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 
+#[RequiresMethod(MessageBusInterface::class, 'dispatch')]
 final class MessengerSloKernelTest extends KernelTestCase
 {
     private const GOOD = ChargeCardHandler::SLO . '|availability|good';

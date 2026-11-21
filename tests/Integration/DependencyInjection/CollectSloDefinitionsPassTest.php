@@ -39,10 +39,12 @@ use Msstc4Symfony\SloBundle\Test\Fixtures\Message\ProcessPayment;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Message\SendReceipt;
 use Msstc4Symfony\SloBundle\Test\Integration\TestContainer;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\RequiresMethod;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
+use Symfony\Component\Messenger\Attribute\AsMessage;
 
 /**
  * @phpstan-import-type TestConfig from TestContainer
@@ -222,6 +224,7 @@ final class CollectSloDefinitionsPassTest extends TestCase
         self::assertSame(['dead', 'failed'], $catalog->extras()->failureTransports);
     }
 
+    #[RequiresMethod(AsMessage::class, '__construct')]
     public function testAsMessageTransportCountsAsRoutingOnlyWithMessenger(): void
     {
         $handler = static function (ContainerBuilder $container): void {

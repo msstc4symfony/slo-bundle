@@ -12,6 +12,8 @@ use Override;
 use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
 use Symfony\Bundle\MonologBundle\MonologBundle;
+use Symfony\Component\Config\Loader\LoaderInterface;
+use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\HttpKernel\Kernel;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -21,7 +23,9 @@ use Symfony\Component\Messenger\MessageBusInterface;
  */
 final class NoRouterTestKernel extends Kernel
 {
-    use MicroKernelTrait;
+    use MicroKernelTrait {
+        registerContainerConfiguration as private registerMicroKernelConfiguration;
+    }
 
     public const ASYNC = 'async';
 
@@ -46,6 +50,18 @@ final class NoRouterTestKernel extends Kernel
     public function getLogDir(): string
     {
         return self::cacheRoot() . '/log';
+    }
+
+    /**
+     * Symfony 8.1's MicroKernelTrait loads its router resource after configureContainer(), which re-enables the router.
+     */
+    #[Override]
+    public function registerContainerConfiguration(LoaderInterface $loader): void
+    {
+        $this->registerMicroKernelConfiguration($loader);
+        $loader->load(static function (ContainerBuilder $container): void {
+            $container->loadFromExtension('framework', ['router' => ['enabled' => false]]);
+        });
     }
 
     protected function configureContainer(ContainerConfigurator $container): void
