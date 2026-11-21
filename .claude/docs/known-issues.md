@@ -174,7 +174,7 @@
   единственный пользовательский источник ключей с `%` (id тега точки) отклоняется на компиляции.
 - **Числовые имена маршрутов** (`404`) становятся int-ключами PHP-массивов: `RouteIndexData` кастует ключи в строку при каждом чтении
   и принимает int-ключи при разборе файла.
-- **route_index.php версия 2**: горячий путь читает и валидирует отдельные записи (`RouteIndexFile::pointsFor()`, `::revisionOf()`,
+- **route_index.php версия 3** (с батча E; 2 — без отпечатка каталога): горячий путь читает и валидирует отдельные записи (`RouteIndexFile::pointsFor()`, `::revisionOf()`,
   `::routesFor()`, с R2-008/009), `::load()` валидирует весь файл (CLI). `revisions` = `"<slo>|<kind>" => 8 hex | ''`
   (`''` — Strategy A), их считает `SloCacheWarmer` резолвером поверх только что прочитанных маршрутов; `WarmedRevisions`
   (`PrecomputedRevisionsInterface`) отдаёт их `RecordEvent\Action`. В debug или без файла — runtime-резолв как раньше.
@@ -224,8 +224,10 @@
   ошибка компиляции даже без HTTP-точек (раньше молча `30d`/`[]`).
 - **Порог латентности ≤ 999999999 ms** (`LatencyThreshold::MAX_MILLISECONDS`): каноническая форма `toString()` обязана разбираться
   обратно (ms-форма — не больше 9 цифр); дамп каталога восстанавливает порог через `fromMilliseconds()`.
-- **`ContainerBuilder::addResource(ClassExistenceResource)`** не запоминает классы, которые уже лежат в vendor (их отслеживает composer):
-  трекинг logic-bundle в `ExpectedFailureClassifierSelector` наблюдаем только при отсутствии класса, юнит-тестом не проверяется.
+- **`ContainerBuilder::addResource(ClassExistenceResource)`** не запоминает классы, которые уже лежат в vendor (их отслеживает composer).
+  Второй аргумент `ClassExistenceResource` — уже установленное существование, не флаг автозагрузки: `false` для существующего класса делает
+  ресурс вечно несвежим (пересборка debug-контейнера на каждый запрос, если класс вне vendor). Селектор передаёт результат probe (R3-005);
+  тест подменяет `addResource()` наследником `ContainerBuilder` и проверяет `isFresh()`.
 - **Окно слитого SLO**: при разном написании одной длины (`30d`/`1mo`) берётся `Window::canonical()` (крупнейшая точная единица, `1mo`);
   одинаковые написания не меняются (golden-файлы те же). Окно не входит в ревизию.
 - **Markdown coverage-дашборда**: `$` пишется как `&#36;` (интерполяция Grafana видит `$var`/`${__…}` до рендера Markdown), обратный слэш
@@ -243,15 +245,41 @@
 - **opcache.file_update_protection (2 c)**: только что записанный PHP-файл opcache не кеширует и парсит на каждом include
   (`route_index.php` на 500 маршрутов — ~1.4 мс против ~2 мкс из кеша). Бенчмарк «cold request» состаривает файл `touch()`; в проде
   файл после деплоя старше двух секунд, но индекс, сохранённый с пути запроса, первые секунды парсится каждым запросом.
-- **Холодный FPM-запрос** (500 HTTP SLO, прогретый индекс): ~195 мкс, из них ~115 мкс — гидрация одного определения
-  (`CatalogDump::definition()`: инварианты `Classification`/`StatusSet`, перебор кодов в `intersects()`), записи индекса ~20 мкс.
-  Если холодный путь станет узким местом — кешировать гидрированные определения или упростить проверку пересечения статусов.
+- **Холодный FPM-запрос** (500 HTTP SLO, прогретый индекс): ~195 мкс в батче D, основное — гидрация одного определения
+  (`CatalogDump::definition()`: инварианты `Classification`/`StatusSet`, перебор кодов в `intersects()`). С батча E `intersects()` —
+  пересечение интервалов: ~70 мкс против ~115 мкс старого кода в том же прогоне (машина шумит, сравнивать только в одном прогоне).
+  Запрос пишет одно событие: HTTP availability по умолчанию — Strategy A (ряд metrics-bundle), dedicated только latency.
 - **Runtime-индекс сохраняется** (`RouteIndexFile::persist()`): вне debug, один раз за процесс, только если текущего индекса нет
-  (прогретый файл не перезаписывается); read-only кеш — молча. Сообщение degraded mode теперь говорит, что индекс сохраняется для
-  следующих процессов. Kernel-тест: удалить файл после первой загрузки, контейнер из кеша не перезапускает warmer.
+  (прогретый файл не перезаписывается); read-only кеш с батча E проверяется до сборки (см. батч E). Kernel-тест: удалить файл после первой загрузки, контейнер из кеша не перезапускает warmer.
 - **`SortedKeys` отвергает map, который после `ksort` стал бы списком** (ключи ровно 0..n-1 не по порядку): JSON поменял бы объект на
   массив. Смешанные числовые ключи (`'10'`, `'9'`) допустимы.
 - **`%` в ключах дампа** отвергается централизованно в `CollectSloDefinitionsPass::escape()` (LogicException); `TaggedPointReader` по-прежнему
   даёт понятную ошибку компиляции раньше.
 - **Покрытие с дробным `--min`** сравнивается в базисных пунктах (`monitored*10000 < round(required*100)*eligible`): float давал
   «7 из 10000 ниже 0.07».
+
+## acc:code-review high #3, батч E (2026-11-21 UTC)
+
+- **`RouteIndexFile::persist()`** сначала проверяет запись (`isWritable()`), затем строит: раньше read-only кеш стоил полной гидрации
+  каталога и всех ревизий на каждый FPM-запрос (R3-001). Degraded-сообщение двух видов: «try to store the index for the next ones»
+  (кеш писуем) и «cache directory is not writable … in every process». Тест read-only каталога пропускается под root (`is_writable`).
+- **Отпечаток в `route_index.php`** (`fingerprint`, хэш дампа каталога): рукописные файлы в тестах пишутся хелпером `dump()` с
+  `self::FINGERPRINT`, иначе файл отвергается раньше проверяемой структуры. Структурные случаи — в `RouteIndexParserTest`, файловые
+  (версия, отпечаток, throw) — в `RouteIndexFileTest`.
+- **Тесты файла индекса** пишут в уникальный каталог на тест (`getmypid()` + random): общий путь + opcache с
+  `file_update_protection=0` давал чтение файла предыдущего теста (R3-010).
+- **`InMemoryRouteIndexStore`** как файл: экземпляр читает то, с чем открыт; `persist()`/`write()` видны только `reopen()`;
+  `persist()` не бросает и строит один раз; битая ревизия → null. Контракт проверяет это для фейка и файла (R3-011).
+- **`metric_label` у tagged-точек**: одинаковая метка у точек одного типа → метка сбрасывается у всех (SLO → dedicated, warning в extras
+  для точек с `#[Slo]`); один сервис с двумя тегами одной точки и разными метками — ошибка компиляции (R3-006/007). Решено не ошибкой
+  компиляции: имена действий logic-bundle могут совпадать (короткие имена классов).
+- **Порядок coverage** — `strcmp` по точке внутри вида: `<=>` массивов сравнивал числовые имена маршрутов как числа и был нетранзитивен
+  (R3-008). Строка вида ниже порога печатает точную дробь `BELOW (m of e eligible points have an SLO)`; JSON и дашборд не менялись (R3-009).
+- **`GenerationConfig`**: `application = ''` (env-плейсхолдер) = не настроено → `InvalidGenerationSettings::missingApplication()` (R3-017).
+- **`SortedKeys`** отвергает map с ключами ровно 0..n-1 не по порядку при любом размере (раньше только n ≤ 10, R3-021); разреженные
+  int-ключи остаются map.
+- **Связка series catalog** — `CollectSloDefinitionsPass` строит индекс меток `new MetricsBundleSeriesCatalog()`; что runtime-алиас тот же,
+  закреплено тестом (аргумент `$series` у `MetricBindingResolver`) (R3-018).
+- **Помощники публичных доменных типов** (`Classification::appliesTo/pointTypesOf/inapplicableFieldsFor`, `SloDefinition::withWindow`,
+  `Window::canonical`, `LatencyThreshold::fromMilliseconds`, `PointType::acceptsIncludeErrors`) — `@internal` на методе; README это оговаривает.
+- **Позиционные аргументы скомпилированных определений** в тестах — `tests/Integration/DefinitionArgument::of($definition, Class::class, 'param')`.

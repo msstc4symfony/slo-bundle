@@ -3,7 +3,8 @@
 - `msstc4symfony/metrics-bundle` `^2.3` — хранилище и экспорт счётчика `symfony_slo_events_total`.
 - Мосты `slo-bridge-logic` / `slo-bridge-profiling` — отдельные пакеты, подключают свои точки через тег
   `msstc4symfony_slo.point` (атрибуты `type` = значение `PointType`, `id`, опционально `metric_label`); pass моста —
-  приоритет >= 10 в `TYPE_BEFORE_OPTIMIZATION`.
+  приоритет >= 10 в `TYPE_BEFORE_OPTIMIZATION`. `metric_label`, общий для нескольких точек одного типа, сбрасывается (их SLO — dedicated,
+  warning); у одной точки — одно значение метки, иначе ошибка компиляции.
 
 ## Что discovery читает из чужих бандлов (Task 5)
 

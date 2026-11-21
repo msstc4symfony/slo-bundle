@@ -81,7 +81,7 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
 - Проблема: `FrameworkBundle\Routing\Router::getRouteCollection()` при каждом вызове заново грузит маршруты через
   `routing.loader`, а «мемоизация на процесс» под FPM = на запрос.
 - `SloCacheWarmer::warmUp($cacheDir)` пишет `$cacheDir/msstc4symfony_slo/route_index.php` (`var_export` массива
-  `RouteIndexData::toArray()`: `version` (2), `routes` name => {path, methods, controller}, `controllers` controller => имена,
+  `RouteIndexData::toArray()` плюс `fingerprint`: `version` (3), `routes` name => {path, methods, controller}, `controllers` controller => имена,
   `points` маршрут => строки `PointId`, `revisions` `"<slo>|<kind>"` => 8 hex | `''`), атомарно (tmp + rename) и с `opcache_invalidate`.
   `RouteIndexData` реализует `RouteCatalogInterface` (warmer резолвит стратегии поверх свежих маршрутов).
 - Всё про индекс лежит в `Infrastructure/RouteIndex/` (R2-053): `RouteIndexData`, `RouteIndexParser`, `RouteIndexStoreInterface`,
@@ -94,11 +94,16 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
   («degraded mode»); запись — `Filesystem/AtomicFile` (эксклюзивный tmp + rename, общий с `FileWriter`);
   `RouteIndexData` — чистый VO, конструктор проверяет, что controllers ссылаются на известные маршруты); в debug файл игнорируется
   (маршруты меняются без cache:clear).
-- Сборка индекса — `RouteIndexBuilder::build(list<RouteInfo>)` (точки + ревизии через `resolver->withRoutes()`; сбой ревизий/цели
+- Сборка индекса — `RouteIndexBuilder::build(list<RouteInfo>, ?points)` (точки — переданные вызывающим или `pointsOf()`, + ревизии через `resolver->withRoutes()`; сбой ревизий/цели
   логируется и пропускается). Им пользуются warmer и `RoutePointIndex`: если прогретого файла нет, `RoutePointIndex` строит точки сам и
-  отдаёт `RouteIndexStoreInterface::persist(Closure)`; `RouteIndexFile` вызывает замыкание и пишет файл только вне debug, один раз за процесс
-  и когда текущего индекса нет (прогретый файл не перезаписывается); read-only кеш молча пропускается (R2-010-F). Следующий процесс читает
-  файл — перестройка и degraded-предупреждение раз на деплой.
+  отдаёт `RouteIndexStoreInterface::persist(Closure)` (со своими точками, R3-019); `RouteIndexFile` пишет файл только вне debug, один раз
+  за процесс и когда нет текущего корректного индекса (прогретый файл не перезаписывается, битый текущей версии — заменяется с
+  предупреждением, R3-020). Запись каталога проверяется ДО вызова замыкания (`isWritable()`: ближайший существующий каталог пути —
+  каталог и writable), read-only кеш стоит пары stat, degraded-предупреждение тогда говорит «every process» (R3-001/002); сбой записи
+  логируется один раз. Следующий процесс читает файл — перестройка и degraded-предупреждение раз на деплой.
+- **Отпечаток каталога** (R3-004): `CollectSloDefinitionsPass` ставит `RouteIndexFile::$fingerprint` = `xxh128(serialize(дамп каталога))`;
+  `write()` кладёт его в файл, `raw()` доверяет файлу только с совпадающим отпечатком (иначе — как «не прогрет», persist заменит). Защита от
+  старого процесса, который при in-place `cache:clear --no-warmup` сохранил бы старые точки/ревизии в новый кеш.
 - Ключ ревизий — `Application/Binding/ObjectiveKey::of(SloName, ObjectiveKind)->value` (`"<slo>|<kind>"`), общий для warmer,
   `WarmedRevisions`, `RouteIndexStoreInterface::revisionOf()` и мемо `RecordEvent\Action` (R2-034-F).
   Битый/чужой версии/отсутствующий файл → `null` → ленивый fallback (`RouterRouteReader`, `RouteIndexData::pointsOf`).
