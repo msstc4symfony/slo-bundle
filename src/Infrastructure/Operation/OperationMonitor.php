@@ -21,12 +21,18 @@ use Symfony\Contracts\Service\ResetInterface;
 use Throwable;
 
 /**
- * Fail-open: never throws on its own, undeclared or invalid names get a no-op handle and one warning per name.
+ * Fail-open: never throws on its own, undeclared or invalid names get a no-op handle and one warning per name (at most 100 names are remembered per reset).
  */
 final class OperationMonitor implements OperationMonitorInterface, ResetInterface
 {
+    private const MAX_WARNED_NAMES = 100;
+
+    private const INVALID_KEY = '(invalid)';
+
     /** @var array<string, true> */
     private array $warned = [];
+
+    private bool $suppressionWarned = false;
 
     public function __construct(
         private readonly SloCatalogInterface $catalog,
@@ -39,21 +45,23 @@ final class OperationMonitor implements OperationMonitorInterface, ResetInterfac
     #[Override]
     public function start(string $name): OperationHandleInterface
     {
+        $key = self::INVALID_KEY;
         try {
             SloName::fromString($name);
+            $key = $name;
             if ($name === '') {
                 throw new InvalidArgumentException('Operation name must not be empty.');
             }
             $point = PointId::of(PointType::Operation, $name);
             if ($this->catalog->forPoint($point) === [] && $this->catalog->conflictedNamesFor($point) === []) {
-                $this->warnOnce($name, 'SLO operation is not declared in the configuration, nothing is recorded.', null);
+                $this->warnOnce($key, $name, 'SLO operation is not declared in the configuration, nothing is recorded.', null);
 
                 return new NoopOperationHandle();
             }
 
             return new OperationHandle($point, $this->clock->now(), $this->clock, $this->record, $this->logger);
         } catch (Throwable $e) {
-            $this->warnOnce($name, 'SLO operation cannot be monitored, nothing is recorded.', $e);
+            $this->warnOnce($key, $name, 'SLO operation cannot be monitored, nothing is recorded.', $e);
 
             return new NoopOperationHandle();
         }
@@ -86,14 +94,23 @@ final class OperationMonitor implements OperationMonitorInterface, ResetInterfac
     public function reset(): void
     {
         $this->warned = [];
+        $this->suppressionWarned = false;
     }
 
-    private function warnOnce(string $name, string $message, ?Throwable $exception): void
+    private function warnOnce(string $key, string $name, string $message, ?Throwable $exception): void
     {
-        if (isset($this->warned[$name])) {
+        if (isset($this->warned[$key])) {
             return;
         }
-        $this->warned[$name] = true;
+        if (\count($this->warned) >= self::MAX_WARNED_NAMES) {
+            if (!$this->suppressionWarned) {
+                $this->suppressionWarned = true;
+                $this->logger->warning('Further undeclared SLO operation names are suppressed until reset.');
+            }
+
+            return;
+        }
+        $this->warned[$key] = true;
         $this->logger->warning($message, $exception instanceof Throwable ? ['operation' => $name, 'exception' => $exception] : ['operation' => $name]);
     }
 }

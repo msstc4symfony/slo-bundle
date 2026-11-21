@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Operation;
 
+use Msstc4Symfony\LogicBundle\Application\Action\ExpectedFailureInterface;
 use Msstc4Symfony\SloBundle\Application\Attribute\Availability;
 use Msstc4Symfony\SloBundle\Application\Attribute\Latency;
 use Msstc4Symfony\SloBundle\Application\Attribute\Slo;
@@ -25,6 +26,7 @@ use Msstc4Symfony\SloBundle\Test\Unit\Application\Evaluation\RecordEvent\Throwin
 use Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Symfony\RecordingLogger;
 use Override;
 use PHPUnit\Framework\TestCase;
+use ReflectionProperty;
 use RuntimeException;
 
 final class OperationMonitorTest extends TestCase
@@ -88,6 +90,10 @@ final class OperationMonitorTest extends TestCase
 
     public function testExpectedFailureIsGoodForAvailability(): void
     {
+        if (!interface_exists(ExpectedFailureInterface::class)) {
+            self::markTestSkipped('msstc4symfony/logic-bundle is not installed');
+        }
+
         $failure = new ExpectedFailure('refused');
 
         $caught = null;
@@ -169,6 +175,31 @@ final class OperationMonitorTest extends TestCase
         self::assertSame('other.op', $this->logger->contexts[1]['operation']);
     }
 
+    public function testWarnedNamesAreBoundedAndResetRestoresWarnings(): void
+    {
+        for ($i = 0; $i < 150; $i++) {
+            $this->monitor->start('unknown.op' . $i)->end();
+        }
+
+        self::assertCount(101, $this->logger->records);
+        $warned = (new ReflectionProperty(OperationMonitor::class, 'warned'))->getValue($this->monitor);
+        self::assertIsArray($warned);
+        self::assertCount(100, $warned);
+
+        $this->monitor->reset();
+        $this->monitor->start('unknown.op0')->end();
+
+        self::assertCount(102, $this->logger->records);
+    }
+
+    public function testInvalidNamesShareOneWarningKey(): void
+    {
+        $this->monitor->start('Bad 1')->end();
+        $this->monitor->start('Bad 2')->end();
+
+        self::assertCount(1, $this->logger->records);
+    }
+
     public function testResetAllowsTheWarningAgain(): void
     {
         $this->monitor->start('unknown.op')->end();
@@ -198,7 +229,7 @@ final class OperationMonitorTest extends TestCase
         self::assertSame(1, $this->monitor->measure('', static fn (): int => 1));
 
         self::assertSame([], $this->writer->writes);
-        self::assertCount(2, $this->logger->records);
+        self::assertCount(1, $this->logger->records);
     }
 
     public function testWriterFailureInsideEndDoesNotThrow(): void
