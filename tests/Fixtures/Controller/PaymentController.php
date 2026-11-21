@@ -12,7 +12,7 @@ use Msstc4Symfony\SloBundle\Application\Attribute\Slo;
 
 final class PaymentController
 {
-    #[Slo(name: 'payment.create', objectives: [new Availability(99.9), new Latency('200ms', 99)])]
+    #[Slo(name: 'payment.create', objectives: [new Availability(99.95), new Latency('200ms', 99.0)])]
     #[Slo(name: 'payment.combined', objectives: [new Combined('1.5s', 95)], window: '7d', strategy: 'dedicated')]
     public function create(): string
     {

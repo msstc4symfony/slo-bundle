@@ -4,18 +4,28 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Test\Integration;
 
+use Closure;
 use LogicException;
 use Msstc4Symfony\SloBundle\SloBundle;
 use Symfony\Component\DependencyInjection\Compiler\PassConfig;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBag;
 
+/**
+ * Raw msstc4symfony_slo configuration used by the tests.
+ *
+ * @phpstan-type TestConfig array{
+ *     defaults?: array{messenger?: array{failure_transports?: list<string>}},
+ *     operations?: array<string, array{objectives: list<array{type: string, target: float|int, threshold?: string, include_errors?: bool}>, window?: string}>,
+ * }
+ */
 final class TestContainer
 {
     /**
-     * @param array{} $config msstc4symfony_slo configuration
+     * @param TestConfig $config
+     * @param (Closure(ContainerBuilder): void)|null $configure registers fixture services before compilation
      */
-    public static function compile(array $config = []): ContainerBuilder
+    public static function compile(array $config = [], ?Closure $configure = null): ContainerBuilder
     {
         $container = new ContainerBuilder(new ParameterBag([
             'kernel.environment' => 'test',
@@ -30,6 +40,9 @@ final class TestContainer
         $container->loadFromExtension($extension->getAlias(), $config);
 
         $bundle->build($container);
+        if ($configure instanceof Closure) {
+            $configure($container);
+        }
 
         // The bundle's own services are private; keep them inspectable after compilation.
         $container->addCompilerPass(new MakeBundleServicesPublicPass(), PassConfig::TYPE_BEFORE_REMOVING);

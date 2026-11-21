@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle;
 
+use Msstc4Symfony\SloBundle\DependencyInjection\CompilerPass\CollectSloDefinitionsPass;
 use Override;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
+use Symfony\Component\DependencyInjection\Compiler\PassConfig;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
@@ -40,6 +42,13 @@ use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
 final class SloBundle extends AbstractBundle
 {
     protected string $extensionAlias = 'msstc4symfony_slo';
+
+    #[Override]
+    public function build(ContainerBuilder $container): void
+    {
+        // Priority 0: after attribute autoconfiguration (100); bridges that tag points register at >= 10.
+        $container->addCompilerPass(new CollectSloDefinitionsPass(), PassConfig::TYPE_BEFORE_OPTIMIZATION, 0);
+    }
 
     #[Override]
     public function configure(DefinitionConfigurator $definition): void

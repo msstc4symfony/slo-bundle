@@ -4,8 +4,8 @@
 good/bad, правила Prometheus, дашборды Grafana) поверх `metrics-bundle` 2.3.
 
 - `SloBundle` — `AbstractBundle`: `configure()` описывает дерево `msstc4symfony_slo` (пока пустое),
-  `loadExtension()` импортирует `src/Resources/config/services.php`. `build()` не переопределён — появится
-  вместе с первым compiler pass в `src/DependencyInjection/CompilerPass/`.
+  `loadExtension()` импортирует `src/Resources/config/services.php`; `build()` регистрирует compiler passes из
+  `src/DependencyInjection/CompilerPass/`.
 - Сервисы бандла приватные, id = FQCN; потребитель получает их автовайрингом.
 - Слои (`deptrac.yaml`) — копия `bundle-standard/templates/deptrac.yaml` с каноническим ruleset
   (Domain ← DomainService ← Application ← Infrastructure / Presentation / Framework; DependencyInjection — все слои,
@@ -31,3 +31,21 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
   (`variableNode`: `arrayNode` не допускает `null` по умолчанию).
 - `generation.output_dir` содержит `%kernel.project_dir%`, поэтому `TestContainer` задаёт `kernel.project_dir`.
 - Rector удаляет пустые публичные методы фикстур — в `tests/Fixtures` методы должны что-то возвращать.
+
+## Discovery и скомпилированный каталог (Task 5)
+
+- `SloBundle::build()` добавляет `CollectSloDefinitionsPass` (`TYPE_BEFORE_OPTIMIZATION`, приоритет 0 — после
+  автоконфигурации атрибутов на 100, т.е. теги `#[AsController]`/`#[AsMessageHandler]` уже стоят). Мосты, которые
+  ставят тег `msstc4symfony_slo.point` из своего pass, регистрируют его с приоритетом >= 10 (описано в `PointTag`).
+- Раскладка: чистая логика в `src/Application/Discovery/` (`DefinitionFactory`, `CatalogAssembler`, `DiscoveryErrors`,
+  `CatalogDump` + DTO `CatalogContents`, `CatalogExtras`, `HandlerInfo`, `TaggedPoint`, `SloDeclaration`, `PointTag`);
+  чтение контейнера — `@internal` классы в `src/DependencyInjection/CompilerPass/Discovery/`
+  (`ControllerReader`, `HandlerReader`, `TaggedPointReader`, `OperationReader`, `MessengerRouting`,
+  `MetricsParameters`, `AttributeReader`, `ServiceClass`).
+- Конфиг `operations` превращается в `Slo(..., strategy: 'dedicated')`, поэтому валидация у всех источников одна —
+  `DefinitionFactory::fromAttribute()`.
+- Каталог: сервис `CompiledSloCatalog` (алиас `SloCatalogInterface`), аргумент `$catalog` — плоский массив
+  `CatalogDump::toArray()` (`@phpstan-type CatalogShape`), никаких объектов в дампе; гидрация в конструкторе.
+  Точка в дампе — строка `PointId::toString()`, разбирается по первому `:` (`CatalogDump::point()`).
+- Все ошибки компиляции копятся в `DiscoveryErrors` и бросаются одним `InvalidConfigurationException`
+  ("SLO discovery found N errors:"), сообщения отсортированы и начинаются с точки (`http_route:Class::method: ...`).
