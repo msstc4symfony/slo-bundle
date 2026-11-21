@@ -9,12 +9,13 @@ use InvalidArgumentException;
 /**
  * A panel without `id` and `gridPos`: DashboardBuilder assigns both while laying the dashboard out.
  *
- * One colour step of a threshold scale; the base step has no value.
+ * Shapes: ThresholdStep is one colour step of a threshold scale (the base step has no value); ValueMapping is a range
+ * value mapping of a stat panel; FieldDefaults is `fieldConfig.defaults` of a query panel; PanelOptions are the panel
+ * `options`, whose keys depend on the panel type; TargetJson is one query of a panel; PanelJson is the panel JSON
+ * without `id` and `gridPos`.
  *
  * @phpstan-type ThresholdStep array{color: non-empty-string, value: float|null}
- * A range value mapping of a stat panel.
  * @phpstan-type ValueMapping array{type: 'range', options: array{from: int|float, to: int|float, result: array{color: non-empty-string, index: non-negative-int, text: string}}}
- * `fieldConfig.defaults` of a query panel.
  * @phpstan-type FieldDefaults array{
  *     unit: string,
  *     noValue?: string,
@@ -24,11 +25,8 @@ use InvalidArgumentException;
  *     min?: float,
  *     max?: float,
  * }
- * Panel `options`, whose keys depend on the panel type.
  * @phpstan-type PanelOptions array<non-empty-string, bool|string|array<array-key, mixed>>
- * One query of a panel.
  * @phpstan-type TargetJson array{datasource: array{type: 'prometheus', uid: non-empty-string}, expr: string, legendFormat: string, refId: non-empty-string}
- * Grafana panel JSON without `id` and `gridPos`.
  * @phpstan-type PanelJson array{
  *     type: 'timeseries'|'stat'|'gauge'|'text'|'row',
  *     title: string,

@@ -18,6 +18,9 @@ use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
 /**
  * Normalised bundle configuration.
  *
+ * Shapes: ObjectiveConfig is one objective of a configured operation; OperationConfig is one entry of `operations`
+ * (an operation SLO); SloConfig is the whole processed `msstc4symfony_slo` tree.
+ *
  * @phpstan-type ObjectiveConfig array{type: 'availability'|'latency'|'combined', target: float, threshold?: string, include_errors?: bool}
  * @phpstan-type OperationConfig array{objectives: non-empty-list<ObjectiveConfig>, window?: string, expected_failure_is_good?: bool}
  * @phpstan-type SloConfig array{
@@ -75,7 +78,8 @@ final class SloBundle extends AbstractBundle
     }
 
     /**
-     * @param array<mixed> $config the SloConfig tree, flattened into parameters as is
+     * @param array<array-key, mixed> $config the processed tree, shaped like SloConfig; the parent signature takes a
+     *                                        plain array, so the shape cannot narrow the parameter (contravariance)
      */
     #[Override]
     public function loadExtension(array $config, ContainerConfigurator $container, ContainerBuilder $builder): void
@@ -88,11 +92,12 @@ final class SloBundle extends AbstractBundle
     }
 
     /**
-     * One parameter per leaf: nested maps become dotted paths, lists and the operations map stay whole.
+     * One parameter per leaf: nested maps become dotted paths, lists and the operations map stay whole. Typed by value,
+     * not by SloConfig: PHPStan has no recursive aliases, and every level of the tree passes through here.
      *
-     * @param array<mixed> $config
+     * @param array<array-key, mixed> $config a (sub)tree of SloConfig
      *
-     * @return array<string, array<mixed>|bool|float|int|string|null>
+     * @return array<string, array<array-key, mixed>|bool|float|int|string|null>
      */
     private static function flatten(array $config, string $prefix = ''): array
     {

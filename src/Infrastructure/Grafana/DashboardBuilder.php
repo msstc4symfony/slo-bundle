@@ -10,10 +10,10 @@ use Msstc4Symfony\SloBundle\Application\Generation\GenerateDashboards\DashboardC
  * Wraps the panels of one dashboard: stable uid, panel ids 1..n and a fixed left-to-right grid layout, the four template
  * variables and fixed time defaults. Nothing here reads the clock or the environment.
  *
- * A dashboard template variable; the keys depend on its type.
+ * Shapes: TemplateVariable is a dashboard template variable, its keys depend on its type; DashboardJson is the
+ * dashboard JSON written for file provisioning.
  *
  * @phpstan-type TemplateVariable array<non-empty-string, bool|int|string|null|array<array-key, mixed>>
- * The dashboard JSON written for file provisioning.
  * @phpstan-type DashboardJson array{
  *     annotations: array{list: list<never>},
  *     editable: false,

@@ -15,10 +15,10 @@ use Override;
  * Sloth `prometheus/v1` spec: one SLO per objective, queries are the bundle's bad/total selectors over Sloth's
  * `{{.window}}` template. The SLO window is not part of the spec: Sloth takes it from its own period configuration.
  *
- * Labels of a Sloth SLO and its alerts.
+ * Shapes: SlothLabels are the labels of a Sloth SLO and its alerts; SlothSloShape is one entry of the `slos` list;
+ * SlothSpecShape is the `prometheus/v1` spec document.
  *
  * @phpstan-type SlothLabels array{application: non-empty-string, objective: non-empty-string, slo: non-empty-string}
- * One entry of the `slos` list.
  * @phpstan-type SlothSloShape array{
  *     name: non-empty-string,
  *     objective: float,
@@ -32,7 +32,6 @@ use Override;
  *         ticket_alert: array{labels: array{severity: 'ticket'}},
  *     },
  * }
- * The `prometheus/v1` spec document.
  * @phpstan-type SlothSpecShape array{version: 'prometheus/v1', service: non-empty-string, labels: array{application: non-empty-string}, slos: list<SlothSloShape>}
  *
  * @internal
