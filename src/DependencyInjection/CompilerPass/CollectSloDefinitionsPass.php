@@ -71,6 +71,8 @@ final class CollectSloDefinitionsPass implements CompilerPassInterface
             throw new InvalidConfigurationException($errors->summary());
         }
 
+        // The message labels indexed here must be the ones the runtime SeriesCatalogInterface alias computes; the port is
+        // @internal and aliased to MetricsBundleSeriesCatalog (pinned by CollectSloDefinitionsPassTest).
         $dump = self::escape(CatalogDump::toArray($contents, new MetricsBundleSeriesCatalog()));
         $container->getDefinition(CompiledSloCatalog::class)->setArgument('$catalog', $dump);
         if ($container->hasDefinition(RouteIndexFile::class)) {

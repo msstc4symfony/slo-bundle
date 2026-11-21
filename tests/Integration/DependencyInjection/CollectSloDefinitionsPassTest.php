@@ -6,6 +6,7 @@ namespace Msstc4Symfony\SloBundle\Test\Integration\DependencyInjection;
 
 use Closure;
 use Msstc4Symfony\SloBundle\Application\Attribute\Slo;
+use Msstc4Symfony\SloBundle\Application\Binding\MetricBindingResolver;
 use Msstc4Symfony\SloBundle\Application\Discovery\PointTag;
 use Msstc4Symfony\SloBundle\Application\Discovery\TaggedPoint;
 use Msstc4Symfony\SloBundle\Domain\Entity\SloDefinition;
@@ -16,6 +17,7 @@ use Msstc4Symfony\SloBundle\Domain\Repository\SloCatalogInterface;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\SloName;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
+use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MetricsBundleSeriesCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\RouteIndex\RouteIndexFile;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Action\CleanupAction;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Action\RefundAction;
@@ -58,6 +60,7 @@ use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\DependencyInjection\Compiler\PassConfig;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
+use Symfony\Component\DependencyInjection\Reference;
 use Symfony\Component\Messenger\Attribute\AsMessage;
 
 /**
@@ -325,6 +328,14 @@ final class CollectSloDefinitionsPassTest extends TestCase
 
         self::assertSame('RefundAction', $catalog->metricLabelOf(PointId::of(PointType::LogicAction, 'refund')));
         self::assertSame([], $catalog->extras()->warnings);
+    }
+
+    public function testTheRuntimeSeriesCatalogIsTheOneTheCompileTimeLabelIndexUses(): void
+    {
+        $series = DefinitionArgument::of($this->container([])->getDefinition(MetricBindingResolver::class), MetricBindingResolver::class, 'series');
+
+        self::assertInstanceOf(Reference::class, $series);
+        self::assertSame(MetricsBundleSeriesCatalog::class, (string) $series);
     }
 
     public function testTheRouteIndexFileIsBoundToAFingerprintOfTheCatalog(): void
