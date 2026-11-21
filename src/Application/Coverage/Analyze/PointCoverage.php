@@ -26,11 +26,13 @@ final readonly class PointCoverage
     }
 
     /**
-     * Report order: by kind, then by point.
+     * Report order: by kind, then by point as a string (numeric route names compared as numbers would not be a total order).
      */
     public static function compare(self $left, self $right): int
     {
-        return [$left->kind->position(), $left->point] <=> [$right->kind->position(), $right->point];
+        $byKind = $left->kind->position() <=> $right->kind->position();
+
+        return $byKind !== 0 ? $byKind : strcmp($left->point, $right->point);
     }
 
     /**

@@ -131,7 +131,11 @@ final class CoverageCommand extends Command
             $kind = $coverage->kind->value;
             $line = \sprintf('%-17s SLO %s%%, measured by universal metrics %s%%', $kind, number_format($coverage->sloPercent, 2, '.', ''), number_format($coverage->measuredPercent, 2, '.', ''));
             if (isset($required[$kind])) {
-                $line .= \sprintf(', required %s%%%s', rtrim(rtrim(number_format($required[$kind], 2, '.', ''), '0'), '.'), \in_array($coverage->kind, $below, true) ? ' BELOW' : '');
+                $line .= \sprintf(', required %s%%', rtrim(rtrim(number_format($required[$kind], 2, '.', ''), '0'), '.'));
+                if (\in_array($coverage->kind, $below, true)) {
+                    // The percent is rounded for display, the gate compares the exact fraction.
+                    $line .= \sprintf(' BELOW (%d of %d eligible points have an SLO)', $coverage->monitored, $coverage->eligible);
+                }
             }
             $output->writeln($line);
         }

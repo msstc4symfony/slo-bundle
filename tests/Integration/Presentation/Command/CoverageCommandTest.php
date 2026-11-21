@@ -55,6 +55,7 @@ final class CoverageCommandTest extends TestCase
             self::assertSame(Command::SUCCESS, $tester->execute(['--min' => '50']));
             self::assertSame(Command::SUCCESS, $tester->execute(['--min' => '0']));
             self::assertSame(Command::FAILURE, $tester->execute(['--min' => '50.01']));
+            self::assertMatchesRegularExpression('/^http_route +SLO 50\.00%, measured by universal metrics [0-9.]+%, required 50\.01% BELOW \((\d+) of (\d+) eligible points have an SLO\)$/m', $tester->getDisplay(), 'the exact fraction explains a rounded percent that looks like the requirement');
         });
     }
 
