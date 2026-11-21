@@ -18,6 +18,7 @@ use Throwable;
 
 /**
  * Surfaces catalog problems in the deploy log and writes the route index, without ever failing the cache warm-up.
+ * Not optional: a container built without optional warmers would otherwise load the routes on every request.
  *
  * @internal
  */
@@ -38,7 +39,7 @@ final readonly class SloCacheWarmer implements CacheWarmerInterface
     #[Override]
     public function isOptional(): bool
     {
-        return true;
+        return false;
     }
 
     #[Override]

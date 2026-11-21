@@ -10,13 +10,16 @@ use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexData;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexParser;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexStoreInterface;
 use Override;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use RuntimeException;
 use Throwable;
 
 /**
  * The route index as a PHP file in the cache directory (opcache-friendly), written by SloCacheWarmer: FrameworkBundle's Router reloads the whole
  * route collection on every getRouteCollection() call, i.e. once per request under PHP-FPM. Ignored in debug mode,
- * where routes may change without a cache clear.
+ * where routes may change without a cache clear; outside debug mode a missing or unreadable file is logged once per
+ * process, because every request then pays the route load.
  *
  * @internal
  */
@@ -42,6 +45,7 @@ final class RouteIndexFile implements RouteIndexStoreInterface
     public function __construct(
         private readonly string $cacheDir,
         private readonly bool $debug,
+        private readonly LoggerInterface $logger = new NullLogger(),
     ) {
     }
 
@@ -130,7 +134,13 @@ final class RouteIndexFile implements RouteIndexStoreInterface
             $raw = null;
         }
 
-        return $this->raw = RouteIndexParser::isCurrentVersion($raw) ? $raw : null;
+        if (!RouteIndexParser::isCurrentVersion($raw)) {
+            $this->logger->warning('SLO route index is not warmed, HTTP SLOs read the routes from the router in this process (degraded mode); run cache:warmup.', ['file' => $file]);
+
+            return null;
+        }
+
+        return $this->raw = $raw;
     }
 
     private function include(string $file): mixed

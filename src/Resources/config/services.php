@@ -84,6 +84,7 @@ return static function (ContainerConfigurator $container): void {
     $services->set(RouteIndexFile::class)
         ->arg('$cacheDir', param('kernel.cache_dir'))
         ->arg('$debug', param('kernel.debug'))
+        ->arg('$logger', service(FailSafeLogger::class))
     ;
     $services->alias(RouteIndexStoreInterface::class, RouteIndexFile::class);
     $services->set(RouterRouteCatalog::class);

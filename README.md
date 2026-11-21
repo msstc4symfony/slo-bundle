@@ -454,15 +454,16 @@ produced in the HTTP path (`kernel.terminate`) and in the worker loop for Messen
 **Route index, the cold path.** HTTP SLOs need the route → SLO point index and the route names of each SLO.
 FrameworkBundle's `Router::getRouteCollection()` reloads every route from the loaders on each call, and under PHP-FPM
 "memoised per process" means once per request, so building the index lazily costs a full route load on the first SLO
-event of every request (milliseconds to tens of milliseconds in large applications). The optional cache warmer
-avoids it: `cache:warmup` (and `cache:clear` without `--no-optional-warmers`) writes the index to
-`%kernel.cache_dir%/msstc4symfony_slo/route_index.php`, a `var_export` array that opcache keeps in shared memory,
-and the request path reads only that file: the route → points section and the precomputed strategy and revision of
-every objective, each validated on its own (the routes section is validated only by the commands). The compiled
-catalog is hydrated the same way, per point on first use. The lazy build stays the fallback when the file is missing or unreadable,
-and in debug mode, where routes may change without a cache clear and the file is ignored. An application without HTTP
-SLOs never touches the router on the request path. The warmer never fails the warm-up: problems are logged on the
-`slo_bundle` channel.
+event of every request (milliseconds to tens of milliseconds in large applications). The cache warmer avoids it; it
+is not optional, so it also runs with `--no-optional-warmers` and when the kernel builds a fresh container. It writes
+the index to `%kernel.cache_dir%/msstc4symfony_slo/route_index.php`, a `var_export` array that opcache keeps in shared
+memory, and the request path reads only the entries it needs from that file: the SLO points of the matched route, the
+precomputed strategy and revision of an objective and, when a revision is missing, the routes of one controller, each
+entry validated on its own (the whole file is validated only by the commands). The compiled catalog is hydrated the
+same way, per point on first use. The lazy build stays the fallback when the file is missing or unreadable (logged
+once per process as degraded mode on the `slo_bundle` channel), and in debug mode, where routes may change without a
+cache clear and the file is ignored. An application without HTTP SLOs never touches the router on the request path.
+The warmer never fails the warm-up: problems are logged on the `slo_bundle` channel.
 
 ## License
 

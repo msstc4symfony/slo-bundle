@@ -14,6 +14,7 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\Revision;
 use Msstc4Symfony\SloBundle\Infrastructure\Filesystem\RouteIndexFile;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexData;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\CatalogFixture;
+use Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Symfony\RecordingLogger;
 use Override;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -166,13 +167,27 @@ final class RouteIndexFileTest extends TestCase
         self::assertNull($file->revisionOf('pay|availability'));
     }
 
-    public function testWithoutAWarmedIndexEveryHotPathReadIsNull(): void
+    public function testWithoutAWarmedIndexEveryHotPathReadIsNullAndTheDegradedModeIsLoggedOnce(): void
     {
-        $file = new RouteIndexFile($this->dir, false);
+        $logger = new RecordingLogger();
+        $file = new RouteIndexFile($this->dir, false, $logger);
 
         self::assertNull($file->pointsFor('pay'));
         self::assertNull($file->revisionOf('pay.create|availability'));
         self::assertNull($file->routesFor('A::b'));
+        self::assertNull($file->load());
+        self::assertSame([['warning', 'SLO route index is not warmed, HTTP SLOs read the routes from the router in this process (degraded mode); run cache:warmup.']], $logger->records);
+        self::assertSame(['file' => $this->dir . '/' . RouteIndexFile::PATH], $logger->contexts[0]);
+    }
+
+    public function testDegradedModeIsNotLoggedInDebugOrWithAWarmedIndex(): void
+    {
+        $logger = new RecordingLogger();
+        (new RouteIndexFile($this->dir, true, $logger))->pointsFor('pay');
+        (new RouteIndexFile($this->dir, false))->write($this->dir, $this->data());
+        (new RouteIndexFile($this->dir, false, $logger))->pointsFor('pay');
+
+        self::assertSame([], $logger->records);
     }
 
     public function testLoadIsMemoised(): void

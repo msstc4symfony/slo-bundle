@@ -49,9 +49,9 @@ final class SloCacheWarmerTest extends TestCase
 {
     private const CACHE_DIR = '/cache/prod';
 
-    public function testIsOptionalAndTaggedAsCacheWarmerWithTheFailSafeLogger(): void
+    public function testIsRequiredAndTaggedAsCacheWarmerWithTheFailSafeLogger(): void
     {
-        self::assertTrue($this->warmer(new InMemoryRouteCatalog(), $this->logger())->isOptional());
+        self::assertFalse($this->warmer(new InMemoryRouteCatalog(), $this->logger())->isOptional());
 
         $definition = TestContainer::compile()->getDefinition(SloCacheWarmer::class);
         self::assertTrue($definition->hasTag('kernel.cache_warmer'));
