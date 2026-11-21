@@ -7,6 +7,7 @@ namespace Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\List;
 use Msstc4Symfony\SloBundle\Application\Attribute\Availability;
 use Msstc4Symfony\SloBundle\Application\Attribute\Latency;
 use Msstc4Symfony\SloBundle\Application\Attribute\Slo;
+use Msstc4Symfony\SloBundle\Application\Binding\MetricBindingResolver;
 use Msstc4Symfony\SloBundle\Application\Catalog\List\Action;
 use Msstc4Symfony\SloBundle\Application\Catalog\List\Row;
 use Msstc4Symfony\SloBundle\Application\Port\RouteInfo;
@@ -30,7 +31,7 @@ final class ActionTest extends TestCase
             new RouteInfo('other', '/o', [], 'B::x'),
         ]);
 
-        $rows = (new Action($catalog, $catalog, $routes, new RevisionCalculator()))()->rows;
+        $rows = (new Action($catalog, $catalog, $routes, new RevisionCalculator(), new MetricBindingResolver($routes, $catalog)))()->rows;
 
         self::assertCount(1, $rows);
         self::assertSame('ok', $rows[0]->status);
@@ -52,7 +53,7 @@ final class ActionTest extends TestCase
             $assembler->declare($this->http('A::ok'), new Slo('a.ok', [new Availability(99)]));
         });
 
-        $rows = (new Action($catalog, $catalog, new InMemoryRouteCatalog(), new RevisionCalculator()))()->rows;
+        $rows = (new Action($catalog, $catalog, new InMemoryRouteCatalog(), new RevisionCalculator(), new MetricBindingResolver(new InMemoryRouteCatalog(), $catalog)))()->rows;
 
         self::assertSame(['a.ok', 'payment.create', 'payment.create'], array_map(static fn (Row $r): string => $r->name, $rows));
         self::assertSame(['ok', 'duplicate', 'duplicate'], array_map(static fn (Row $r): string => $r->status, $rows));
@@ -67,7 +68,7 @@ final class ActionTest extends TestCase
             $assembler->declare($this->http('A::a'), new Slo('payment.shared', [new Availability(99.9)]));
         });
 
-        $rows = (new Action($catalog, $catalog, new InMemoryRouteCatalog(), new RevisionCalculator()))()->rows;
+        $rows = (new Action($catalog, $catalog, new InMemoryRouteCatalog(), new RevisionCalculator(), new MetricBindingResolver(new InMemoryRouteCatalog(), $catalog)))()->rows;
 
         self::assertCount(1, $rows);
         self::assertSame(['http_route:A::a', 'http_route:A::b'], $rows[0]->sharedPoints);
@@ -80,9 +81,25 @@ final class ActionTest extends TestCase
             $assembler->declare(PointId::of(PointType::MessengerMessage, 'App\Msg'), new Slo('msg.handle', [new Availability(99)]));
         });
 
-        $rows = (new Action($catalog, $catalog, new InMemoryRouteCatalog(), new RevisionCalculator()))()->rows;
+        $rows = (new Action($catalog, $catalog, new InMemoryRouteCatalog(), new RevisionCalculator(), new MetricBindingResolver(new InMemoryRouteCatalog(), $catalog)))()->rows;
 
         self::assertSame([], $rows[0]->points[0]->routes);
+    }
+
+    public function testObjectiveRowsCarryTheResolvedStrategyAndDuplicatesCarryNone(): void
+    {
+        $catalog = CatalogFixture::build(function ($assembler): void {
+            $assembler->declare($this->http('A::create'), new Slo('payment.create', [new Availability(99.9), new Latency('200ms', 99)]));
+            $assembler->declare($this->http('A::x'), new Slo('dup.x', [new Availability(99.9)]));
+            $assembler->declare($this->http('A::y'), new Slo('dup.x', [new Availability(99)]));
+        });
+        $routes = new InMemoryRouteCatalog([new RouteInfo('create', '/a', ['POST'], 'A::create')]);
+
+        $rows = (new Action($catalog, $catalog, $routes, new RevisionCalculator(), new MetricBindingResolver($routes, $catalog)))()->rows;
+
+        self::assertSame('dup.x', $rows[0]->name);
+        self::assertSame([null], array_map(static fn ($o): ?string => $o->strategy, $rows[0]->objectives));
+        self::assertSame(['existing_series', 'dedicated'], array_map(static fn ($o): ?string => $o->strategy, $rows[2]->objectives));
     }
 
     /**

@@ -10,6 +10,7 @@ use Msstc4Symfony\SloBundle\Domain\Enum\EventResult;
 use Msstc4Symfony\SloBundle\Domain\Enum\ObjectiveKind;
 use Msstc4Symfony\SloBundle\Domain\Enum\Outcome;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
+use Msstc4Symfony\SloBundle\Domain\Enum\Strategy;
 use Msstc4Symfony\SloBundle\Domain\Enum\StrategyPreference;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -27,6 +28,7 @@ final class EnumValuesTest extends TestCase
         yield 'delivery' => [DeliveryStatus::class, ['handled', 'failed', 'retried']];
         yield 'result' => [EventResult::class, ['good', 'bad']];
         yield 'strategy' => [StrategyPreference::class, ['auto', 'dedicated']];
+        yield 'binding strategy' => [Strategy::class, ['existing_series', 'dedicated']];
     }
 
     /**

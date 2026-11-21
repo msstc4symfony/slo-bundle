@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Msstc4Symfony\SloBundle\Application\Binding\MetricBindingResolver;
 use Msstc4Symfony\SloBundle\Application\Catalog\List\Action as ListAction;
 use Msstc4Symfony\SloBundle\Application\Catalog\Validate\Action as ValidateAction;
 use Msstc4Symfony\SloBundle\Application\Port\CatalogDiagnosticsInterface;
@@ -29,6 +30,8 @@ return static function (ContainerConfigurator $container): void {
     $services->set(RevisionCalculator::class);
     $services->set(RouterRouteCatalog::class);
     $services->alias(RouteCatalogInterface::class, RouterRouteCatalog::class);
+
+    $services->set(MetricBindingResolver::class);
 
     $services->set(ListAction::class);
     $services->set(ValidateAction::class);

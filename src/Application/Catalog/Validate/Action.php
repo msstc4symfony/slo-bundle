@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Application\Catalog\Validate;
 
+use Msstc4Symfony\SloBundle\Application\Binding\MetricBindingResolver;
 use Msstc4Symfony\SloBundle\Application\Discovery\SloDeclaration;
 use Msstc4Symfony\SloBundle\Application\Port\CatalogDiagnosticsInterface;
 use Msstc4Symfony\SloBundle\Application\Port\RouteCatalogInterface;
+use Msstc4Symfony\SloBundle\Domain\Enum\ObjectiveKind;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
+use Msstc4Symfony\SloBundle\Domain\Enum\StrategyPreference;
 use Msstc4Symfony\SloBundle\Domain\Repository\SloCatalogInterface;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 
@@ -17,6 +20,7 @@ final readonly class Action
         private SloCatalogInterface $catalog,
         private CatalogDiagnosticsInterface $diagnostics,
         private RouteCatalogInterface $routes,
+        private MetricBindingResolver $bindings,
     ) {
     }
 
@@ -38,6 +42,21 @@ final readonly class Action
                 \count($points),
                 implode(', ', array_map(static fn (PointId $point): string => $point->toString(), $points)),
             );
+        }
+
+        foreach ($this->catalog->all() as $definition) {
+            if ($definition->strategy() !== StrategyPreference::Auto) {
+                continue;
+            }
+            $objective = $definition->objective(ObjectiveKind::Latency);
+            if ($objective !== null && $this->bindings->thresholdMissesBucket($definition, $objective)) {
+                $notices[] = \sprintf(
+                    'SLO %s: latency threshold %s is not a bucket of %s, uses dedicated counters',
+                    $definition->name()->value,
+                    $objective->threshold?->toString() ?? '-',
+                    $this->bindings->histogramFor($definition->pointType()) ?? '-',
+                );
+            }
         }
 
         $ignored = $this->diagnostics->extras()->httpIgnoredRoutes;

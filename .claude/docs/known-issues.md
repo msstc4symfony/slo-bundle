@@ -55,3 +55,9 @@
 - Сервис контроллера с id, не равным классу, и маршрутом `service_id::method` разрешается только через тег
   `controller.service_arguments` (так их находит discovery); контроллеры без этого тега в `controllerServices` не попадут.
 - Пространство имён `Application\Catalog\List` допустимо (`List` — зарезервированное слово только как имя класса).
+
+## Strategy resolver (Task 7)
+
+- `SeriesBinding` хранит матчеры как `Matcher`, а не `array<string,string>`: оператор (`=`, `!=`, `=~`, `!~`) нельзя однозначно закодировать в строке.
+- Формат `le` (`(string) $bucket`) не сверялся с реальным экспортом metrics-bundle; Task 12 должен проверить на живых сериях.
+- `slo:list --format=json` пишется с `OUTPUT_RAW`, ячейки таблицы экранируются `OutputFormatter::escape` (имена маршрутов могут содержать `<...>`).

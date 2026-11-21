@@ -141,7 +141,38 @@ final class SloCommandsTest extends TestCase
             self::assertSame(['availability', 'latency'], $this->pluck($objectives, 'kind'));
             $points = $this->pluck([$create], 'points')[0];
             self::assertSame(['payment_create', 'payment_update'], $this->pluck($points, 'routes')[0]);
-            self::assertSame(['kind', 'revision', 'target', 'threshold'], $this->sortedKeys($this->pluck($objectives, null)[0]));
+            self::assertSame(['kind', 'revision', 'strategy', 'target', 'threshold'], $this->sortedKeys($this->pluck($objectives, null)[0]));
+            self::assertSame(['existing_series', 'dedicated'], $this->pluck($objectives, 'strategy'));
+        });
+    }
+
+    public function testTableCellsAreNotInterpretedAsConsoleMarkup(): void
+    {
+        $kernel = new RoutedTestKernel(
+            [InvokableController::class],
+            [['name' => 'refund<error>x</error>', 'path' => '/refunds', 'controller' => InvokableController::class]],
+        );
+
+        $this->withKernel($kernel, function (ValidateCommand $validate, ListCommand $list): void {
+            $tester = new CommandTester($list);
+            $tester->execute([], ['decorated' => true]);
+
+            self::assertStringContainsString('refund<error>x</error>', $tester->getDisplay());
+        });
+    }
+
+    public function testJsonIsWrittenRawSoMarkupLikeValuesSurvive(): void
+    {
+        $kernel = new RoutedTestKernel(
+            [InvokableController::class],
+            [['name' => 'refund<error>x</error>', 'path' => '/refunds', 'controller' => InvokableController::class]],
+        );
+
+        $this->withKernel($kernel, function (ValidateCommand $validate, ListCommand $list): void {
+            $tester = new CommandTester($list);
+            $tester->execute(['--format' => 'json'], ['decorated' => true]);
+
+            self::assertStringContainsString('refund<error>x</error>', $tester->getDisplay());
         });
     }
 

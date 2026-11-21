@@ -6,6 +6,7 @@ namespace Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Symfony;
 
 use Msstc4Symfony\SloBundle\Application\Attribute\Availability;
 use Msstc4Symfony\SloBundle\Application\Attribute\Slo;
+use Msstc4Symfony\SloBundle\Application\Binding\MetricBindingResolver;
 use Msstc4Symfony\SloBundle\Application\Catalog\Validate\Action;
 use Msstc4Symfony\SloBundle\Application\Discovery\CatalogExtras;
 use Msstc4Symfony\SloBundle\Application\Port\RouteCatalogInterface;
@@ -70,7 +71,7 @@ final class SloCacheWarmerTest extends TestCase
             $assembler->declare(PointId::of(PointType::HttpRoute, 'A::create'), new Slo('payment.create', [new Availability(99.9)]));
         }, new CatalogExtras(warnings: ['a warning']));
 
-        return new Action($catalog, $catalog, $routes);
+        return new Action($catalog, $catalog, $routes, new MetricBindingResolver($routes, $catalog));
     }
 
     private function logger(): RecordingLogger

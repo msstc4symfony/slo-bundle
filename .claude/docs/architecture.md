@@ -68,3 +68,16 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
   `slo:validate`: код 0 — нет ошибок (предупреждения и notice печатаются), 1 — есть ошибки.
 - `SloCacheWarmer`: `isOptional() = true`, тег `kernel.cache_warmer`, канал логов `slo_bundle`; ошибки и предупреждения
   валидации логирует как warning, исключения глушит.
+
+## Привязка метрик: Strategy A / B (Task 7)
+
+- `Application/Binding/MetricBindingResolver::resolve(SloDefinition, Objective): Binding` и `isDedicated(definition, kind)`. Зависит только
+  от портов `RouteCatalogInterface` и `CatalogDiagnosticsInterface::extras()` (бакеты, failure-транспорты, `taggedPoints` с `metricLabel`).
+- `Binding{strategy: Domain\Enum\Strategy (existing_series|dedicated), series: ?SeriesBinding}`. `SeriesBinding{metric (без префикса),
+  kind counter|histogram, matchers, goodMatchers, badMatchers, le}`; значения матчеров - `Matcher` (label, `MatchOperator`, сырое значение;
+  `toPromQl()` экранирует строку PromQL, `escapeRegex()` экранирует RE2). badMatchers/goodMatchers перекрывают matchers по label.
+- Всегда B: `strategy: dedicated`, Combined, Operation, HTTP без маршрутов, countAttempts (Messenger), `expectedFailureIsGood=false` или нет
+  бакетов/`metricLabel` (logic). HTTP latency: A только с `includeErrors` и пустыми `ineligibleStatuses` (у гистограммы нет `status`).
+- Порог vs бакет: `(int) round(bucket * 1000) === thresholdMs`; `le` = `(string) $bucket` ("0.5", "1").
+- `slo:list` показывает колонку Strategy (`-` у DUPLICATE), JSON-ключ `strategy`; `slo:validate` пишет NOTICE, когда latency-порог `auto` SLO
+  не бакет ("uses dedicated counters"). `Resolver::thresholdMissesBucket()` / `histogramFor()` - публичные хелперы для этого.

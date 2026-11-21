@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Application\Catalog\List;
 
+use Msstc4Symfony\SloBundle\Application\Binding\MetricBindingResolver;
 use Msstc4Symfony\SloBundle\Application\Port\CatalogDiagnosticsInterface;
 use Msstc4Symfony\SloBundle\Application\Port\RouteCatalogInterface;
 use Msstc4Symfony\SloBundle\Application\Port\RouteInfo;
@@ -21,6 +22,7 @@ final readonly class Action
         private CatalogDiagnosticsInterface $diagnostics,
         private RouteCatalogInterface $routes,
         private RevisionCalculator $revisions,
+        private MetricBindingResolver $bindings,
     ) {
     }
 
@@ -29,11 +31,11 @@ final readonly class Action
         $rows = [];
         foreach ($this->catalog->all() as $definition) {
             $points = $definition->points();
-            $rows[] = $this->row($definition, Row::STATUS_OK, \count($points) > 1 ? $this->pointStrings($points) : []);
+            $rows[] = $this->row($definition, Row::STATUS_OK, \count($points) > 1 ? $this->pointStrings($points) : [], true);
         }
         foreach ($this->diagnostics->conflicts() as $declarations) {
             foreach ($declarations as $declaration) {
-                $rows[] = $this->row($declaration->definition, Row::STATUS_DUPLICATE, []);
+                $rows[] = $this->row($declaration->definition, Row::STATUS_DUPLICATE, [], false);
             }
         }
 
@@ -45,8 +47,9 @@ final readonly class Action
     /**
      * @param Row::STATUS_* $status
      * @param list<non-empty-string> $sharedPoints
+     * @param bool $served false for conflicting declarations, which record nothing and so have no strategy
      */
-    private function row(SloDefinition $definition, string $status, array $sharedPoints): Row
+    private function row(SloDefinition $definition, string $status, array $sharedPoints, bool $served): Row
     {
         $objectives = array_map(
             fn (Objective $objective): ObjectiveRow => new ObjectiveRow(
@@ -54,6 +57,7 @@ final readonly class Action
                 $objective->target->percent,
                 $objective->threshold?->toString(),
                 $this->revisions->revision($definition, $objective->kind)->value,
+                $served ? $this->bindings->resolve($definition, $objective)->strategy->value : null,
             ),
             $definition->objectives(),
         );

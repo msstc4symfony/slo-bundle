@@ -12,6 +12,7 @@ use Msstc4Symfony\SloBundle\Application\Catalog\List\Row;
 use Override;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Formatter\OutputFormatter;
 use Symfony\Component\Console\Helper\Table;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -45,7 +46,13 @@ final class ListCommand extends Command
 
         $rows = ($this->action)()->rows;
         if ($format === 'json') {
-            $output->writeln($this->json($rows));
+            try {
+                $output->writeln($this->json($rows), OutputInterface::OUTPUT_RAW);
+            } catch (JsonException $exception) {
+                $output->writeln('<error>' . OutputFormatter::escape($exception->getMessage()) . '</error>');
+
+                return Command::FAILURE;
+            }
 
             return Command::SUCCESS;
         }
@@ -61,9 +68,9 @@ final class ListCommand extends Command
     private function table(OutputInterface $output, array $rows): void
     {
         $table = new Table($output);
-        $table->setHeaders(['SLO', 'Status', 'Objective', 'Target', 'Threshold', 'Window', 'Revision', 'Type', 'Points']);
+        $table->setHeaders(['SLO', 'Status', 'Objective', 'Target', 'Threshold', 'Window', 'Revision', 'Strategy', 'Type', 'Points']);
         foreach ($rows as $row) {
-            $table->addRow([
+            $table->addRow(array_map(OutputFormatter::escape(...), [
                 $row->name,
                 $this->status($row),
                 $this->lines($row->objectives, static fn (ObjectiveRow $o): string => $o->kind),
@@ -71,9 +78,10 @@ final class ListCommand extends Command
                 $this->lines($row->objectives, static fn (ObjectiveRow $o): string => $o->threshold ?? '-'),
                 $row->window,
                 $this->lines($row->objectives, static fn (ObjectiveRow $o): string => $o->revision),
+                $this->lines($row->objectives, static fn (ObjectiveRow $o): string => $o->strategy ?? '-'),
                 $row->pointType,
                 $this->lines($row->points, static fn (PointRow $p): string => $p->routes === [] ? $p->point : $p->point . ' -> ' . implode(', ', $p->routes)),
-            ]);
+            ]));
         }
         $table->render();
     }
@@ -100,6 +108,8 @@ final class ListCommand extends Command
 
     /**
      * @param list<Row> $rows
+     *
+     * @throws JsonException
      */
     private function json(array $rows): string
     {
@@ -113,15 +123,12 @@ final class ListCommand extends Command
                 'target' => $o->target,
                 'threshold' => $o->threshold,
                 'revision' => $o->revision,
+                'strategy' => $o->strategy,
             ], $row->objectives),
             'points' => array_map(static fn (PointRow $p): array => ['point' => $p->point, 'routes' => $p->routes], $row->points),
             'shared_points' => $row->sharedPoints,
         ], $rows);
 
-        try {
-            return json_encode($data, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-        } catch (JsonException) {
-            return '[]';
-        }
+        return json_encode($data, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
     }
 }
