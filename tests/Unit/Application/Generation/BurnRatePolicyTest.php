@@ -8,6 +8,7 @@ use Msstc4Symfony\SloBundle\Application\Generation\BurnRatePolicy;
 use Msstc4Symfony\SloBundle\Application\Generation\BurnRateWindow;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Target;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Window;
+use Msstc4Symfony\SloBundle\Infrastructure\Prometheus\PromQlRenderer;
 use PHPUnit\Framework\TestCase;
 
 final class BurnRatePolicyTest extends TestCase
@@ -76,6 +77,6 @@ final class BurnRatePolicyTest extends TestCase
      */
     private function describe(array $windows): array
     {
-        return array_map(static fn (BurnRateWindow $w): string => \sprintf('%s %s/%s %s', $w->severity, $w->longWindow, $w->shortWindow, BurnRatePolicy::number($w->factor)), $windows);
+        return array_map(static fn (BurnRateWindow $w): string => \sprintf('%s %s/%s %s', $w->severity, PromQlRenderer::duration($w->longWindowSeconds), PromQlRenderer::duration($w->shortWindowSeconds), PromQlRenderer::number($w->factor)), $windows);
     }
 }

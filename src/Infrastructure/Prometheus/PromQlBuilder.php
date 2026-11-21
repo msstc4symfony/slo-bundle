@@ -8,7 +8,6 @@ use Msstc4Symfony\SloBundle\Application\Binding\Matcher;
 use Msstc4Symfony\SloBundle\Application\Binding\SeriesBinding;
 use Msstc4Symfony\SloBundle\Application\Binding\SeriesKind;
 use Msstc4Symfony\SloBundle\Application\Generation\BoundObjective;
-use Msstc4Symfony\SloBundle\Application\Generation\BurnRatePolicy;
 use Msstc4Symfony\SloBundle\Application\Generation\Selector;
 
 /**
@@ -76,7 +75,7 @@ final readonly class PromQlBuilder
         return \sprintf(
             '1 - (1 - %s) / %s',
             $this->recorded('slo:sli:ratio', $objective, $application),
-            BurnRatePolicy::number($objective->objective->target->errorBudgetRatio()),
+            PromQlRenderer::number($objective->objective->target->errorBudgetRatio()),
         );
     }
 

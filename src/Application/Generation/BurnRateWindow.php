@@ -15,13 +15,13 @@ final readonly class BurnRateWindow
 {
     /**
      * @param 'page'|'ticket' $severity
-     * @param non-empty-string $longWindow PromQL duration
-     * @param non-empty-string $shortWindow PromQL duration
+     * @param positive-int $longWindowSeconds
+     * @param positive-int $shortWindowSeconds
      */
     public function __construct(
         public string $severity,
-        public string $longWindow,
-        public string $shortWindow,
+        public int $longWindowSeconds,
+        public int $shortWindowSeconds,
         public float $factor,
     ) {
     }

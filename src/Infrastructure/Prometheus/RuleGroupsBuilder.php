@@ -58,7 +58,7 @@ final readonly class RuleGroupsBuilder implements RuleFileBuilderInterface
                 $fast[] = $record($labels, 'slo:events:rate' . $window, $this->promQl->eventsRate($selector, $objective, $window));
                 $fast[] = $record($labels, 'slo:error_ratio:rate' . $window, $this->promQl->errorRatio($selector, $objective, $window));
             }
-            $fast[] = $record($labels, 'slo:objective:target', \sprintf('vector(%s)', BurnRatePolicy::number($objective->objective->target->percent / 100)));
+            $fast[] = $record($labels, 'slo:objective:target', \sprintf('vector(%s)', PromQlRenderer::number($objective->objective->target->percent / 100)));
 
             $slow = [];
             foreach (self::SLOW_RATE_WINDOWS as $window) {
@@ -163,13 +163,13 @@ final readonly class RuleGroupsBuilder implements RuleFileBuilderInterface
      */
     private function burning(BoundObjective $objective, BurnRateWindow $pair, string $application): string
     {
-        $threshold = BurnRatePolicy::number($pair->threshold($objective->objective->target));
+        $threshold = PromQlRenderer::number($pair->threshold($objective->objective->target));
 
         return \sprintf(
             '(%s > %s and %s > %s)',
-            $this->promQl->latest('slo:error_ratio:rate' . $pair->longWindow, $objective, $application),
+            $this->promQl->latest('slo:error_ratio:rate' . PromQlRenderer::duration($pair->longWindowSeconds), $objective, $application),
             $threshold,
-            $this->promQl->latest('slo:error_ratio:rate' . $pair->shortWindow, $objective, $application),
+            $this->promQl->latest('slo:error_ratio:rate' . PromQlRenderer::duration($pair->shortWindowSeconds), $objective, $application),
             $threshold,
         );
     }
@@ -195,7 +195,7 @@ final readonly class RuleGroupsBuilder implements RuleFileBuilderInterface
                 $slo,
                 $kind,
                 $what,
-                BurnRatePolicy::number($objective->objective->target->percent),
+                PromQlRenderer::number($objective->objective->target->percent),
                 $objective->definition->window()->toString(),
             )],
         ];

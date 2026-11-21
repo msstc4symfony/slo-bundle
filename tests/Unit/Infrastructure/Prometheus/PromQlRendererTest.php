@@ -41,6 +41,31 @@ final class PromQlRendererTest extends TestCase
         PromQlRenderer::matcher(Matcher::equals('a', "x\xC3"));
     }
 
+    /**
+     * @param positive-int $seconds
+     */
+    #[TestWith([300, '5m'])]
+    #[TestWith([1800, '30m'])]
+    #[TestWith([3600, '1h'])]
+    #[TestWith([259200, '3d'])]
+    #[TestWith([1209600, '2w'])]
+    #[TestWith([90, '90s'])]
+    public function testDurationUsesTheLargestExactUnit(int $seconds, string $promQl): void
+    {
+        self::assertSame($promQl, PromQlRenderer::duration($seconds));
+    }
+
+    #[TestWith([14.4, '14.4'])]
+    #[TestWith([0.001, '0.001'])]
+    #[TestWith([1.0, '1'])]
+    #[TestWith([0.0, '0'])]
+    #[TestWith([-0.00000000001, '0'])]
+    #[TestWith([0.2333333333333, '0.2333333333'])]
+    public function testNumberIsTheShortestPlainDecimal(float $value, string $promQl): void
+    {
+        self::assertSame($promQl, PromQlRenderer::number($value));
+    }
+
     public function testEscapeRegexQuotesRe2Metacharacters(): void
     {
         self::assertSame('a\\.b\\+c\\|d\\\\e', PromQlRenderer::escapeRegex('a.b+c|d\\e'));

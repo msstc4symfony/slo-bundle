@@ -17,9 +17,7 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\Window;
  */
 final class PromQlRenderer
 {
-    private const DURATION_UNITS = ['w' => 604800, 'd' => 86400];
-
-    private const HOUR = 3600;
+    private const DURATION_UNITS = ['w' => 604800, 'd' => 86400, 'h' => 3600, 'm' => 60];
 
     /**
      * The largest exact unit among w, d and h (PromQL has no month): 1mo → 30d, 2w → 2w, 36h → 36h.
@@ -28,14 +26,37 @@ final class PromQlRenderer
      */
     public static function window(Window $window): string
     {
-        $seconds = $window->seconds();
+        return self::duration($window->seconds());
+    }
+
+    /**
+     * The largest exact unit among w, d, h and m, else seconds: 300 → 5m, 259200 → 3d.
+     *
+     * @param positive-int $seconds
+     *
+     * @return non-empty-string
+     */
+    public static function duration(int $seconds): string
+    {
         foreach (self::DURATION_UNITS as $unit => $unitSeconds) {
             if ($seconds % $unitSeconds === 0) {
                 return \sprintf('%d%s', intdiv($seconds, $unitSeconds), $unit);
             }
         }
 
-        return \sprintf('%dh', intdiv($seconds, self::HOUR));
+        return \sprintf('%ds', $seconds);
+    }
+
+    /**
+     * A PromQL float literal: the shortest decimal without exponent or trailing zeros.
+     *
+     * @return non-empty-string
+     */
+    public static function number(float $value): string
+    {
+        $formatted = rtrim(rtrim(\sprintf('%.10F', round($value, 10)), '0'), '.');
+
+        return $formatted === '' || $formatted === '-0' ? '0' : $formatted;
     }
 
     /**

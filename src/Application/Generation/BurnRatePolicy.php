@@ -15,13 +15,15 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\Window;
 final readonly class BurnRatePolicy
 {
     /**
-     * severity, long window, its seconds, short window, share of the error budget burnt over the long window.
+     * severity, long window seconds, short window seconds, share of the error budget burnt over the long window.
      */
     private const PAIRS = [
-        ['page', '1h', 3600, '5m', 0.02],
-        ['page', '6h', 21600, '30m', 0.05],
-        ['ticket', '3d', 259200, '6h', 0.1],
+        ['page', 3600, 300, 0.02],
+        ['page', 21600, 1800, 0.05],
+        ['ticket', 259200, 21600, 0.1],
     ];
+
+    private const MESSAGE_UNITS = ['d' => 86400, 'h' => 3600, 'm' => 60];
 
     /**
      * @return list<BurnRateWindow> the pairs that fit into the window and stay below the whole error budget
@@ -56,25 +58,39 @@ final readonly class BurnRatePolicy
                 $slo,
                 $objective,
                 $pair->severity,
-                $pair->longWindow,
-                $pair->shortWindow,
-                self::number($pair->factor),
-                self::number($target->errorBudgetRatio()),
+                self::duration($pair->longWindowSeconds),
+                self::duration($pair->shortWindowSeconds),
+                self::decimal($pair->factor),
+                self::decimal($target->errorBudgetRatio()),
             ),
             $this->exceedingBudget($window, $target),
         );
     }
 
     /**
-     * Shortest decimal rendering without exponent or trailing zeros, as used in PromQL and messages.
-     *
      * @return non-empty-string
      */
-    public static function number(float $value): string
+    private static function decimal(float $value): string
     {
         $formatted = rtrim(rtrim(\sprintf('%.10F', round($value, 10)), '0'), '.');
 
         return $formatted === '' || $formatted === '-0' ? '0' : $formatted;
+    }
+
+    /**
+     * @param positive-int $seconds
+     *
+     * @return non-empty-string
+     */
+    private static function duration(int $seconds): string
+    {
+        foreach (self::MESSAGE_UNITS as $unit => $unitSeconds) {
+            if ($seconds % $unitSeconds === 0) {
+                return intdiv($seconds, $unitSeconds) . $unit;
+            }
+        }
+
+        return $seconds . 's';
     }
 
     /**
@@ -83,9 +99,9 @@ final readonly class BurnRatePolicy
     private function fitting(Window $window): array
     {
         $pairs = [];
-        foreach (self::PAIRS as [$severity, $long, $longSeconds, $short, $share]) {
+        foreach (self::PAIRS as [$severity, $longSeconds, $shortSeconds, $share]) {
             if ($longSeconds <= $window->seconds()) {
-                $pairs[] = new BurnRateWindow($severity, $long, $short, round($share * $window->seconds() / $longSeconds, 6));
+                $pairs[] = new BurnRateWindow($severity, $longSeconds, $shortSeconds, round($share * $window->seconds() / $longSeconds, 6));
             }
         }
 
