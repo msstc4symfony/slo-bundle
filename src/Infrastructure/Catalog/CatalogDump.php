@@ -2,9 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Msstc4Symfony\SloBundle\Application\Discovery;
+namespace Msstc4Symfony\SloBundle\Infrastructure\Catalog;
 
 use InvalidArgumentException;
+use Msstc4Symfony\SloBundle\Application\Discovery\CatalogContents;
+use Msstc4Symfony\SloBundle\Application\Discovery\CatalogExtras;
+use Msstc4Symfony\SloBundle\Application\Discovery\HandlerInfo;
+use Msstc4Symfony\SloBundle\Application\Discovery\SloDeclaration;
+use Msstc4Symfony\SloBundle\Application\Discovery\TaggedPoint;
 use Msstc4Symfony\SloBundle\Domain\Entity\SloDefinition;
 use Msstc4Symfony\SloBundle\Domain\Enum\ObjectiveKind;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;

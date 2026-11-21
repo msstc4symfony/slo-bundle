@@ -6,7 +6,6 @@ namespace Msstc4Symfony\SloBundle\Infrastructure\Catalog;
 
 use Closure;
 use Msstc4Symfony\SloBundle\Application\Discovery\CatalogContents;
-use Msstc4Symfony\SloBundle\Application\Discovery\CatalogDump;
 use Msstc4Symfony\SloBundle\Application\Discovery\CatalogExtras;
 use Msstc4Symfony\SloBundle\Application\Port\CatalogDiagnosticsInterface;
 use Msstc4Symfony\SloBundle\Domain\Entity\SloDefinition;

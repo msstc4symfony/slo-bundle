@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Msstc4Symfony\SloBundle\DependencyInjection\CompilerPass;
 
 use Msstc4Symfony\SloBundle\Application\Discovery\CatalogAssembler;
-use Msstc4Symfony\SloBundle\Application\Discovery\CatalogDump;
 use Msstc4Symfony\SloBundle\Application\Discovery\CatalogExtras;
 use Msstc4Symfony\SloBundle\Application\Discovery\DefinitionFactory;
 use Msstc4Symfony\SloBundle\Application\Discovery\DiscoveryErrors;
@@ -16,6 +15,7 @@ use Msstc4Symfony\SloBundle\DependencyInjection\CompilerPass\Discovery\Messenger
 use Msstc4Symfony\SloBundle\DependencyInjection\CompilerPass\Discovery\MetricsParameters;
 use Msstc4Symfony\SloBundle\DependencyInjection\CompilerPass\Discovery\OperationReader;
 use Msstc4Symfony\SloBundle\DependencyInjection\CompilerPass\Discovery\TaggedPointReader;
+use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CatalogDump;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
 use Override;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;

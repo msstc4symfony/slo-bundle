@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Msstc4Symfony\SloBundle\Test\Unit\Application\Discovery;
+namespace Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Catalog;
 
 use Closure;
 use InvalidArgumentException;
@@ -11,7 +11,6 @@ use Msstc4Symfony\SloBundle\Application\Attribute\Combined;
 use Msstc4Symfony\SloBundle\Application\Attribute\Latency;
 use Msstc4Symfony\SloBundle\Application\Attribute\Slo;
 use Msstc4Symfony\SloBundle\Application\Discovery\CatalogAssembler;
-use Msstc4Symfony\SloBundle\Application\Discovery\CatalogDump;
 use Msstc4Symfony\SloBundle\Application\Discovery\CatalogExtras;
 use Msstc4Symfony\SloBundle\Application\Discovery\DefinitionFactory;
 use Msstc4Symfony\SloBundle\Application\Discovery\DiscoveryErrors;
@@ -20,6 +19,7 @@ use Msstc4Symfony\SloBundle\Application\Discovery\TaggedPoint;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
 use Msstc4Symfony\SloBundle\Domain\Enum\StrategyPreference;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
+use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CatalogDump;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use stdClass;

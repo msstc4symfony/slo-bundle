@@ -40,7 +40,8 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
   автоконфигурации атрибутов на 100, т.е. теги `#[AsController]`/`#[AsMessageHandler]` уже стоят). Мосты, которые
   ставят тег `msstc4symfony_slo.point` из своего pass, регистрируют его с приоритетом >= 10 (описано в `PointTag`).
 - Раскладка: чистая логика в `src/Application/Discovery/` (`DefinitionFactory`, `CatalogAssembler`, `DiscoveryErrors`,
-  `CatalogDump` + DTO `CatalogContents`, `CatalogExtras`, `HandlerInfo`, `TaggedPoint`, `SloDeclaration`, `PointTag`);
+  DTO `CatalogContents`, `CatalogExtras`, `HandlerInfo`, `TaggedPoint`, `SloDeclaration`, `PointTag`); маршалинг дампа контейнера
+  (snake_case-скаляры) — `Infrastructure/Catalog/CatalogDump` (R2-021: им пользуются только DI и Infrastructure, новых рёбер deptrac нет);
   чтение контейнера — `@internal` классы в `src/DependencyInjection/CompilerPass/Discovery/`
   (`ControllerReader`, `HandlerReader`, `TaggedPointReader`, `OperationReader`, `MessengerRouting`,
   `MetricsParameters`, `AttributeReader`, `ServiceClass`).

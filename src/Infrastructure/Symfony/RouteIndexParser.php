@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Msstc4Symfony\SloBundle\Infrastructure\Symfony;
 
 use InvalidArgumentException;
-use Msstc4Symfony\SloBundle\Application\Discovery\CatalogDump;
 use Msstc4Symfony\SloBundle\Application\Port\RouteInfo;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Revision;
+use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CatalogDump;
 use Throwable;
 
 /**

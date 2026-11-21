@@ -6,10 +6,10 @@ namespace Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog;
 
 use Closure;
 use Msstc4Symfony\SloBundle\Application\Discovery\CatalogAssembler;
-use Msstc4Symfony\SloBundle\Application\Discovery\CatalogDump;
 use Msstc4Symfony\SloBundle\Application\Discovery\CatalogExtras;
 use Msstc4Symfony\SloBundle\Application\Discovery\DefinitionFactory;
 use Msstc4Symfony\SloBundle\Application\Discovery\DiscoveryErrors;
+use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CatalogDump;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
 
 final class CatalogFixture
