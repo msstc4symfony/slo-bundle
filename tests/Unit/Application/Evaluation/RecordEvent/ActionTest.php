@@ -169,17 +169,6 @@ final class ActionTest extends TestCase
         self::assertInstanceOf(RuntimeException::class, $logger->contexts[0]['exception']);
     }
 
-    public function testThrowingLoggerDoesNotEscape(): void
-    {
-        $logger = self::createStub(LoggerInterface::class);
-        $logger->method('warning')->willThrowException(new RuntimeException('logger broken'));
-        $action = $this->action($this->paymentCatalog(), new ThrowingEventWriter(), $logger);
-
-        $action(new Input($this->point(), Observation::http(200, 0.1)));
-
-        $this->expectNotToPerformAssertions();
-    }
-
     public function testFailingConflictLookupDoesNotStopRecording(): void
     {
         $catalog = new ConflictLookupFailingCatalog($this->paymentCatalog());

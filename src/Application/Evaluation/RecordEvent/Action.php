@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Application\Evaluation\RecordEvent;
 
-use Monolog\Attribute\WithMonologChannel;
 use Msstc4Symfony\SloBundle\Application\Binding\MetricBindingResolver;
 use Msstc4Symfony\SloBundle\Application\Port\EventWriterInterface;
 use Msstc4Symfony\SloBundle\Domain\Entity\SloDefinition;
@@ -22,7 +21,6 @@ use Throwable;
 /**
  * Fail-open: nothing thrown while classifying or writing reaches the caller.
  */
-#[WithMonologChannel('slo_bundle')]
 final class Action implements ResetInterface
 {
     /** @var array<string, Revision|null> "<slo>|<kind>" => revision when the objective is written by this bundle, null otherwise (also after a resolution failure) */
@@ -46,7 +44,7 @@ final class Action implements ResetInterface
         try {
             $this->warnAboutConflicts($input);
         } catch (Throwable $e) {
-            $this->warn('SLO conflict lookup failed.', ['point' => $input->point->toString(), 'exception' => $e]);
+            $this->logger->warning('SLO conflict lookup failed.', ['point' => $input->point->toString(), 'exception' => $e]);
         }
 
         try {
@@ -54,7 +52,7 @@ final class Action implements ResetInterface
                 $this->record($definition, $input);
             }
         } catch (Throwable $e) {
-            $this->warn('SLO event was not recorded.', ['point' => $input->point->toString(), 'exception' => $e]);
+            $this->logger->warning('SLO event was not recorded.', ['point' => $input->point->toString(), 'exception' => $e]);
         }
     }
 
@@ -78,7 +76,7 @@ final class Action implements ResetInterface
                     $this->writer->write($definition->name(), $objective->kind, $revision, $result);
                 }
             } catch (Throwable $e) {
-                $this->warn('SLO event was not recorded.', ['slo' => $definition->name()->value, 'point' => $input->point->toString(), 'exception' => $e]);
+                $this->logger->warning('SLO event was not recorded.', ['slo' => $definition->name()->value, 'point' => $input->point->toString(), 'exception' => $e]);
             }
         }
     }
@@ -97,7 +95,7 @@ final class Action implements ResetInterface
                 ? $this->revisions->revision($definition, $objective->kind)
                 : null;
         } catch (Throwable $e) {
-            $this->warn('SLO objective could not be resolved, its events are skipped until reset.', [
+            $this->logger->warning('SLO objective could not be resolved, its events are skipped until reset.', [
                 'slo' => $definition->name()->value,
                 'objective' => $objective->kind->value,
                 'point' => $input->point->toString(),
@@ -115,19 +113,7 @@ final class Action implements ResetInterface
                 continue;
             }
             $this->warnedConflicts[$name] = true;
-            $this->warn('SLO declarations conflict, no events are recorded for the name.', ['slo' => $name, 'point' => $input->point->toString()]);
-        }
-    }
-
-    /**
-     * @param array<string, string|Throwable> $context
-     */
-    private function warn(string $message, array $context): void
-    {
-        try {
-            $this->logger->warning($message, $context);
-        } catch (Throwable) {
-            // A failing logger must not break fail-open recording.
+            $this->logger->warning('SLO declarations conflict, no events are recorded for the name.', ['slo' => $name, 'point' => $input->point->toString()]);
         }
     }
 }

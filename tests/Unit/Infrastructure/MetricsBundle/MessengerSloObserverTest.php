@@ -24,8 +24,6 @@ use Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Symfony\RecordingLogger;
 use Override;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
-use Psr\Log\LoggerInterface;
-use RuntimeException;
 
 final class MessengerSloObserverTest extends TestCase
 {
@@ -95,16 +93,5 @@ final class MessengerSloObserverTest extends TestCase
         self::assertSame([], $this->writer->writes);
         self::assertCount(1, $this->logger->records);
         self::assertSame(ProcessPayment::class, $this->logger->contexts[0]['message']);
-    }
-
-    public function testThrowingLoggerDoesNotEscape(): void
-    {
-        $logger = self::createStub(LoggerInterface::class);
-        $logger->method('warning')->willThrowException(new RuntimeException('logger broken'));
-        $observer = new MessengerSloObserver($this->catalog, $this->catalog, ObserverFixture::action($this->catalog, new InMemoryRouteCatalog(), $this->writer, $logger), $logger);
-
-        $observer->onMessageMeasured(new MessengerMeasurement('async', ProcessPayment::class, MessengerMessageStatus::HANDLED, INF, null));
-
-        self::assertSame([], $this->writer->writes);
     }
 }

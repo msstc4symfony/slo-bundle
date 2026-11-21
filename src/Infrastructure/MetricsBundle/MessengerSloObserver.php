@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle;
 
-use Monolog\Attribute\WithMonologChannel;
 use Msstc4Symfony\MetricsBundle\Application\Port\MessengerMeasurement;
 use Msstc4Symfony\MetricsBundle\Application\Port\MessengerMeasurementObserverInterface;
 use Msstc4Symfony\SloBundle\Application\Evaluation\RecordEvent\Action as RecordEvent;
@@ -22,7 +21,6 @@ use Throwable;
 /**
  * Only worker outcomes reach this observer: synchronously handled messages are not measured.
  */
-#[WithMonologChannel('slo_bundle')]
 final readonly class MessengerSloObserver implements MessengerMeasurementObserverInterface
 {
     public function __construct(
@@ -48,11 +46,7 @@ final readonly class MessengerSloObserver implements MessengerMeasurementObserve
             );
             ($this->record)(new Input($point, $observation));
         } catch (Throwable $e) {
-            try {
-                $this->logger->warning('SLO event was not recorded.', ['message' => $measurement->messageClass, 'transport' => $measurement->transport, 'exception' => $e]);
-            } catch (Throwable) {
-                // A failing logger must not break fail-open recording.
-            }
+            $this->logger->warning('SLO event was not recorded.', ['message' => $measurement->messageClass, 'transport' => $measurement->transport, 'exception' => $e]);
         }
     }
 }

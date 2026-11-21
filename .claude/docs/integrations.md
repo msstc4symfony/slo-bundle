@@ -24,3 +24,19 @@
   `messenger_message_handling_duration_histogram_seconds`, `logic_action_duration_histogram_seconds` (`getBatches()`,
   ключа нет, если ни один enum не объявляет метрику); `msstc4symfony_metrics.http.ignored_routes`. Нет параметра —
   пустые значения (ошибку зависимости бросит RegisterSloMetricPass, Task 8).
+
+## Монитор операций и логирование (Task 10)
+
+- Порты `Application/Port/{OperationMonitorInterface,OperationHandleInterface,ClockInterface}`; публичный алиас
+  `OperationMonitorInterface` -> `Infrastructure/Operation/OperationMonitor` (его будет декорировать slo-bridge-profiling).
+  Часы `HrtimeClock` (`hrtime(true)`, наносекунды); в тестах `FakeClock`.
+- Имя операции проверяется в `start()`/`measure()`: нет SLO и нет конфликта для `PointId::of(Operation, $name)` либо имя
+  не проходит `SloName` (в т.ч. пустое) -> `NoopOperationHandle` + одно предупреждение на имя (`reset()` очищает, тег
+  `kernel.reset`). Конфликтное имя считается объявленным: предупреждение даёт `RecordEvent\Action`.
+- `OperationHandle`: первый исход побеждает; `end()` идемпотентен и пишет `Observation::outcome(исход ?? Success, elapsed)`;
+  деструктора нет — не завершённый handle ничего не пишет. `measure()` пробрасывает то же исключение; классификация
+  `interface_exists(ExpectedFailureInterface::class) && instanceof` (logic-bundle только в require-dev).
+- Логирование: все fail-open классы получают `Infrastructure/Logging/FailSafeLogger` (обёртка над каналом `slo_bundle`,
+  глотает Throwable) через `->arg('$logger', service(FailSafeLogger::class))` в `services.php`; тег
+  `monolog.logger` стоит только на самом `FailSafeLogger` (+ `SloCacheWarmer`). Application-классы зависят лишь от
+  `Psr\Log\LoggerInterface`; try/catch вокруг `warning()` больше нигде не нужен.

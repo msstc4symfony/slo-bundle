@@ -22,7 +22,6 @@ use Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Symfony\RecordingLogger;
 use Override;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
-use Psr\Log\LoggerInterface;
 use RuntimeException;
 
 final class HttpSloObserverTest extends TestCase
@@ -115,16 +114,5 @@ final class HttpSloObserverTest extends TestCase
         self::assertCount(1, $this->logger->records);
         self::assertSame('warning', $this->logger->records[0][0]);
         self::assertSame('payment_create', $this->logger->contexts[0]['route']);
-    }
-
-    public function testThrowingLoggerDoesNotEscape(): void
-    {
-        $logger = self::createStub(LoggerInterface::class);
-        $logger->method('warning')->willThrowException(new RuntimeException('logger broken'));
-        $observer = new HttpSloObserver(new RoutePointIndex(new InMemoryRouteCatalog([new RouteInfo('payment_create', '/payments', [], self::CONTROLLER)]), $this->catalog, $logger), ObserverFixture::action($this->catalog, new InMemoryRouteCatalog(), $this->writer, $logger), $logger);
-
-        $observer->onHttpMeasured(new HttpMeasurement('POST', 'payment_create', 200, INF, null));
-
-        self::assertSame([], $this->writer->writes);
     }
 }
