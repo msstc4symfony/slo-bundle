@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Application\Binding;
 
-use Msstc4Symfony\SloBundle\Domain\Enum\Strategy;
-
 /**
  * @internal
  */

@@ -6,6 +6,9 @@ namespace Msstc4Symfony\SloBundle\Domain\ValueObject;
 
 use InvalidArgumentException;
 
+/**
+ * @internal
+ */
 final readonly class Revision
 {
     private const PATTERN = '/^[0-9a-f]{8}$/D';

@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Msstc4Symfony\SloBundle\Test\Unit\Domain\Enum;
 
 use BackedEnum;
+use Msstc4Symfony\SloBundle\Application\Binding\Strategy;
 use Msstc4Symfony\SloBundle\Domain\Enum\DeliveryStatus;
 use Msstc4Symfony\SloBundle\Domain\Enum\EventResult;
 use Msstc4Symfony\SloBundle\Domain\Enum\ObjectiveKind;
 use Msstc4Symfony\SloBundle\Domain\Enum\Outcome;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
-use Msstc4Symfony\SloBundle\Domain\Enum\Strategy;
 use Msstc4Symfony\SloBundle\Domain\Enum\StrategyPreference;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;

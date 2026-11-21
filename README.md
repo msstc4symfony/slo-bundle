@@ -356,7 +356,8 @@ Covered by semantic versioning; everything else is marked `@internal` and may ch
 | Operations | `Application\Port\OperationMonitorInterface`, `Application\Port\OperationHandleInterface` |
 | Bridges | `Application\Discovery\PointTag`, `Application\Port\EventRecorderInterface` (a public service, inject it), `Application\Evaluation\RecordEvent\Input` |
 | Catalog | `Domain\Repository\SloCatalogInterface`, `Domain\Entity\SloDefinition` |
-| Value objects and enums | `Domain\ValueObject\*`, `Domain\Enum\*` |
+| Value objects | `Domain\ValueObject\SloName`, `PointId`, `Objective`, `Target`, `LatencyThreshold`, `Window`, `Classification`, `StatusSet`, `Observation` |
+| Enums | `Domain\Enum\PointType`, `ObjectiveKind`, `StrategyPreference`, `DeliveryStatus`, `Outcome` |
 | Console | the commands `slo:list`, `slo:validate`, `slo:coverage`, `slo:generate`, their options, exit codes and the JSON of `slo:coverage` |
 | Configuration | the `msstc4symfony_slo` configuration keys, the metric `symfony_slo_events_total` with its labels, the generated recording rule and alert names |
 | Bundle | `SloBundle` |

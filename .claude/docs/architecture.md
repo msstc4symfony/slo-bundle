@@ -103,7 +103,7 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
 - `Application/Port/SeriesCatalogInterface` — имена метрик/меток metrics-bundle и logic-bundle и сборка `SeriesBinding`;
   адаптер `Infrastructure/MetricsBundle/MetricsBundleSeriesCatalog` (константы меток, значения статусов/исходов из
   `DeliveryStatus`/`Outcome`, короткое имя сообщения = `messageLabel()`, бакет → `le` через `Infrastructure/Prometheus/BucketLabel`).
-- `Binding{strategy: Domain\Enum\Strategy (existing_series|dedicated), series: ?SeriesBinding}`. `SeriesBinding{metric (без префикса),
+- `Binding{strategy: Application\Binding\Strategy (existing_series|dedicated), series: ?SeriesBinding}`. `SeriesBinding{metric (без префикса),
   kind: SeriesKind (Counter|Histogram), matchers, goodMatchers, badMatchers, le}`; `Matcher` (label, `MatchOperator` без значений, сырое
   значение) — нейтральная модель; синтаксис (операторы, кавычки PromQL, экранирование RE2, окно, шаблон статусов) — только в
   `Infrastructure/Prometheus/PromQlRenderer` (CR-007). badMatchers/goodMatchers перекрывают matchers по label.
@@ -144,7 +144,7 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
 
 ## Покрытие (`slo:coverage`, Task 11)
 
-- `Application/Coverage/Analyze/{Action,Input,Output,PointCoverage,CoverageKind,KindCoverage,CoverageVerdict}` + `Domain/Enum/CoverageStatus`
+- `Application/Coverage/Analyze/{Action,Input,Output,PointCoverage,CoverageKind,KindCoverage,CoverageVerdict,CoverageStatus}` (`CoverageStatus` и `Binding/Strategy` перенесены из Domain, `@internal`, R2-022)
   (`monitored|unmonitored|ignored|invalid|unsupported`). Читает только скомпилированный каталог и `RouteCatalogInterface::all()`,
   никогда временные ряды (plan §15, последняя строка).
 - Виды точек (`CoverageKind`, порядок case = порядок отчёта): `http_route` (point = имя маршрута), `messenger_handler` (point = `HandlerClass::method`,

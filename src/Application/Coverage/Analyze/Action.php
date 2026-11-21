@@ -11,7 +11,6 @@ use Msstc4Symfony\SloBundle\Application\Port\RouteCatalogInterface;
 use Msstc4Symfony\SloBundle\Application\Port\RouteInfo;
 use Msstc4Symfony\SloBundle\Application\Port\SeriesCatalogInterface;
 use Msstc4Symfony\SloBundle\Domain\Entity\SloDefinition;
-use Msstc4Symfony\SloBundle\Domain\Enum\CoverageStatus;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
 use Msstc4Symfony\SloBundle\Domain\Repository\SloCatalogInterface;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;

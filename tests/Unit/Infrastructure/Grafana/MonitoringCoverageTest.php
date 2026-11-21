@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Grafana;
 
 use Msstc4Symfony\SloBundle\Application\Coverage\Analyze\CoverageKind;
+use Msstc4Symfony\SloBundle\Application\Coverage\Analyze\CoverageStatus;
 use Msstc4Symfony\SloBundle\Application\Coverage\Analyze\KindCoverage;
 use Msstc4Symfony\SloBundle\Application\Coverage\Analyze\Output;
 use Msstc4Symfony\SloBundle\Application\Coverage\Analyze\PointCoverage;
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateDashboards\DashboardContext;
 use Msstc4Symfony\SloBundle\Application\Generation\Selector;
-use Msstc4Symfony\SloBundle\Domain\Enum\CoverageStatus;
 use Msstc4Symfony\SloBundle\Infrastructure\Grafana\MonitoringCoverage;
 use Msstc4Symfony\SloBundle\Infrastructure\Grafana\PanelFactory;
 use PHPUnit\Framework\TestCase;

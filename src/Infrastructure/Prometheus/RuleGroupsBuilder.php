@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Msstc4Symfony\SloBundle\Infrastructure\Prometheus;
 
 use Closure;
+use Msstc4Symfony\SloBundle\Application\Binding\Strategy;
 use Msstc4Symfony\SloBundle\Application\Generation\BoundObjective;
 use Msstc4Symfony\SloBundle\Application\Generation\BurnRatePolicy;
 use Msstc4Symfony\SloBundle\Application\Generation\BurnRateWindow;
 use Msstc4Symfony\SloBundle\Application\Generation\Selector;
 use Msstc4Symfony\SloBundle\Application\Port\RuleFileBuilderInterface;
-use Msstc4Symfony\SloBundle\Domain\Enum\Strategy;
 use Msstc4Symfony\SloBundle\Infrastructure\Yaml\DeterministicYaml;
 use Override;
 
