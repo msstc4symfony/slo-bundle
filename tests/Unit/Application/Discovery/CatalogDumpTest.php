@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Test\Unit\Application\Discovery;
 
+use Closure;
 use InvalidArgumentException;
 use Msstc4Symfony\SloBundle\Application\Attribute\Availability;
 use Msstc4Symfony\SloBundle\Application\Attribute\Combined;
@@ -18,6 +19,7 @@ use Msstc4Symfony\SloBundle\Application\Discovery\HandlerInfo;
 use Msstc4Symfony\SloBundle\Application\Discovery\TaggedPoint;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use stdClass;
 
@@ -59,6 +61,44 @@ final class CatalogDumpTest extends TestCase
         self::assertSame(['payment.conflict'], array_keys($restored->conflicts));
         self::assertSame($update->toString(), $restored->conflicts['payment.conflict'][1]->point->toString());
         self::assertSame(['http_route:App\Controller::health' => 'probe'], $restored->ignored);
+        self::assertTrue($restored->extras->hasHttpPoints);
+    }
+
+    /**
+     * @return iterable<string, array{Closure(CatalogAssembler): void, bool}>
+     */
+    public static function httpPointsProvider(): iterable
+    {
+        yield 'none' => [static function (): void {
+        }, false];
+        yield 'operation and message only' => [static function (CatalogAssembler $assembler): void {
+            $assembler->declare(PointId::of(PointType::Operation, 'export'), new Slo('export', [new Availability(99)]));
+            $assembler->declare(PointId::of(PointType::MessengerMessage, 'App\Pay'), new Slo('pay', [new Availability(99)]));
+        }, false];
+        yield 'ignored route only' => [static function (CatalogAssembler $assembler): void {
+            $assembler->ignore(PointId::of(PointType::HttpRoute, 'A::health'), 'probe');
+        }, false];
+        yield 'http definition' => [static function (CatalogAssembler $assembler): void {
+            $assembler->declare(PointId::of(PointType::HttpRoute, 'A::b'), new Slo('a.b', [new Availability(99)]));
+        }, true];
+        yield 'http conflict only' => [static function (CatalogAssembler $assembler): void {
+            $assembler->declare(PointId::of(PointType::HttpRoute, 'A::b'), new Slo('dup', [new Availability(99)]));
+            $assembler->declare(PointId::of(PointType::HttpRoute, 'A::c'), new Slo('dup', [new Availability(98)]));
+        }, true];
+    }
+
+    /**
+     * @param Closure(CatalogAssembler): void $declare
+     */
+    #[DataProvider('httpPointsProvider')]
+    public function testAssemblerFlagsCatalogsWithHttpPoints(Closure $declare, bool $expected): void
+    {
+        $assembler = new CatalogAssembler();
+        $declare($assembler);
+        $contents = $assembler->assemble(new DefinitionFactory('30d', ['5xx'], [], true, false), new DiscoveryErrors(), new CatalogExtras(hasHttpPoints: !$expected));
+
+        self::assertSame($expected, $contents->extras->hasHttpPoints);
+        self::assertSame($expected, CatalogDump::toArray($contents)['extras']['has_http_points']);
     }
 
     public function testPointIdMayContainColons(): void

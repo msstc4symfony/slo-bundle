@@ -21,7 +21,9 @@ use Msstc4Symfony\SloBundle\Domain\Service\RevisionCalculator;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Observation;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
+use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexFile;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouterRouteCatalog;
+use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouterRouteReader;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\CatalogFixture;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\InMemoryRouteCatalog;
 use Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Symfony\RecordingLogger;
@@ -156,7 +158,7 @@ final class ActionTest extends TestCase
         $catalog = $this->paymentCatalog();
         $writer = new InMemoryEventWriter();
         $logger = new RecordingLogger();
-        $action = $this->action($catalog, $writer, $logger, new RouterRouteCatalog($router, $catalog));
+        $action = $this->action($catalog, $writer, $logger, new RouterRouteCatalog(new RouterRouteReader($router, $catalog), new RouteIndexFile(sys_get_temp_dir() . '/msstc4symfony-slo-no-route-index', false)));
 
         for ($i = 0; $i < 5; $i++) {
             $action(new Input($this->point(), Observation::http(200, 0.1)));

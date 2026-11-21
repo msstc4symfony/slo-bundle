@@ -36,6 +36,7 @@ final class TestContainer
         $container = new ContainerBuilder(new ParameterBag([
             'kernel.environment' => 'test',
             'kernel.debug' => false,
+            'kernel.cache_dir' => sys_get_temp_dir(),
             'kernel.project_dir' => sys_get_temp_dir(),
             // Symfony 7.4's PhpFileLoader reads it; 8.x does not.
             'kernel.build_dir' => sys_get_temp_dir(),

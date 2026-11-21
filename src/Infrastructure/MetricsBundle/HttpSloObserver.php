@@ -8,6 +8,7 @@ use Msstc4Symfony\MetricsBundle\Application\Port\HttpMeasurement;
 use Msstc4Symfony\MetricsBundle\Application\Port\HttpMeasurementObserverInterface;
 use Msstc4Symfony\SloBundle\Application\Evaluation\RecordEvent\Action as RecordEvent;
 use Msstc4Symfony\SloBundle\Application\Evaluation\RecordEvent\Input;
+use Msstc4Symfony\SloBundle\Application\Port\CatalogDiagnosticsInterface;
 use Msstc4Symfony\SloBundle\Application\Port\RoutePointIndexInterface;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Observation;
 use Override;
@@ -15,7 +16,7 @@ use Psr\Log\LoggerInterface;
 use Throwable;
 
 /**
- * The duration is the one metrics-bundle measured; no second timer.
+ * The duration is the one metrics-bundle measured; no second timer. Without HTTP SLOs the routes are never read.
  *
  * @internal
  */
@@ -23,6 +24,7 @@ final readonly class HttpSloObserver implements HttpMeasurementObserverInterface
 {
     public function __construct(
         private RoutePointIndexInterface $index,
+        private CatalogDiagnosticsInterface $diagnostics,
         private RecordEvent $record,
         private LoggerInterface $logger,
     ) {
@@ -36,6 +38,9 @@ final readonly class HttpSloObserver implements HttpMeasurementObserverInterface
         }
 
         try {
+            if (!$this->diagnostics->extras()->hasHttpPoints) {
+                return;
+            }
             $points = $this->index->pointsFor($measurement->route);
             if ($points === []) {
                 return;

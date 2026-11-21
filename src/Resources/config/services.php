@@ -38,8 +38,10 @@ use Msstc4Symfony\SloBundle\Infrastructure\Operation\OperationMonitor;
 use Msstc4Symfony\SloBundle\Infrastructure\Prometheus\PromQlBuilder;
 use Msstc4Symfony\SloBundle\Infrastructure\Prometheus\RuleGroupsBuilder;
 use Msstc4Symfony\SloBundle\Infrastructure\Sloth\SlothSpecBuilder;
+use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexFile;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RoutePointIndex;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouterRouteCatalog;
+use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouterRouteReader;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\SloCacheWarmer;
 use Msstc4Symfony\SloBundle\Infrastructure\Yaml\DeterministicYaml;
 use Msstc4Symfony\SloBundle\Presentation\Command\CoverageCommand;
@@ -62,7 +64,12 @@ return static function (ContainerConfigurator $container): void {
     $services->alias(CatalogDiagnosticsInterface::class, CompiledSloCatalog::class);
 
     $services->set(RevisionCalculator::class);
-    $services->set(RouterRouteCatalog::class)->arg('$router', service('router')->nullOnInvalid());
+    $services->set(RouterRouteReader::class)->arg('$router', service('router')->nullOnInvalid());
+    $services->set(RouteIndexFile::class)
+        ->arg('$cacheDir', param('kernel.cache_dir'))
+        ->arg('$debug', param('kernel.debug'))
+    ;
+    $services->set(RouterRouteCatalog::class);
     $services->alias(RouteCatalogInterface::class, RouterRouteCatalog::class);
 
     $services->set(MetricBindingResolver::class);
@@ -133,7 +140,7 @@ return static function (ContainerConfigurator $container): void {
     $services->set(ListCommand::class);
     $services->set(ValidateCommand::class);
     $services->set(SloCacheWarmer::class)
+        ->arg('$logger', service(FailSafeLogger::class))
         ->tag('kernel.cache_warmer')
-        ->tag('monolog.logger', ['channel' => 'slo_bundle'])
     ;
 };

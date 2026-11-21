@@ -6,7 +6,6 @@ namespace Msstc4Symfony\SloBundle\Infrastructure\Symfony;
 
 use Msstc4Symfony\SloBundle\Application\Port\RouteCatalogInterface;
 use Msstc4Symfony\SloBundle\Application\Port\RoutePointIndexInterface;
-use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
 use Msstc4Symfony\SloBundle\Domain\Repository\SloCatalogInterface;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Override;
@@ -14,8 +13,9 @@ use Psr\Log\LoggerInterface;
 use Throwable;
 
 /**
- * Built lazily on first use and memoised for the process, routes are fixed per container (ruling 7). A failed build
- * is memoised as an empty index: logged once, HTTP SLOs then record nothing.
+ * Read from the warmed RouteIndexFile, else built from the routes on first use; memoised for the process, routes are
+ * fixed per container (ruling 7). A failed build is memoised as an empty index: logged once, HTTP SLOs then record
+ * nothing until the process restarts.
  *
  * @internal
  */
@@ -27,6 +27,7 @@ final class RoutePointIndex implements RoutePointIndexInterface
     public function __construct(
         private readonly RouteCatalogInterface $routes,
         private readonly SloCatalogInterface $catalog,
+        private readonly RouteIndexFile $file,
         private readonly LoggerInterface $logger,
     ) {
     }
@@ -45,18 +46,7 @@ final class RoutePointIndex implements RoutePointIndexInterface
     private function build(): array
     {
         try {
-            $index = [];
-            foreach ($this->routes->all() as $route) {
-                if ($route->controller === null) {
-                    continue;
-                }
-                $point = PointId::of(PointType::HttpRoute, $route->controller);
-                if ($this->catalog->forPoint($point) !== [] || $this->catalog->conflictedNamesFor($point) !== []) {
-                    $index[$route->name][] = $point;
-                }
-            }
-
-            return $index;
+            return $this->file->load()?->points() ?? RouteIndexData::pointsOf($this->routes->all(), $this->catalog);
         } catch (Throwable $e) {
             $this->logger->warning('SLO route index could not be built, HTTP SLO events are not recorded.', ['exception' => $e]);
 

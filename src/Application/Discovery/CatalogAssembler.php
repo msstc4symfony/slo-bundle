@@ -6,6 +6,7 @@ namespace Msstc4Symfony\SloBundle\Application\Discovery;
 
 use Msstc4Symfony\SloBundle\Application\Attribute\Slo;
 use Msstc4Symfony\SloBundle\Domain\Entity\SloDefinition;
+use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 
 /**
@@ -74,7 +75,10 @@ final class CatalogAssembler
             }
         }
 
-        return new CatalogContents($definitions, $conflicts, $ignored, $extras);
+        $hasHttpPoints = array_filter($definitions, static fn (SloDefinition $d): bool => $d->pointType() === PointType::HttpRoute) !== []
+            || array_filter(array_merge(...array_values($conflicts)), static fn (SloDeclaration $d): bool => $d->point->type === PointType::HttpRoute) !== [];
+
+        return new CatalogContents($definitions, $conflicts, $ignored, $extras->withHttpPoints($hasHttpPoints));
     }
 
     /**

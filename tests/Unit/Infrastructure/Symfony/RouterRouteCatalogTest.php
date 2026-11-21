@@ -6,11 +6,15 @@ namespace Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Symfony;
 
 use Msstc4Symfony\SloBundle\Application\Discovery\CatalogExtras;
 use Msstc4Symfony\SloBundle\Application\Port\RouteInfo;
+use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexData;
+use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexFile;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouterRouteCatalog;
+use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouterRouteReader;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\InvokableController;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\PaymentController;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\CatalogFixture;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
 use Symfony\Component\Routing\RouterInterface;
@@ -32,7 +36,7 @@ final class RouterRouteCatalogTest extends TestCase
         $router->method('getRouteCollection')->willReturn($collection);
         $diagnostics = CatalogFixture::build(static function (): void {
         }, new CatalogExtras(controllerServices: ['app.payment' => PaymentController::class, 'app.refund' => InvokableController::class]));
-        $catalog = new RouterRouteCatalog($router, $diagnostics);
+        $catalog = new RouterRouteCatalog(new RouterRouteReader($router, $diagnostics), $this->noFile());
 
         self::assertSame(
             ['a_array', 'b_class_method', 'd_service'],
@@ -54,8 +58,8 @@ final class RouterRouteCatalogTest extends TestCase
     {
         $router = $this->createMock(RouterInterface::class);
         $router->expects(self::once())->method('getRouteCollection')->willReturn(new RouteCollection());
-        $catalog = new RouterRouteCatalog($router, CatalogFixture::build(static function (): void {
-        }));
+        $catalog = new RouterRouteCatalog(new RouterRouteReader($router, CatalogFixture::build(static function (): void {
+        })), $this->noFile());
 
         $catalog->routesFor('A::b');
         $catalog->all();
@@ -64,10 +68,33 @@ final class RouterRouteCatalogTest extends TestCase
 
     public function testWithoutARouterThereAreNoRoutes(): void
     {
-        $catalog = new RouterRouteCatalog(null, CatalogFixture::build(static function (): void {
-        }));
+        $catalog = new RouterRouteCatalog(new RouterRouteReader(null, CatalogFixture::build(static function (): void {
+        })), $this->noFile());
 
         self::assertSame([], $catalog->all());
         self::assertSame([], $catalog->routesFor('A::b'));
+    }
+
+    public function testWarmedRoutesAreUsedWithoutTouchingTheRouter(): void
+    {
+        $dir = sys_get_temp_dir() . '/msstc4symfony-slo-route-catalog-' . getmypid();
+        RouteIndexFile::write($dir, RouteIndexData::fromRoutes([new RouteInfo('pay', '/pay', ['POST'], 'App\Pay::create')], []));
+        $router = $this->createMock(RouterInterface::class);
+        $router->expects(self::never())->method('getRouteCollection');
+
+        try {
+            $catalog = new RouterRouteCatalog(new RouterRouteReader($router, CatalogFixture::build(static function (): void {
+            })), new RouteIndexFile($dir, false));
+
+            self::assertEquals([new RouteInfo('pay', '/pay', ['POST'], 'App\Pay::create')], $catalog->routesFor('App\Pay::create'));
+            self::assertCount(1, $catalog->all());
+        } finally {
+            (new Filesystem())->remove($dir);
+        }
+    }
+
+    private function noFile(): RouteIndexFile
+    {
+        return new RouteIndexFile(sys_get_temp_dir() . '/msstc4symfony-slo-no-route-index', false);
     }
 }

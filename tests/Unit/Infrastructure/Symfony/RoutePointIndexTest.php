@@ -12,17 +12,20 @@ use Msstc4Symfony\SloBundle\Application\Port\RouteInfo;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
+use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexData;
+use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexFile;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RoutePointIndex;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\CatalogFixture;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\InMemoryRouteCatalog;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use Symfony\Component\Filesystem\Filesystem;
 
 final class RoutePointIndexTest extends TestCase
 {
     public function testMapsRoutesToTheirSloPoints(): void
     {
-        $index = new RoutePointIndex($this->routes(), $this->catalog(), new RecordingLogger());
+        $index = new RoutePointIndex($this->routes(), $this->catalog(), $this->noFile(), new RecordingLogger());
 
         self::assertSame(['http_route:App\Pay::create'], $this->strings($index->pointsFor('pay_create')));
         self::assertSame(['http_route:App\Pay::create'], $this->strings($index->pointsFor('pay_create_v2')));
@@ -37,7 +40,7 @@ final class RoutePointIndexTest extends TestCase
             $assembler->declare(PointId::of(PointType::HttpRoute, 'A::one'), new Slo('dup.slo', [new Availability(99.9)]));
             $assembler->declare(PointId::of(PointType::HttpRoute, 'A::two'), new Slo('dup.slo', [new Availability(99.5)]));
         });
-        $index = new RoutePointIndex(new InMemoryRouteCatalog([new RouteInfo('one', '/one', [], 'A::one')]), $catalog, new RecordingLogger());
+        $index = new RoutePointIndex(new InMemoryRouteCatalog([new RouteInfo('one', '/one', [], 'A::one')]), $catalog, $this->noFile(), new RecordingLogger());
 
         self::assertSame(['http_route:A::one'], $this->strings($index->pointsFor('one')));
     }
@@ -46,7 +49,7 @@ final class RoutePointIndexTest extends TestCase
     {
         $routes = $this->createMock(RouteCatalogInterface::class);
         $routes->expects(self::once())->method('all')->willReturn([new RouteInfo('pay_create', '/pay', [], 'App\Pay::create')]);
-        $index = new RoutePointIndex($routes, $this->catalog(), new RecordingLogger());
+        $index = new RoutePointIndex($routes, $this->catalog(), $this->noFile(), new RecordingLogger());
 
         for ($i = 0; $i < 3; $i++) {
             self::assertCount(1, $index->pointsFor('pay_create'));
@@ -59,7 +62,7 @@ final class RoutePointIndexTest extends TestCase
         $routes = $this->createMock(RouteCatalogInterface::class);
         $routes->expects(self::once())->method('all')->willThrowException(new RuntimeException('router broken'));
         $logger = new RecordingLogger();
-        $index = new RoutePointIndex($routes, $this->catalog(), $logger);
+        $index = new RoutePointIndex($routes, $this->catalog(), $this->noFile(), $logger);
 
         for ($i = 0; $i < 2; $i++) {
             self::assertSame([], $index->pointsFor('pay_create'));
@@ -68,6 +71,28 @@ final class RoutePointIndexTest extends TestCase
         self::assertCount(1, $logger->records);
         self::assertSame('warning', $logger->records[0][0]);
         self::assertInstanceOf(RuntimeException::class, $logger->contexts[0]['exception']);
+    }
+
+    public function testWarmedIndexIsUsedWithoutReadingRoutes(): void
+    {
+        $dir = sys_get_temp_dir() . '/msstc4symfony-slo-point-index-' . getmypid();
+        RouteIndexFile::write($dir, RouteIndexData::fromRoutes([], ['pay_create' => [PointId::of(PointType::HttpRoute, 'App\Pay::create')]]));
+        $routes = $this->createMock(RouteCatalogInterface::class);
+        $routes->expects(self::never())->method('all');
+
+        try {
+            $index = new RoutePointIndex($routes, $this->catalog(), new RouteIndexFile($dir, false), new RecordingLogger());
+
+            self::assertSame(['http_route:App\Pay::create'], $this->strings($index->pointsFor('pay_create')));
+            self::assertSame([], $index->pointsFor('pay_list'));
+        } finally {
+            (new Filesystem())->remove($dir);
+        }
+    }
+
+    private function noFile(): RouteIndexFile
+    {
+        return new RouteIndexFile(sys_get_temp_dir() . '/msstc4symfony-slo-no-route-index', false);
     }
 
     private function routes(): InMemoryRouteCatalog

@@ -21,6 +21,7 @@ final readonly class CatalogExtras
      * @param list<string> $httpIgnoredRoutes
      * @param list<non-empty-string> $warnings
      * @param array<non-empty-string, class-string> $controllerServices controller service id => class, only ids that differ from the class name
+     * @param bool $hasHttpPoints an http_route point carries an SLO or a conflicting SLO name; set by CatalogAssembler
      */
     public function __construct(
         public array $controllers = [],
@@ -32,6 +33,23 @@ final readonly class CatalogExtras
         public array $httpIgnoredRoutes = [],
         public array $warnings = [],
         public array $controllerServices = [],
+        public bool $hasHttpPoints = false,
     ) {
+    }
+
+    public function withHttpPoints(bool $hasHttpPoints): self
+    {
+        return new self(
+            $this->controllers,
+            $this->handlers,
+            $this->taggedPoints,
+            $this->operations,
+            $this->failureTransports,
+            $this->metricBuckets,
+            $this->httpIgnoredRoutes,
+            $this->warnings,
+            $this->controllerServices,
+            $hasHttpPoints,
+        );
     }
 }

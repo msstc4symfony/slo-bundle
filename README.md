@@ -399,6 +399,17 @@ PHP 8.4.17 (CLI, no opcache/JIT tuning), Intel Core Ultra 7 155H, Linux 6.17, on
 A real Redis storage adds its network round trip per `increment`; the events are written after the response is
 produced in the HTTP path (`kernel.terminate`) and in the worker loop for Messenger.
 
+**Route index, the cold path.** HTTP SLOs need the route → SLO point index and the route names of each SLO.
+FrameworkBundle's `Router::getRouteCollection()` reloads every route from the loaders on each call, and under PHP-FPM
+"memoised per process" means once per request, so building the index lazily costs a full route load on the first SLO
+event of every request (milliseconds to tens of milliseconds in large applications). The optional cache warmer
+avoids it: `cache:warmup` (and `cache:clear` without `--no-optional-warmers`) writes the index to
+`%kernel.cache_dir%/msstc4symfony_slo/route_index.php`, a `var_export` array that opcache keeps in shared memory,
+and the request path reads only that file. The lazy build stays the fallback when the file is missing or unreadable,
+and in debug mode, where routes may change without a cache clear and the file is ignored. An application without HTTP
+SLOs never touches the router on the request path. The warmer never fails the warm-up: problems are logged on the
+`slo_bundle` channel.
+
 ## License
 
 MIT - see [LICENSE](LICENSE).

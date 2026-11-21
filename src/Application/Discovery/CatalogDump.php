@@ -46,6 +46,7 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\Window;
  *     http_ignored_routes: list<string>,
  *     warnings: list<non-empty-string>,
  *     controller_services: array<non-empty-string, class-string>,
+ *     has_http_points: bool,
  * }
  * @phpstan-type CatalogShape array{
  *     definitions: list<DefinitionShape>,
@@ -91,6 +92,7 @@ final class CatalogDump
                 'http_ignored_routes' => $extras->httpIgnoredRoutes,
                 'warnings' => $extras->warnings,
                 'controller_services' => $extras->controllerServices,
+                'has_http_points' => $extras->hasHttpPoints,
             ],
         ];
     }
@@ -123,6 +125,7 @@ final class CatalogDump
                 $extras['http_ignored_routes'],
                 $extras['warnings'],
                 $extras['controller_services'],
+                $extras['has_http_points'],
             ),
         );
     }

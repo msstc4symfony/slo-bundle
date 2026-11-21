@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace Msstc4Symfony\SloBundle\Test\Integration\Kernel;
 
 use Msstc4Symfony\MetricsBundle\Application\Port\MetricStorageInterface;
+use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexFile;
 use Override;
+use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -71,6 +74,27 @@ final class HttpSloKernelTest extends KernelTestCase
         self::assertSame('page:ok', $this->serve('/checkout-fragment')->getContent());
 
         self::assertSame(['checkout.fragment|combined|good' => 1], $this->counts());
+    }
+
+    public function testWarmedRouteIndexServesRequestsWithoutDebug(): void
+    {
+        self::ensureKernelShutdown();
+        $kernel = self::bootKernel(['debug' => false]);
+        $warmup = new CommandTester((new Application($kernel))->find('cache:warmup'));
+        $warmup->execute([]);
+        $warmup->assertCommandIsSuccessful();
+
+        $file = $kernel->getCacheDir() . '/' . RouteIndexFile::PATH;
+        self::assertFileExists($file);
+
+        self::ensureKernelShutdown();
+        self::bootKernel(['debug' => false]);
+        $index = self::getContainer()->get(RouteIndexFile::class);
+        self::assertInstanceOf(RouteIndexFile::class, $index);
+        self::assertNotNull($index->load());
+
+        self::assertSame(200, $this->serve('/checkout/ok')->getStatusCode());
+        self::assertSame(['checkout.page|combined|good' => 1, 'checkout.page|latency|good' => 1], $this->counts());
     }
 
     #[Override]
