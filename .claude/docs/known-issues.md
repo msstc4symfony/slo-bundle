@@ -21,3 +21,13 @@
   Rector (`withPhpVersion(PHP_82)`) и CS-Fixer (`new_expression_parentheses`) обратно не поднимают.
   `#[Override]` (8.3) допустим: на 8.2 атрибут не инстанцируется. Функции 8.4 (`array_any/all/find`) —
   только с `symfony/polyfill-php84` в `require`.
+- **`git archive HEAD` скелета неполный**: `.gitattributes` помечает `export-ignore` почти всё служебное
+  (`.github`, `Makefile`, `tests`, `.claude` ...). Копировать дерево скелета через
+  `git ls-files -z | tar --null -T - -c`.
+- **`bin/init` требует чистое дерево и обновляет `composer-ci.json`-lock**: без сети/совместимого PHP
+  `composer update --lock` падает и init откатывать нужно вручную (`git reset --hard && git clean -fd`).
+  `roave/security-advisories: dev-latest` конфликтует с PHP старше нижней границы патч-версии (8.4.17 на этой
+  машине < 8.4.28): для локальной установки `--ignore-platform-req=php`.
+- **metrics-bundle 2.3.0 не выпущен**: разработка идёт через git-ignored `composer-local.json` (path-репозитории
+  `../metrics-bundle` как `2.3.0` и `../sql-labeller` как `1.0.0`, плюс vcs). `composer-ci.lock` остался от
+  скелета и не пересобран; владелец пересобирает его после тега 2.3.0.

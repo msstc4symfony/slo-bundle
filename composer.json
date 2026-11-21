@@ -15,6 +15,20 @@
     "symfony"
   ],
   "prefer-stable": true,
+  "repositories": [
+    {
+      "type": "vcs",
+      "url": "https://github.com/msstc4symfony/logic-bundle"
+    },
+    {
+      "type": "vcs",
+      "url": "https://github.com/msstc4symfony/metrics-bundle"
+    },
+    {
+      "type": "vcs",
+      "url": "https://github.com/msstc4symfony/sql-labeller"
+    }
+  ],
   "autoload": {
     "psr-4": {
       "Msstc4Symfony\\SloBundle\\": "src/"
@@ -28,19 +42,29 @@
   "require": {
     "php": ">=8.2",
     "composer-runtime-api": ">=2.2",
+    "monolog/monolog": "^3.5",
+    "msstc4symfony/metrics-bundle": "^2.3",
+    "psr/log": "^2.0|^3.0",
     "symfony/config": "^7.4|^8.0",
+    "symfony/console": "^7.4|^8.0",
     "symfony/dependency-injection": "^7.4|^8.0",
-    "symfony/http-kernel": "^7.4|^8.0"
+    "symfony/http-kernel": "^7.4|^8.0",
+    "symfony/monolog-bundle": "^3.11|^4.0",
+    "symfony/routing": "^7.4|^8.0",
+    "symfony/yaml": "^7.4|^8.0"
   },
   "require-dev": {
     "friendsofphp/php-cs-fixer": "^3.76",
+    "msstc4symfony/logic-bundle": "^2.1",
     "phpstan/extension-installer": "^1.4",
     "phpstan/phpstan": "^2.1",
     "phpstan/phpstan-strict-rules": "^2.0",
     "phpstan/phpstan-symfony": "^2.0",
     "phpunit/phpunit": ">=11.0",
     "rector/rector": "^2.1",
-    "roave/security-advisories": "dev-latest"
+    "roave/security-advisories": "dev-latest",
+    "symfony/framework-bundle": "^7.4|^8.0",
+    "symfony/messenger": "^7.4|^8.0"
   },
   "config": {
     "allow-plugins": {
@@ -56,5 +80,11 @@
       "allow-contrib": false,
       "require": "^7.4|^8.0"
     }
+  },
+  "suggest": {
+    "msstc4symfony/logic-bundle": "To declare SLOs on logic-bundle Actions (with msstc4symfony/slo-bridge-logic)",
+    "msstc4symfony/slo-bridge-logic": "To discover and measure msstc4symfony/logic-bundle Actions as SLO points",
+    "msstc4symfony/slo-bridge-profiling": "To measure msstc4symfony/profiling-bundle spans as SLO points",
+    "symfony/messenger": "To declare SLOs on Messenger messages"
   }
 }

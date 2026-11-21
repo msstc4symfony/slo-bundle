@@ -5,6 +5,11 @@
 
 Declarative SLI/SLO for Symfony: discovery, coverage gate, good/bad counters, Prometheus rules and Grafana dashboards
 
+Built on [`msstc4symfony/metrics-bundle`](https://github.com/msstc4symfony/metrics-bundle) 2.3: good and bad events
+are counted as `symfony_slo_events_total` through its storage and exported on its metrics endpoint.
+
+> Status: under development, not released yet.
+
 ## Compatibility
 
 | Bundle | PHP  | Symfony  |
@@ -15,43 +20,19 @@ Symfony 8.x needs PHP 8.4; on PHP 8.2 and 8.3 Composer installs Symfony 7.4.
 
 ## Installation
 
-The package is not on Packagist yet, so register its GitHub repository first:
+The packages are not on Packagist yet, so register their GitHub repositories first:
 
 ```sh
-composer config repositories.msstc4symfony-slo-bundle vcs https://github.com/msstc4symfony/slo-bundle
+composer config repositories.msstc4symfony-sql-labeller vcs https://github.com/msstc4symfony/sql-labeller
+composer config repositories.msstc4symfony-metrics vcs https://github.com/msstc4symfony/metrics-bundle
+composer config repositories.msstc4symfony-slo vcs https://github.com/msstc4symfony/slo-bundle
 composer require msstc4symfony/slo-bundle
 ```
 
-Symfony Flex registers the bundle automatically; without Flex add it to `config/bundles.php`:
+Symfony Flex registers the bundle automatically; without Flex add it to `config/bundles.php` after `MetricsBundle`:
 
 ```php
 Msstc4Symfony\SloBundle\SloBundle::class => ['all' => true],
-```
-
-## Configuration
-
-```yaml
-msstc4symfony_slo:
-    greeting: Hello   # non-empty string
-```
-
-## Usage
-
-```php
-use Msstc4Symfony\SloBundle\Application\Greeting\Greet\Action;
-use Msstc4Symfony\SloBundle\Application\Greeting\Greet\Input;
-
-final readonly class Welcome
-{
-    public function __construct(private Action $greet)
-    {
-    }
-
-    public function __invoke(): string
-    {
-        return ($this->greet)(new Input('Ada'))->message; // "Hello, Ada!"
-    }
-}
 ```
 
 ## Layers
@@ -63,17 +44,17 @@ final readonly class Welcome
   operations in `Service/`, `Helper/`, `Specification/`;
 - `Application/`, `Infrastructure/`, `Presentation/`, `Framework/`;
 - `DependencyInjection/` (compiler passes in `CompilerPass/`);
-- `Resources/` (configuration only, no classes) and the bundle class `<Name>Bundle.php`.
-
-Empty layers need no directory. `deptrac.yaml` starts with the full canonical ruleset; narrow it as the bundle's
-layers settle, never widen it.
+- `Resources/` (configuration only, no classes) and the bundle class `SloBundle.php`.
 
 ## Local development
 
+metrics-bundle 2.3.0 is unreleased: develop against the git-ignored `composer-local.json` profile (path repositories
+for `../metrics-bundle` and `../sql-labeller`).
+
 ```sh
-make install-ci                        # composer-ci.json profile with every CI tool
-COMPOSER=composer-ci.json make check   # lint, PHPStan, CS, composer validate/audit, Rector, deptrac
-make test                              # unit + integration
+COMPOSER=composer-local.json composer install
+COMPOSER=composer-local.json make check   # lint, PHPStan, CS, composer validate/audit, Rector, deptrac
+make test                                 # unit + integration
 ```
 
 ## License

@@ -13,7 +13,7 @@ use Symfony\Component\DependencyInjection\ParameterBag\ParameterBag;
 final class TestContainer
 {
     /**
-     * @param array{greeting?: string|int} $config msstc4symfony_slo configuration
+     * @param array{} $config msstc4symfony_slo configuration
      */
     public static function compile(array $config = []): ContainerBuilder
     {

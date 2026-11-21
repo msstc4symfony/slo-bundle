@@ -4,49 +4,43 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Test\Integration;
 
-use Msstc4Symfony\SloBundle\Application\Greeting\Greet\Action;
-use Msstc4Symfony\SloBundle\Application\Greeting\Greet\Input;
 use Msstc4Symfony\SloBundle\SloBundle;
-use PHPUnit\Framework\Attributes\TestWith;
+use Msstc4Symfony\SloBundle\Test\Integration\Kernel\TestKernel;
+use Override;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
-use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\Filesystem\Filesystem;
 
 final class SloBundleTest extends TestCase
 {
-    public function testExtensionAlias(): void
+    #[Override]
+    protected function setUp(): void
     {
-        self::assertSame('msstc4symfony_slo', (new SloBundle())->getContainerExtension()?->getAlias());
+        (new Filesystem())->remove(TestKernel::cacheRoot());
     }
 
-    public function testActionGreetsWithTheDefaultGreeting(): void
+    #[Override]
+    protected function tearDown(): void
+    {
+        (new Filesystem())->remove(TestKernel::cacheRoot());
+    }
+
+    public function testBundleBootsWithMetricsBundle(): void
+    {
+        $kernel = new TestKernel('test', false);
+        $kernel->boot();
+
+        try {
+            self::assertInstanceOf(SloBundle::class, $kernel->getBundle('SloBundle'));
+            self::assertTrue($kernel->getContainer()->has('kernel'));
+        } finally {
+            $kernel->shutdown();
+        }
+    }
+
+    public function testBundleCompilesWithoutFrameworkServices(): void
     {
         $container = TestContainer::compile();
 
-        self::assertSame('Hello', $container->getParameter(SloBundle::GREETING_PARAMETER));
-        self::assertSame('Hello, Ada!', $this->action($container)(new Input('Ada'))->message);
-    }
-
-    public function testActionUsesTheConfiguredGreeting(): void
-    {
-        self::assertSame('Hi, Ada!', $this->action(TestContainer::compile(['greeting' => 'Hi']))(new Input('Ada'))->message);
-    }
-
-    #[TestWith([''])]
-    #[TestWith(['   '])]
-    #[TestWith([42])]
-    public function testGreetingMustBeANonEmptyString(string|int $greeting): void
-    {
-        $this->expectException(InvalidConfigurationException::class);
-
-        TestContainer::compile(['greeting' => $greeting]);
-    }
-
-    private function action(ContainerBuilder $container): Action
-    {
-        $action = $container->get(Action::class);
-        self::assertInstanceOf(Action::class, $action);
-
-        return $action;
+        self::assertTrue($container->isCompiled());
     }
 }
