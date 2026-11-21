@@ -6,12 +6,15 @@ namespace Msstc4Symfony\SloBundle\Infrastructure\Symfony;
 
 use InvalidArgumentException;
 use Msstc4Symfony\SloBundle\Application\Discovery\CatalogDump;
+use Msstc4Symfony\SloBundle\Application\Port\RouteInfo;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
+use Msstc4Symfony\SloBundle\Domain\ValueObject\Revision;
 use Throwable;
 
 /**
  * Validates a stored route index (RouteIndexData::toArray() form) without trusting it: every method returns null
- * instead of throwing on a malformed value.
+ * instead of throwing on a malformed value. parse() validates everything; the *Entry() reads validate one entry of a
+ * value that passed isCurrentVersion().
  *
  * @phpstan-import-type RouteShape from RouteIndexData
  *
@@ -46,11 +49,97 @@ final class RouteIndexParser
     }
 
     /**
-     * Validates the points section only: the hot path needs nothing else.
+     * @phpstan-assert-if-true array<array-key, mixed> $value
+     */
+    public static function isCurrentVersion(mixed $value): bool
+    {
+        return \is_array($value) && ($value['version'] ?? null) === RouteIndexData::VERSION;
+    }
+
+    /**
+     * @param array<array-key, mixed> $value
      *
+     * @return list<PointId>|null empty for a route without SLO points, null when the entry is malformed
+     */
+    public static function pointsEntry(array $value, string $route): ?array
+    {
+        $points = $value['points'] ?? null;
+        if (!\is_array($points)) {
+            return null;
+        }
+        $entry = $points[$route] ?? [];
+        if (!self::isStringList($entry)) {
+            return null;
+        }
+        $points = [];
+        try {
+            foreach ($entry as $point) {
+                if ($point === '') {
+                    return null;
+                }
+                $points[] = CatalogDump::point($point);
+            }
+        } catch (Throwable) {
+            return null;
+        }
+
+        return $points;
+    }
+
+    /**
+     * @param array<array-key, mixed> $value
+     *
+     * @return Revision|false|null false for an objective reading existing series, null when absent or malformed
+     */
+    public static function revisionEntry(array $value, string $key): Revision|false|null
+    {
+        $revisions = $value['revisions'] ?? null;
+        $revision = \is_array($revisions) ? $revisions[$key] ?? null : null;
+        if ($revision === '') {
+            return false;
+        }
+        if (!\is_string($revision)) {
+            return null;
+        }
+        try {
+            return Revision::fromHex($revision);
+        } catch (InvalidArgumentException) {
+            return null;
+        }
+    }
+
+    /**
+     * @param array<array-key, mixed> $value
+     *
+     * @return list<RouteInfo>|null sorted by route name, null when the controller's entry or one of its routes is malformed
+     */
+    public static function routesEntry(array $value, string $controller): ?array
+    {
+        $controllers = $value['controllers'] ?? null;
+        $routes = $value['routes'] ?? null;
+        if (!\is_array($controllers) || !\is_array($routes)) {
+            return null;
+        }
+        $names = $controllers[$controller] ?? [];
+        if (!self::isStringList($names)) {
+            return null;
+        }
+        $infos = [];
+        foreach ($names as $name) {
+            $route = $name === '' ? null : self::route($routes[$name] ?? null);
+            if ($route === null) {
+                return null;
+            }
+            $infos[] = new RouteInfo($name, $route['path'], $route['methods'], $route['controller']);
+        }
+
+        return $infos;
+    }
+
+    /**
      * @return array<array-key, non-empty-list<PointId>>|null
      */
-    public static function points(mixed $value): ?array
+    private static function points(mixed $value): ?array
     {
         if (!self::isCurrentVersion($value)) {
             return null;
@@ -67,11 +156,9 @@ final class RouteIndexParser
     }
 
     /**
-     * Validates the revisions section only.
-     *
      * @return array<non-empty-string, string>|null
      */
-    public static function revisions(mixed $value): ?array
+    private static function revisions(mixed $value): ?array
     {
         if (!self::isCurrentVersion($value) || !\is_array($value['revisions'] ?? null)) {
             return null;
@@ -88,14 +175,6 @@ final class RouteIndexParser
     }
 
     /**
-     * @phpstan-assert-if-true array<array-key, mixed> $value
-     */
-    private static function isCurrentVersion(mixed $value): bool
-    {
-        return \is_array($value) && ($value['version'] ?? null) === RouteIndexData::VERSION;
-    }
-
-    /**
      * @return array<array-key, RouteShape>|null
      */
     private static function routesFromArray(mixed $value): ?array
@@ -105,19 +184,32 @@ final class RouteIndexParser
         }
         $routes = [];
         foreach ($value as $name => $route) {
-            if ($name === '' || !\is_array($route)) {
+            $shape = $name === '' ? null : self::route($route);
+            if ($shape === null) {
                 return null;
             }
-            $path = $route['path'] ?? null;
-            $methods = $route['methods'] ?? null;
-            $controller = $route['controller'] ?? null;
-            if (!\is_string($path) || !self::isStringList($methods) || ($controller !== null && (!\is_string($controller) || $controller === ''))) {
-                return null;
-            }
-            $routes[$name] = ['path' => $path, 'methods' => $methods, 'controller' => $controller];
+            $routes[$name] = $shape;
         }
 
         return $routes;
+    }
+
+    /**
+     * @return RouteShape|null
+     */
+    private static function route(mixed $route): ?array
+    {
+        if (!\is_array($route)) {
+            return null;
+        }
+        $path = $route['path'] ?? null;
+        $methods = $route['methods'] ?? null;
+        $controller = $route['controller'] ?? null;
+        if (!\is_string($path) || !self::isStringList($methods) || ($controller !== null && (!\is_string($controller) || $controller === ''))) {
+            return null;
+        }
+
+        return ['path' => $path, 'methods' => $methods, 'controller' => $controller];
     }
 
     /**

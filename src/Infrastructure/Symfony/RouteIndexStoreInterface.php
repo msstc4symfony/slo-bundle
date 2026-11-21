@@ -4,35 +4,44 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Infrastructure\Symfony;
 
+use Msstc4Symfony\SloBundle\Application\Port\RouteInfo;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
+use Msstc4Symfony\SloBundle\Domain\ValueObject\Revision;
 use RuntimeException;
 
 /**
  * Where SloCacheWarmer keeps the route index for the request path. Reads never throw: a missing or malformed index
- * reads as null and the callers fall back to the router.
+ * (or entry) reads as null and the callers fall back to the router. The per-key reads validate only the entry they
+ * return, so the request path never pays for the whole index.
  *
  * @internal
  */
 interface RouteIndexStoreInterface
 {
     /**
-     * The whole index, validated.
+     * The whole index, validated (CLI).
      */
     public function load(): ?RouteIndexData;
 
     /**
-     * Route name => SLO points, validating only that section (hot path).
-     *
-     * @return array<array-key, non-empty-list<PointId>>|null
+     * @return list<PointId>|null the SLO points behind the route, [] for a route without any, null when not warmed
      */
-    public function points(): ?array;
+    public function pointsFor(string $route): ?array;
 
     /**
-     * "<slo>|<objective>" => revision of a dedicated objective or '' (hot path).
+     * @param non-empty-string $key "<slo>|<objective>"
      *
-     * @return array<non-empty-string, string>|null
+     * @return Revision|false|null the revision of a dedicated objective, false when it reads existing series, null when
+     *                             nothing usable was stored for the key
      */
-    public function revisions(): ?array;
+    public function revisionOf(string $key): Revision|false|null;
+
+    /**
+     * @param non-empty-string $controller
+     *
+     * @return list<RouteInfo>|null the routes of the controller sorted by name, null when not warmed
+     */
+    public function routesFor(string $controller): ?array;
 
     /**
      * @param string $cacheDir the directory being warmed, which may differ from the one the store reads

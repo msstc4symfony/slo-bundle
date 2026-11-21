@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Msstc4Symfony\SloBundle\Infrastructure\Filesystem;
 
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
+use Msstc4Symfony\SloBundle\Domain\ValueObject\Revision;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexData;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexParser;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexStoreInterface;
@@ -25,21 +26,18 @@ final class RouteIndexFile implements RouteIndexStoreInterface
 
     private bool $included = false;
 
-    private mixed $raw = null;
+    /** @var array<array-key, mixed>|null the included file when it is an index of the current version */
+    private ?array $raw = null;
 
     private bool $loaded = false;
 
     private ?RouteIndexData $data = null;
 
-    private bool $pointsLoaded = false;
+    /** @var array<string, list<PointId>|null> */
+    private array $points = [];
 
-    /** @var array<array-key, non-empty-list<PointId>>|null */
-    private ?array $points = null;
-
-    private bool $revisionsLoaded = false;
-
-    /** @var array<non-empty-string, string>|null */
-    private ?array $revisions = null;
+    /** @var array<string, Revision|false|null> */
+    private array $revisions = [];
 
     public function __construct(
         private readonly string $cacheDir,
@@ -59,25 +57,36 @@ final class RouteIndexFile implements RouteIndexStoreInterface
     }
 
     #[Override]
-    public function points(): ?array
+    public function pointsFor(string $route): ?array
     {
-        if (!$this->pointsLoaded) {
-            $this->pointsLoaded = true;
-            $this->points = RouteIndexParser::points($this->raw());
+        if (\array_key_exists($route, $this->points)) {
+            return $this->points[$route];
         }
+        $raw = $this->raw();
 
-        return $this->points;
+        $points = $raw === null ? null : RouteIndexParser::pointsEntry($raw, $route);
+        $this->points[$route] = $points;
+
+        return $points;
     }
 
     #[Override]
-    public function revisions(): ?array
+    public function revisionOf(string $key): Revision|false|null
     {
-        if (!$this->revisionsLoaded) {
-            $this->revisionsLoaded = true;
-            $this->revisions = RouteIndexParser::revisions($this->raw());
+        if (\array_key_exists($key, $this->revisions)) {
+            return $this->revisions[$key];
         }
+        $raw = $this->raw();
 
-        return $this->revisions;
+        return $this->revisions[$key] = $raw === null ? null : RouteIndexParser::revisionEntry($raw, $key);
+    }
+
+    #[Override]
+    public function routesFor(string $controller): ?array
+    {
+        $raw = $this->raw();
+
+        return $raw === null ? null : RouteIndexParser::routesEntry($raw, $controller);
     }
 
     #[Override]
@@ -101,7 +110,10 @@ final class RouteIndexFile implements RouteIndexStoreInterface
         }
     }
 
-    private function raw(): mixed
+    /**
+     * @return array<array-key, mixed>|null
+     */
+    private function raw(): ?array
     {
         if ($this->included) {
             return $this->raw;
@@ -113,12 +125,12 @@ final class RouteIndexFile implements RouteIndexStoreInterface
 
         $file = $this->cacheDir . '/' . self::PATH;
         try {
-            $this->raw = is_file($file) ? $this->include($file) : null;
+            $raw = is_file($file) ? $this->include($file) : null;
         } catch (Throwable) {
-            $this->raw = null;
+            $raw = null;
         }
 
-        return $this->raw;
+        return $this->raw = RouteIndexParser::isCurrentVersion($raw) ? $raw : null;
     }
 
     private function include(string $file): mixed

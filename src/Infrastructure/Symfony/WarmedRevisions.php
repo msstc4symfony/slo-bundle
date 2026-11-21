@@ -24,12 +24,6 @@ final readonly class WarmedRevisions implements PrecomputedRevisionsInterface
     #[Override]
     public function revisionOf(SloName $name, ObjectiveKind $kind): Revision|false|null
     {
-        $revision = $this->file->revisions()[$name->value . '|' . $kind->value] ?? null;
-
-        return match ($revision) {
-            null => null,
-            '' => false,
-            default => Revision::fromHex($revision),
-        };
+        return $this->file->revisionOf($name->value . '|' . $kind->value);
     }
 }

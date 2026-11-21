@@ -199,7 +199,7 @@ final class SloCacheWarmerTest extends TestCase
         }
 
         self::assertCount(2, $writes[0]);
-        self::assertSame(['payment.create|latency', 'payment.process|latency'], array_keys($store->revisions() ?? []));
+        self::assertSame(['payment.create|latency', 'payment.process|latency'], array_keys(($store->written[self::CACHE_DIR] ?? null)?->revisions() ?? []));
         self::assertSame($writes[1], $writes[0]);
     }
 

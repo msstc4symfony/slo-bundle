@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Symfony;
 
+use Msstc4Symfony\SloBundle\Domain\ValueObject\Revision;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexData;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexStoreInterface;
 use Override;
@@ -31,28 +32,32 @@ final class InMemoryRouteIndexStore implements RouteIndexStoreInterface
     }
 
     #[Override]
-    public function points(): ?array
+    public function pointsFor(string $route): ?array
     {
         $this->reads++;
-        if (!$this->data instanceof RouteIndexData) {
-            return null;
-        }
-        $points = [];
-        foreach ($this->data->points() as $route => $list) {
-            if ($list !== []) {
-                $points[$route] = $list;
-            }
-        }
 
-        return $points;
+        return $this->data?->pointsFor($route);
     }
 
     #[Override]
-    public function revisions(): ?array
+    public function revisionOf(string $key): Revision|false|null
+    {
+        $this->reads++;
+        $revision = $this->data?->revisions()[$key] ?? null;
+
+        return match ($revision) {
+            null => null,
+            '' => false,
+            default => Revision::fromHex($revision),
+        };
+    }
+
+    #[Override]
+    public function routesFor(string $controller): ?array
     {
         $this->reads++;
 
-        return $this->data?->revisions();
+        return $this->data?->routesFor($controller);
     }
 
     #[Override]

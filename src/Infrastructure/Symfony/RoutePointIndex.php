@@ -38,6 +38,12 @@ final class RoutePointIndex implements RoutePointIndexInterface, ResetInterface
     #[Override]
     public function pointsFor(string $route): array
     {
+        if ($this->index === null) {
+            $warmed = $this->file->pointsFor($route);
+            if ($warmed !== null) {
+                return $warmed;
+            }
+        }
         $this->index ??= $this->build();
 
         return $this->index[$route] ?? [];
@@ -58,7 +64,7 @@ final class RoutePointIndex implements RoutePointIndexInterface, ResetInterface
     private function build(): array
     {
         try {
-            return $this->file->points() ?? RouteIndexData::pointsOf($this->routes->all(), $this->catalog);
+            return RouteIndexData::pointsOf($this->routes->all(), $this->catalog);
         } catch (Throwable $e) {
             $this->failed = true;
             $this->logger->warning('SLO route index could not be built, HTTP SLO events are not recorded until reset.', ['exception' => $e]);

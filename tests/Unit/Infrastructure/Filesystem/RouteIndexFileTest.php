@@ -10,6 +10,7 @@ use Msstc4Symfony\SloBundle\Application\Discovery\CatalogAssembler;
 use Msstc4Symfony\SloBundle\Application\Port\RouteInfo;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
+use Msstc4Symfony\SloBundle\Domain\ValueObject\Revision;
 use Msstc4Symfony\SloBundle\Infrastructure\Filesystem\RouteIndexFile;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexData;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\CatalogFixture;
@@ -67,7 +68,8 @@ final class RouteIndexFileTest extends TestCase
         self::assertInstanceOf(RouteIndexData::class, $loaded);
         self::assertSame(['404', '500', 'home'], array_map(static fn (RouteInfo $r): string => $r->name, $loaded->all()));
         self::assertEquals([$point], $loaded->pointsFor('404'));
-        self::assertEquals(['404' => [$point]], $file->points());
+        self::assertEquals([$point], $file->pointsFor('404'));
+        self::assertSame(['404', '500'], array_map(static fn (RouteInfo $r): string => $r->name, $file->routesFor('App\Error::show') ?? []));
     }
 
     public function testRewritingReplacesTheIndex(): void
@@ -130,14 +132,47 @@ final class RouteIndexFileTest extends TestCase
         self::assertNull((new RouteIndexFile($this->dir, false))->load());
     }
 
-    public function testHotPathSectionsAreValidatedIndependentlyOfTheRoutes(): void
+    public function testHotPathReadsValidateOnlyTheEntryTheyReturn(): void
     {
-        (new Filesystem())->dumpFile($this->dir . '/' . RouteIndexFile::PATH, "<?php return ['version' => 2, 'routes' => 'not validated on the hot path', 'controllers' => [], 'points' => ['pay' => ['http_route:A::b']], 'revisions' => ['pay.create|availability' => 'abcdef12', 'pay.create|latency' => '']];");
+        (new Filesystem())->dumpFile($this->dir . '/' . RouteIndexFile::PATH, "<?php return ['version' => 2, "
+            . "'routes' => ['pay' => ['path' => '/pay', 'methods' => ['POST'], 'controller' => 'A::b'], 'broken' => 'x'], "
+            . "'controllers' => ['A::b' => ['pay'], 'C::d' => ['broken']], "
+            . "'points' => ['pay' => ['http_route:A::b'], 'broken' => ['nope']], "
+            . "'revisions' => ['pay.create|availability' => 'abcdef12', 'pay.create|latency' => '', 'pay.broken|latency' => 'ABCDEF12']];");
         $file = new RouteIndexFile($this->dir, false);
 
-        self::assertEquals(['pay' => [PointId::of(PointType::HttpRoute, 'A::b')]], $file->points());
-        self::assertSame(['pay.create|availability' => 'abcdef12', 'pay.create|latency' => ''], $file->revisions());
+        self::assertEquals([PointId::of(PointType::HttpRoute, 'A::b')], $file->pointsFor('pay'));
+        self::assertSame([], $file->pointsFor('other'));
+        self::assertNull($file->pointsFor('broken'));
+        self::assertEquals(Revision::fromHex('abcdef12'), $file->revisionOf('pay.create|availability'));
+        self::assertFalse($file->revisionOf('pay.create|latency'));
+        self::assertNull($file->revisionOf('pay.broken|latency'));
+        self::assertNull($file->revisionOf('pay.unknown|latency'));
+        self::assertEquals([new RouteInfo('pay', '/pay', ['POST'], 'A::b')], $file->routesFor('A::b'));
+        self::assertSame([], $file->routesFor('E::f'));
+        self::assertNull($file->routesFor('C::d'));
         self::assertNull($file->load());
+    }
+
+    #[DataProvider('malformedProvider')]
+    public function testHotPathReadsOfAMalformedFileNeverThrow(string $contents): void
+    {
+        (new Filesystem())->dumpFile($this->dir . '/' . RouteIndexFile::PATH, $contents);
+        $file = new RouteIndexFile($this->dir, false);
+
+        $file->pointsFor('a');
+        $file->routesFor('A::b');
+
+        self::assertNull($file->revisionOf('pay|availability'));
+    }
+
+    public function testWithoutAWarmedIndexEveryHotPathReadIsNull(): void
+    {
+        $file = new RouteIndexFile($this->dir, false);
+
+        self::assertNull($file->pointsFor('pay'));
+        self::assertNull($file->revisionOf('pay.create|availability'));
+        self::assertNull($file->routesFor('A::b'));
     }
 
     public function testLoadIsMemoised(): void

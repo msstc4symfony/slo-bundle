@@ -9,7 +9,7 @@ use Override;
 
 /**
  * Routes come from the warmed route index, else from the router on first use, memoised: routes are fixed per
- * container (ruling 7).
+ * container (ruling 7). routesFor() reads only the controller's entry of the warmed index.
  *
  * @internal
  */
@@ -26,6 +26,13 @@ final class RouterRouteCatalog implements RouteCatalogInterface
     #[Override]
     public function routesFor(string $controller): array
     {
+        if (!$this->data instanceof RouteIndexData) {
+            $warmed = $this->file->routesFor($controller);
+            if ($warmed !== null) {
+                return $warmed;
+            }
+        }
+
         return $this->data()->routesFor($controller);
     }
 
