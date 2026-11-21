@@ -6,6 +6,7 @@ namespace Msstc4Symfony\SloBundle\Infrastructure\Operation;
 
 use Closure;
 use InvalidArgumentException;
+use Msstc4Symfony\LogicBundle\Application\Action\ActionOutcome;
 use Msstc4Symfony\LogicBundle\Application\Action\ExpectedFailureInterface;
 use Msstc4Symfony\SloBundle\Application\Evaluation\RecordEvent\Action as RecordEvent;
 use Msstc4Symfony\SloBundle\Application\Port\ClockInterface;
@@ -77,7 +78,7 @@ final class OperationMonitor implements OperationMonitorInterface, ResetInterfac
         try {
             $result = $operation();
         } catch (Throwable $e) {
-            if (interface_exists(ExpectedFailureInterface::class) && $e instanceof ExpectedFailureInterface) {
+            if ($this->isExpectedFailure($e)) {
                 $handle->failExpected($e);
             } else {
                 $handle->fail($e);
@@ -97,6 +98,18 @@ final class OperationMonitor implements OperationMonitorInterface, ResetInterfac
     {
         $this->warned = [];
         $this->suppressionWarned = false;
+    }
+
+    /**
+     * Classified as logic-bundle classifies its Actions (spec 5.3) when it is installed.
+     */
+    private function isExpectedFailure(Throwable $e): bool
+    {
+        if (enum_exists(ActionOutcome::class)) {
+            return ActionOutcome::of($e) === ActionOutcome::ExpectedFailure;
+        }
+
+        return interface_exists(ExpectedFailureInterface::class) && $e instanceof ExpectedFailureInterface;
     }
 
     private function warnOnce(string $key, string $name, string $message, ?Throwable $exception): void

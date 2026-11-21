@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Operation;
 
+use Msstc4Symfony\LogicBundle\Application\Action\ActionOutcome;
 use Msstc4Symfony\LogicBundle\Application\Action\ExpectedFailureInterface;
 use Msstc4Symfony\SloBundle\Application\Attribute\Availability;
 use Msstc4Symfony\SloBundle\Application\Attribute\Latency;
@@ -25,9 +26,12 @@ use Msstc4Symfony\SloBundle\Test\Unit\Application\Evaluation\RecordEvent\InMemor
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Evaluation\RecordEvent\ThrowingEventWriter;
 use Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Symfony\RecordingLogger;
 use Override;
+use PHPUnit\Framework\Attributes\RequiresMethod;
 use PHPUnit\Framework\TestCase;
 use ReflectionProperty;
 use RuntimeException;
+use Symfony\Component\Validator\ConstraintViolationList;
+use Symfony\Component\Validator\Exception\ValidationFailedException;
 
 final class OperationMonitorTest extends TestCase
 {
@@ -106,6 +110,22 @@ final class OperationMonitorTest extends TestCase
         }
 
         self::assertSame($failure, $caught);
+
+        self::assertSame([['payment.validation', 'availability', 'good']], $this->availabilityWrites());
+    }
+
+    #[RequiresMethod(ActionOutcome::class, 'of')]
+    public function testValidationFailureIsClassifiedAsLogicBundleDoes(): void
+    {
+        $failure = new ValidationFailedException('payment', new ConstraintViolationList());
+
+        try {
+            $this->monitor->measure('payment.validation', static function () use ($failure): int {
+                throw $failure;
+            });
+        } catch (ValidationFailedException $e) {
+            self::assertSame($failure, $e);
+        }
 
         self::assertSame([['payment.validation', 'availability', 'good']], $this->availabilityWrites());
     }
