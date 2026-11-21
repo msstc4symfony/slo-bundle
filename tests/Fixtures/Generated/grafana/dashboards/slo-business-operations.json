@@ -208,7 +208,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:sli:ratio{application=\"$application\",slo=\"report.export\",objective=\"availability\"}",
+                    "expr": "last_over_time(slo:sli:ratio{application=\"$application\",slo=\"report.export\",objective=\"availability\"}[10m])",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -274,7 +274,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:error_budget:remaining{application=\"$application\",slo=\"report.export\",objective=\"availability\"}",
+                    "expr": "last_over_time(slo:error_budget:remaining{application=\"$application\",slo=\"report.export\",objective=\"availability\"}[10m])",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -345,7 +345,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:window:coverage_ratio{application=\"$application\",slo=\"report.export\",objective=\"availability\"}",
+                    "expr": "last_over_time(slo:window:coverage_ratio{application=\"$application\",slo=\"report.export\",objective=\"availability\"}[10m])",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -390,7 +390,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "(time() + (1 - (slo:window:coverage_ratio{application=\"$application\",slo=\"report.export\",objective=\"availability\"} < 0.999999)) * 259200) * 1000",
+                    "expr": "(time() + (1 - (last_over_time(slo:window:coverage_ratio{application=\"$application\",slo=\"report.export\",objective=\"availability\"}[10m]) < 0.999999)) * 259200) * 1000",
                     "legendFormat": "",
                     "refId": "A"
                 }

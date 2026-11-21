@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Msstc4Symfony\SloBundle\Infrastructure\Grafana;
 
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateDashboards\DashboardContext;
+use Msstc4Symfony\SloBundle\Infrastructure\Prometheus\PromQlBuilder;
 use Override;
 
 /**
@@ -43,8 +44,8 @@ final readonly class ApplicationOverview implements DashboardInterface
                 ['color' => 'red', 'value' => 0.05],
             ]),
             $this->panels->stat('p95 latency', new Query(BaseSeries::quantile(0.95, 'request_duration_histogram_seconds')), 's'),
-            $this->panels->stat('Worst SLI', new Query('min(slo:sli:ratio{application="$application",objective=~".+"})'), 'percentunit'),
-            $this->panels->stat('Lowest error budget', new Query('min(slo:error_budget:remaining{application="$application",objective=~".+"})'), 'percentunit'),
+            $this->panels->stat('Worst SLI', new Query(\sprintf('min(%s)', PromQlBuilder::lookback('slo:sli:ratio', 'slo:sli:ratio{application="$application",objective=~".+"}'))), 'percentunit'),
+            $this->panels->stat('Lowest error budget', new Query(\sprintf('min(%s)', PromQlBuilder::lookback('slo:error_budget:remaining', 'slo:error_budget:remaining{application="$application",objective=~".+"}'))), 'percentunit'),
             $this->panels->stat('Handled messages', new Query(\sprintf('sum(%s)', BaseSeries::rate('messenger_message_handled'))), 'ops'),
             $this->panels->timeseries('Responses by status', [new Query(\sprintf('sum by (status) (%s)', $responses), '{{status}}')], 'reqps'),
             $this->panels->timeseries('Latency quantiles', [

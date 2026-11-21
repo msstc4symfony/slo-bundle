@@ -124,15 +124,15 @@ final class ActionTest extends TestCase
         }
         self::assertSame(24, $width, 'one objective row fills the grid width');
         self::assertSame('slo:objective:target{application="$application",slo="checkout.pay",objective="availability"}', $byTitle['Target']->get('targets.0.expr'));
-        self::assertSame('slo:sli:ratio{application="$application",slo="checkout.pay",objective="availability"}', $byTitle['SLI']->get('targets.0.expr'));
+        self::assertSame('last_over_time(slo:sli:ratio{application="$application",slo="checkout.pay",objective="availability"}[10m])', $byTitle['SLI']->get('targets.0.expr'));
         self::assertSame('gauge', $byTitle['Error budget remaining']->get('type'));
-        self::assertSame('slo:error_budget:remaining{application="$application",slo="checkout.pay",objective="availability"}', $byTitle['Error budget remaining']->get('targets.0.expr'));
+        self::assertSame('last_over_time(slo:error_budget:remaining{application="$application",slo="checkout.pay",objective="availability"}[10m])', $byTitle['Error budget remaining']->get('targets.0.expr'));
         self::assertSame(
             'slo:error_ratio:rate1h{application="$application",slo="checkout.pay",objective="availability"} / (1 - slo:objective:target{application="$application",slo="checkout.pay",objective="availability"})',
             $byTitle['Burn rate']->get('targets.0.expr'),
         );
         $warming = $byTitle['Window state'];
-        self::assertSame('slo:window:coverage_ratio{application="$application",slo="checkout.pay",objective="availability"}', $warming->get('targets.0.expr'));
+        self::assertSame('last_over_time(slo:window:coverage_ratio{application="$application",slo="checkout.pay",objective="availability"}[10m])', $warming->get('targets.0.expr'));
         self::assertSame('range', $warming->get('fieldConfig.defaults.mappings.0.type'));
         self::assertSame('warming up', $warming->get('fieldConfig.defaults.mappings.0.options.result.text'));
         self::assertSame(0, $warming->get('fieldConfig.defaults.mappings.0.options.from'));
@@ -144,9 +144,22 @@ final class ActionTest extends TestCase
         self::assertSame('stat', $until->get('type'));
         self::assertSame('dateTimeAsIso', $until->get('fieldConfig.defaults.unit'));
         self::assertSame(
-            '(time() + (1 - (slo:window:coverage_ratio{application="$application",slo="checkout.pay",objective="availability"} < 0.999999)) * 2592000) * 1000',
+            '(time() + (1 - (last_over_time(slo:window:coverage_ratio{application="$application",slo="checkout.pay",objective="availability"}[10m]) < 0.999999)) * 2592000) * 1000',
             $until->get('targets.0.expr'),
         );
+    }
+
+    public function testApplicationOverviewReadsTheWindowGroupRecordsOverALookback(): void
+    {
+        $exprs = [];
+        foreach ($this->dashboards()['grafana/dashboards/slo-application-overview.json']->views('panels') as $panel) {
+            $title = $panel->get('title');
+            self::assertIsString($title);
+            $exprs[$title] = $panel->get('targets.0.expr');
+        }
+
+        self::assertSame('min(last_over_time(slo:sli:ratio{application="$application",objective=~".+"}[10m]))', $exprs['Worst SLI']);
+        self::assertSame('min(last_over_time(slo:error_budget:remaining{application="$application",objective=~".+"}[10m]))', $exprs['Lowest error budget']);
     }
 
     public function testBusinessOperationsShowsTheLogicHistogramOnlyWhenItIsDefined(): void

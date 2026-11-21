@@ -40,11 +40,6 @@ final readonly class RuleGroupsBuilder implements RuleFileBuilderInterface
      */
     private const GROUPS = [self::FAST => ['', '1m'], self::SLOW => ['-window', '5m']];
 
-    /**
-     * Range over which alerts read records of the 5m group, so a late evaluation never leaves a gap.
-     */
-    private const SLOW_RECORD_LOOKBACK = '10m';
-
     public function __construct(
         private PromQlBuilder $promQl,
         private BurnRatePolicy $burnRates,
@@ -94,7 +89,7 @@ final readonly class RuleGroupsBuilder implements RuleFileBuilderInterface
             foreach ($windows as $pair) {
                 if ($pair->severity === 'ticket') {
                     // Fast-burn pages need at most 6h of history; the 3d pair waits for a fully covered window.
-                    $expr = \sprintf('%s and on() (%s >= 1)', $this->burning($objective, $pair, $selector->application), $this->read('slo:window:coverage_ratio', $objective, $selector->application, true));
+                    $expr = \sprintf('%s and on() (%s >= 1)', $this->burning($objective, $pair, $selector->application), $this->promQl->latest('slo:window:coverage_ratio', $objective, $selector->application));
                     $rules[] = $this->alert('SloErrorBudgetBurn', $expr, $objective, $selector->application, 'ticket', 'burns its error budget');
                 }
             }
@@ -144,17 +139,6 @@ final readonly class RuleGroupsBuilder implements RuleFileBuilderInterface
     }
 
     /**
-     * @param non-empty-string $record
-     * @param non-empty-string $application
-     */
-    private function read(string $record, BoundObjective $objective, string $application, bool $slow): string
-    {
-        $selector = $this->promQl->recorded($record, $objective, $application);
-
-        return $slow ? \sprintf('last_over_time(%s[%s])', $selector, self::SLOW_RECORD_LOOKBACK) : $selector;
-    }
-
-    /**
      * @param non-empty-string $application
      *
      * @return array<non-empty-string, string>
@@ -183,9 +167,9 @@ final readonly class RuleGroupsBuilder implements RuleFileBuilderInterface
 
         return \sprintf(
             '(%s > %s and %s > %s)',
-            $this->read('slo:error_ratio:rate' . $pair->longWindow, $objective, $application, \in_array($pair->longWindow, self::SLOW_RATE_WINDOWS, true)),
+            $this->promQl->latest('slo:error_ratio:rate' . $pair->longWindow, $objective, $application),
             $threshold,
-            $this->read('slo:error_ratio:rate' . $pair->shortWindow, $objective, $application, \in_array($pair->shortWindow, self::SLOW_RATE_WINDOWS, true)),
+            $this->promQl->latest('slo:error_ratio:rate' . $pair->shortWindow, $objective, $application),
             $threshold,
         );
     }

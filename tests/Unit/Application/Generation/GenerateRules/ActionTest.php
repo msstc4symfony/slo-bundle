@@ -16,6 +16,7 @@ use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
 use Msstc4Symfony\SloBundle\Domain\Service\RevisionCalculator;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\SloName;
+use Msstc4Symfony\SloBundle\Infrastructure\Prometheus\PromQlBuilder;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\CatalogFixture;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Generation\GenerationFixture;
 use PHPUnit\Framework\TestCase;
@@ -117,6 +118,11 @@ final class ActionTest extends TestCase
         self::assertSame([...$slow('availability', 'A'), ...$slow('latency', 'A')], $groups['slo-payment.process-window']);
         self::assertSame($fast('availability', 'B'), $groups['slo-report.export']);
         self::assertSame($slow('availability', 'B'), $groups['slo-report.export-window']);
+        foreach ($groups as $name => $rules) {
+            foreach ($rules as $rule) {
+                self::assertSame(str_ends_with($name, '-window'), PromQlBuilder::isSlowRecord(explode(' ', $rule)[0]), $name . ': ' . $rule);
+            }
+        }
     }
 
     public function testNoEventsAlertIsOptIn(): void

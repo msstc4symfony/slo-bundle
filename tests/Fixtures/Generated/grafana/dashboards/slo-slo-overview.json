@@ -118,7 +118,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:sli:ratio{application=\"$application\",slo=\"checkout.pay\",objective=\"availability\"}",
+                    "expr": "last_over_time(slo:sli:ratio{application=\"$application\",slo=\"checkout.pay\",objective=\"availability\"}[10m])",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -184,7 +184,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:error_budget:remaining{application=\"$application\",slo=\"checkout.pay\",objective=\"availability\"}",
+                    "expr": "last_over_time(slo:error_budget:remaining{application=\"$application\",slo=\"checkout.pay\",objective=\"availability\"}[10m])",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -255,7 +255,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:window:coverage_ratio{application=\"$application\",slo=\"checkout.pay\",objective=\"availability\"}",
+                    "expr": "last_over_time(slo:window:coverage_ratio{application=\"$application\",slo=\"checkout.pay\",objective=\"availability\"}[10m])",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -300,7 +300,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "(time() + (1 - (slo:window:coverage_ratio{application=\"$application\",slo=\"checkout.pay\",objective=\"availability\"} < 0.999999)) * 2592000) * 1000",
+                    "expr": "(time() + (1 - (last_over_time(slo:window:coverage_ratio{application=\"$application\",slo=\"checkout.pay\",objective=\"availability\"}[10m]) < 0.999999)) * 2592000) * 1000",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -473,7 +473,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:sli:ratio{application=\"$application\",slo=\"checkout.pay\",objective=\"latency\"}",
+                    "expr": "last_over_time(slo:sli:ratio{application=\"$application\",slo=\"checkout.pay\",objective=\"latency\"}[10m])",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -539,7 +539,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:error_budget:remaining{application=\"$application\",slo=\"checkout.pay\",objective=\"latency\"}",
+                    "expr": "last_over_time(slo:error_budget:remaining{application=\"$application\",slo=\"checkout.pay\",objective=\"latency\"}[10m])",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -610,7 +610,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:window:coverage_ratio{application=\"$application\",slo=\"checkout.pay\",objective=\"latency\"}",
+                    "expr": "last_over_time(slo:window:coverage_ratio{application=\"$application\",slo=\"checkout.pay\",objective=\"latency\"}[10m])",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -655,7 +655,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "(time() + (1 - (slo:window:coverage_ratio{application=\"$application\",slo=\"checkout.pay\",objective=\"latency\"} < 0.999999)) * 2592000) * 1000",
+                    "expr": "(time() + (1 - (last_over_time(slo:window:coverage_ratio{application=\"$application\",slo=\"checkout.pay\",objective=\"latency\"}[10m]) < 0.999999)) * 2592000) * 1000",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -828,7 +828,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:sli:ratio{application=\"$application\",slo=\"payment.process\",objective=\"availability\"}",
+                    "expr": "last_over_time(slo:sli:ratio{application=\"$application\",slo=\"payment.process\",objective=\"availability\"}[10m])",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -894,7 +894,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:error_budget:remaining{application=\"$application\",slo=\"payment.process\",objective=\"availability\"}",
+                    "expr": "last_over_time(slo:error_budget:remaining{application=\"$application\",slo=\"payment.process\",objective=\"availability\"}[10m])",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -965,7 +965,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:window:coverage_ratio{application=\"$application\",slo=\"payment.process\",objective=\"availability\"}",
+                    "expr": "last_over_time(slo:window:coverage_ratio{application=\"$application\",slo=\"payment.process\",objective=\"availability\"}[10m])",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -1010,7 +1010,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "(time() + (1 - (slo:window:coverage_ratio{application=\"$application\",slo=\"payment.process\",objective=\"availability\"} < 0.999999)) * 2592000) * 1000",
+                    "expr": "(time() + (1 - (last_over_time(slo:window:coverage_ratio{application=\"$application\",slo=\"payment.process\",objective=\"availability\"}[10m]) < 0.999999)) * 2592000) * 1000",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -1183,7 +1183,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:sli:ratio{application=\"$application\",slo=\"payment.process\",objective=\"latency\"}",
+                    "expr": "last_over_time(slo:sli:ratio{application=\"$application\",slo=\"payment.process\",objective=\"latency\"}[10m])",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -1249,7 +1249,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:error_budget:remaining{application=\"$application\",slo=\"payment.process\",objective=\"latency\"}",
+                    "expr": "last_over_time(slo:error_budget:remaining{application=\"$application\",slo=\"payment.process\",objective=\"latency\"}[10m])",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -1320,7 +1320,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:window:coverage_ratio{application=\"$application\",slo=\"payment.process\",objective=\"latency\"}",
+                    "expr": "last_over_time(slo:window:coverage_ratio{application=\"$application\",slo=\"payment.process\",objective=\"latency\"}[10m])",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -1365,7 +1365,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "(time() + (1 - (slo:window:coverage_ratio{application=\"$application\",slo=\"payment.process\",objective=\"latency\"} < 0.999999)) * 2592000) * 1000",
+                    "expr": "(time() + (1 - (last_over_time(slo:window:coverage_ratio{application=\"$application\",slo=\"payment.process\",objective=\"latency\"}[10m]) < 0.999999)) * 2592000) * 1000",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -1538,7 +1538,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:sli:ratio{application=\"$application\",slo=\"report.export\",objective=\"availability\"}",
+                    "expr": "last_over_time(slo:sli:ratio{application=\"$application\",slo=\"report.export\",objective=\"availability\"}[10m])",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -1604,7 +1604,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:error_budget:remaining{application=\"$application\",slo=\"report.export\",objective=\"availability\"}",
+                    "expr": "last_over_time(slo:error_budget:remaining{application=\"$application\",slo=\"report.export\",objective=\"availability\"}[10m])",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -1675,7 +1675,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:window:coverage_ratio{application=\"$application\",slo=\"report.export\",objective=\"availability\"}",
+                    "expr": "last_over_time(slo:window:coverage_ratio{application=\"$application\",slo=\"report.export\",objective=\"availability\"}[10m])",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -1720,7 +1720,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "(time() + (1 - (slo:window:coverage_ratio{application=\"$application\",slo=\"report.export\",objective=\"availability\"} < 0.999999)) * 259200) * 1000",
+                    "expr": "(time() + (1 - (last_over_time(slo:window:coverage_ratio{application=\"$application\",slo=\"report.export\",objective=\"availability\"}[10m]) < 0.999999)) * 259200) * 1000",
                     "legendFormat": "",
                     "refId": "A"
                 }

@@ -199,7 +199,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "min(slo:sli:ratio{application=\"$application\",objective=~\".+\"})",
+                    "expr": "min(last_over_time(slo:sli:ratio{application=\"$application\",objective=~\".+\"}[10m]))",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -244,7 +244,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "min(slo:error_budget:remaining{application=\"$application\",objective=~\".+\"})",
+                    "expr": "min(last_over_time(slo:error_budget:remaining{application=\"$application\",objective=~\".+\"}[10m]))",
                     "legendFormat": "",
                     "refId": "A"
                 }

@@ -20,6 +20,11 @@ use Msstc4Symfony\SloBundle\Application\Generation\Selector;
  */
 final readonly class PromQlBuilder
 {
+    /** Two runs of the 5m group: one missed evaluation still finds a sample. */
+    public const SLOW_RECORD_LOOKBACK = '10m';
+
+    private const SLOW_RECORDS = ['slo:events:rate3d', 'slo:error_ratio:rate3d', 'slo:sli:ratio', 'slo:error_budget:remaining', 'slo:window:coverage_ratio'];
+
     private const NAMESPACE = 'symfony_';
 
     private const EVENTS_METRIC = 'symfony_slo_events_total';
@@ -96,6 +101,39 @@ final readonly class PromQlBuilder
     public function noEvents(Selector $selector, BoundObjective $objective, int $hours): string
     {
         return \sprintf('(%s or vector(0)) == 0', $this->sum('increase', $this->series($selector, $objective)['total'], $hours . 'h'));
+    }
+
+    /**
+     * The newest sample of a recorded series. Records of the 5m "-window" group are read over a lookback: an alert or a
+     * dashboard evaluated between two runs of that group would otherwise see NoData.
+     *
+     * @param non-empty-string $record
+     * @param non-empty-string $application
+     *
+     * @return non-empty-string
+     */
+    public function latest(string $record, BoundObjective $objective, string $application): string
+    {
+        return self::lookback($record, $this->recorded($record, $objective, $application));
+    }
+
+    /**
+     * @param non-empty-string $record
+     * @param non-empty-string $selector a selector of $record
+     *
+     * @return non-empty-string
+     */
+    public static function lookback(string $record, string $selector): string
+    {
+        return self::isSlowRecord($record) ? \sprintf('last_over_time(%s[%s])', $selector, self::SLOW_RECORD_LOOKBACK) : $selector;
+    }
+
+    /**
+     * True for the records RuleGroupsBuilder puts into the 5m "-window" group.
+     */
+    public static function isSlowRecord(string $record): bool
+    {
+        return \in_array($record, self::SLOW_RECORDS, true);
     }
 
     /**
