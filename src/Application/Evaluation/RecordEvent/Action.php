@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Msstc4Symfony\SloBundle\Application\Evaluation\RecordEvent;
 
 use Msstc4Symfony\SloBundle\Application\Binding\MetricBindingResolver;
+use Msstc4Symfony\SloBundle\Application\Binding\ObjectiveKey;
 use Msstc4Symfony\SloBundle\Application\Binding\RevisionResolver;
 use Msstc4Symfony\SloBundle\Application\Logging\WarnOnceLimiter;
 use Msstc4Symfony\SloBundle\Application\Port\EventRecorderInterface;
@@ -28,7 +29,7 @@ use Throwable;
  */
 final class Action implements EventRecorderInterface, ResetInterface
 {
-    /** @var array<string, Revision|null> "<slo>|<kind>" => revision when the objective is written by this bundle, null otherwise (also after a resolution failure) */
+    /** @var array<string, Revision|null> ObjectiveKey => revision when the objective is written by this bundle, null otherwise (also after a resolution failure) */
     private array $resolved = [];
 
     /** @var array<string, true> resolutions that failed: retried after reset, successful ones are kept (routes and catalog are fixed per container) */
@@ -37,7 +38,7 @@ final class Action implements EventRecorderInterface, ResetInterface
     /** @var array<non-empty-string, true> */
     private array $warnedConflicts = [];
 
-    /** keyed "<slo>|<kind>|<exception class>", forgotten on reset */
+    /** keyed "<ObjectiveKey>|<exception class>", forgotten on reset */
     private readonly WarnOnceLimiter $failureWarnings;
 
     /** keyed like the failures but never reset: a deterministic resolution failure is retried after reset, logged once */
@@ -154,7 +155,7 @@ final class Action implements EventRecorderInterface, ResetInterface
 
     private function objectiveKey(SloDefinition $definition, Objective $objective): string
     {
-        return $definition->name()->value . '|' . $objective->kind->value;
+        return ObjectiveKey::of($definition->name(), $objective->kind)->value;
     }
 
     private function warnAboutConflicts(Input $input): void

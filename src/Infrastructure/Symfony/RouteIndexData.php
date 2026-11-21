@@ -36,7 +36,7 @@ final readonly class RouteIndexData implements RouteCatalogInterface
      * @param array<array-key, RouteShape> $routes sorted by name
      * @param array<non-empty-string, non-empty-list<non-empty-string>> $controllers controller => route names, sorted
      * @param array<array-key, non-empty-list<PointId>> $points route name => SLO points behind it
-     * @param array<non-empty-string, string> $revisions "<slo>|<objective>" => revision of a dedicated objective, '' when it reads existing series
+     * @param array<non-empty-string, string> $revisions ObjectiveKey value ("<slo>|<objective>") => revision of a dedicated objective, '' when it reads existing series
      */
     public function __construct(
         private array $routes,
@@ -56,7 +56,7 @@ final readonly class RouteIndexData implements RouteCatalogInterface
     /**
      * @param list<RouteInfo> $routes
      * @param array<array-key, list<PointId>> $points route name => SLO points behind it
-     * @param array<non-empty-string, string> $revisions "<slo>|<objective>" => revision or ''
+     * @param array<non-empty-string, string> $revisions ObjectiveKey value ("<slo>|<objective>") => revision or ''
      */
     public static function fromRoutes(array $routes, array $points, array $revisions = []): self
     {

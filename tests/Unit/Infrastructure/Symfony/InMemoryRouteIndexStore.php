@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Symfony;
 
+use Msstc4Symfony\SloBundle\Application\Binding\ObjectiveKey;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Revision;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexData;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexStoreInterface;
@@ -40,10 +41,10 @@ final class InMemoryRouteIndexStore implements RouteIndexStoreInterface
     }
 
     #[Override]
-    public function revisionOf(string $key): Revision|false|null
+    public function revisionOf(ObjectiveKey $key): Revision|false|null
     {
         $this->reads++;
-        $revision = $this->data?->revisions()[$key] ?? null;
+        $revision = $this->data?->revisions()[$key->value] ?? null;
 
         return match ($revision) {
             null => null,

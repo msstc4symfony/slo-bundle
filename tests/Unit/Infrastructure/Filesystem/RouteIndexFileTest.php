@@ -6,11 +6,14 @@ namespace Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Filesystem;
 
 use Msstc4Symfony\SloBundle\Application\Attribute\Availability;
 use Msstc4Symfony\SloBundle\Application\Attribute\Slo;
+use Msstc4Symfony\SloBundle\Application\Binding\ObjectiveKey;
 use Msstc4Symfony\SloBundle\Application\Discovery\CatalogAssembler;
 use Msstc4Symfony\SloBundle\Application\Port\RouteInfo;
+use Msstc4Symfony\SloBundle\Domain\Enum\ObjectiveKind;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Revision;
+use Msstc4Symfony\SloBundle\Domain\ValueObject\SloName;
 use Msstc4Symfony\SloBundle\Infrastructure\Filesystem\RouteIndexFile;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexData;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\CatalogFixture;
@@ -145,10 +148,10 @@ final class RouteIndexFileTest extends TestCase
         self::assertEquals([PointId::of(PointType::HttpRoute, 'A::b')], $file->pointsFor('pay'));
         self::assertSame([], $file->pointsFor('other'));
         self::assertNull($file->pointsFor('broken'));
-        self::assertEquals(Revision::fromHex('abcdef12'), $file->revisionOf('pay.create|availability'));
-        self::assertFalse($file->revisionOf('pay.create|latency'));
-        self::assertNull($file->revisionOf('pay.broken|latency'));
-        self::assertNull($file->revisionOf('pay.unknown|latency'));
+        self::assertEquals(Revision::fromHex('abcdef12'), $file->revisionOf(ObjectiveKey::of(SloName::fromString('pay.create'), ObjectiveKind::Availability)));
+        self::assertFalse($file->revisionOf(ObjectiveKey::of(SloName::fromString('pay.create'), ObjectiveKind::Latency)));
+        self::assertNull($file->revisionOf(ObjectiveKey::of(SloName::fromString('pay.broken'), ObjectiveKind::Latency)));
+        self::assertNull($file->revisionOf(ObjectiveKey::of(SloName::fromString('pay.unknown'), ObjectiveKind::Latency)));
         self::assertEquals([new RouteInfo('pay', '/pay', ['POST'], 'A::b')], $file->routesFor('A::b'));
         self::assertSame([], $file->routesFor('E::f'));
         self::assertNull($file->routesFor('C::d'));
@@ -164,7 +167,7 @@ final class RouteIndexFileTest extends TestCase
         $file->pointsFor('a');
         $file->routesFor('A::b');
 
-        self::assertNull($file->revisionOf('pay|availability'));
+        self::assertNull($file->revisionOf(ObjectiveKey::of(SloName::fromString('pay'), ObjectiveKind::Availability)));
     }
 
     public function testWithoutAWarmedIndexEveryHotPathReadIsNullAndTheDegradedModeIsLoggedOnce(): void
@@ -173,7 +176,7 @@ final class RouteIndexFileTest extends TestCase
         $file = new RouteIndexFile($this->dir, false, $logger);
 
         self::assertNull($file->pointsFor('pay'));
-        self::assertNull($file->revisionOf('pay.create|availability'));
+        self::assertNull($file->revisionOf(ObjectiveKey::of(SloName::fromString('pay.create'), ObjectiveKind::Availability)));
         self::assertNull($file->routesFor('A::b'));
         self::assertNull($file->load());
         self::assertSame([['warning', 'SLO route index is not warmed, HTTP SLOs read the routes from the router in this process (degraded mode); run cache:warmup.']], $logger->records);

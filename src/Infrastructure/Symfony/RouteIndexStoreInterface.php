@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Infrastructure\Symfony;
 
+use Msstc4Symfony\SloBundle\Application\Binding\ObjectiveKey;
 use Msstc4Symfony\SloBundle\Application\Port\RouteInfo;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Revision;
@@ -29,12 +30,10 @@ interface RouteIndexStoreInterface
     public function pointsFor(string $route): ?array;
 
     /**
-     * @param non-empty-string $key "<slo>|<objective>"
-     *
      * @return Revision|false|null the revision of a dedicated objective, false when it reads existing series, null when
      *                             nothing usable was stored for the key
      */
-    public function revisionOf(string $key): Revision|false|null;
+    public function revisionOf(ObjectiveKey $key): Revision|false|null;
 
     /**
      * @param non-empty-string $controller

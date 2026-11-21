@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Msstc4Symfony\SloBundle\Infrastructure\Symfony;
 
 use Msstc4Symfony\SloBundle\Application\Binding\MetricBindingResolver;
+use Msstc4Symfony\SloBundle\Application\Binding\ObjectiveKey;
 use Msstc4Symfony\SloBundle\Application\Binding\RevisionResolver;
 use Msstc4Symfony\SloBundle\Application\Catalog\Validate\Action;
 use Msstc4Symfony\SloBundle\Application\Port\CatalogDiagnosticsInterface;
@@ -100,7 +101,7 @@ final readonly class SloCacheWarmer implements CacheWarmerInterface
         foreach ($this->catalog->all() as $definition) {
             foreach ($definition->objectives() as $objective) {
                 try {
-                    $revisions[$definition->name()->value . '|' . $objective->kind->value] = $resolver->isDedicated($definition, $objective->kind)
+                    $revisions[ObjectiveKey::of($definition->name(), $objective->kind)->value] = $resolver->isDedicated($definition, $objective->kind)
                         ? $this->revisions->revision($definition, $objective->kind)->value
                         : '';
                 } catch (Throwable $e) {

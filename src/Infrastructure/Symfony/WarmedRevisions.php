@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Infrastructure\Symfony;
 
+use Msstc4Symfony\SloBundle\Application\Binding\ObjectiveKey;
 use Msstc4Symfony\SloBundle\Application\Port\PrecomputedRevisionsInterface;
 use Msstc4Symfony\SloBundle\Domain\Enum\ObjectiveKind;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Revision;
@@ -24,6 +25,6 @@ final readonly class WarmedRevisions implements PrecomputedRevisionsInterface
     #[Override]
     public function revisionOf(SloName $name, ObjectiveKind $kind): Revision|false|null
     {
-        return $this->file->revisionOf($name->value . '|' . $kind->value);
+        return $this->file->revisionOf(ObjectiveKey::of($name, $kind));
     }
 }

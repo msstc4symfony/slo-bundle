@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Infrastructure\Filesystem;
 
+use Msstc4Symfony\SloBundle\Application\Binding\ObjectiveKey;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Revision;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexData;
@@ -74,14 +75,14 @@ final class RouteIndexFile implements RouteIndexStoreInterface
     }
 
     #[Override]
-    public function revisionOf(string $key): Revision|false|null
+    public function revisionOf(ObjectiveKey $key): Revision|false|null
     {
-        if (\array_key_exists($key, $this->revisions)) {
-            return $this->revisions[$key];
+        if (\array_key_exists($key->value, $this->revisions)) {
+            return $this->revisions[$key->value];
         }
         $raw = $this->raw();
 
-        return $this->revisions[$key] = $raw === null ? null : RouteIndexParser::revisionEntry($raw, $key);
+        return $this->revisions[$key->value] = $raw === null ? null : RouteIndexParser::revisionEntry($raw, $key->value);
     }
 
     #[Override]
