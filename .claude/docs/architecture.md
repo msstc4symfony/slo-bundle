@@ -73,7 +73,7 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
 - Команды `slo:list [--format=text|json]` и `slo:validate` — `Presentation/Command/`. JSON: массив по имени, ключи
   `name,status(ok|duplicate),point_type,window,objectives[kind,target,threshold,revision],points[point,routes],shared_points`.
   `slo:validate`: код 0 — нет ошибок (предупреждения и notice печатаются), 1 — есть ошибки.
-- `SloCacheWarmer`: `isOptional() = true`, тег `kernel.cache_warmer`, логгер — `FailSafeLogger`; ошибки и предупреждения
+- `SloCacheWarmer`: `isOptional() = false` (R2-010: запускается и при сборке контейнера ядром, и с `--no-optional-warmers`), тег `kernel.cache_warmer`, логгер — `FailSafeLogger`; ошибки и предупреждения
   валидации логирует как warning, исключения глушит; затем пишет индекс маршрутов и ревизии целей (см. ниже «Прогретый индекс маршрутов»).
 
 ## Прогретый индекс маршрутов (финальное ревью, Important 1/2)
@@ -84,15 +84,19 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
   `RouteIndexData::toArray()`: `version` (2), `routes` name => {path, methods, controller}, `controllers` controller => имена,
   `points` маршрут => строки `PointId`, `revisions` `"<slo>|<kind>"` => 8 hex | `''`), атомарно (tmp + rename) и с `opcache_invalidate`.
   `RouteIndexData` реализует `RouteCatalogInterface` (warmer резолвит стратегии поверх свежих маршрутов).
-- Хранилище — шов `Infrastructure/Symfony/RouteIndexStoreInterface` (`load()`, `points()`, `revisions()`, `write($cacheDir, data)`),
+- Хранилище — шов `Infrastructure/Symfony/RouteIndexStoreInterface` (`load()` — всё, для CLI; горячий путь по ключу: `pointsFor(route)`,
+  `revisionOf("<slo>|<kind>"): Revision|false|null`, `routesFor(controller)`; `write($cacheDir, data)`; R2-008/009),
   адаптер `Infrastructure/Filesystem/RouteIndexFile` (`%kernel.cache_dir%`, `%kernel.debug%`) читает файл один раз на процесс,
-  секции валидирует по отдельности через `RouteIndexParser` (`points()`, `revisions()` — горячий путь, `parse()` — всё;
+  версию проверяет один раз при include, на горячем пути валидирует только запрошенную запись (`RouteIndexParser::pointsEntry/revisionEntry/
+  routesEntry`, мемо по ключу), `parse()` — всё; вне debug отсутствующий/чужой версии файл логируется один раз на процесс
+  («degraded mode»); запись — `Filesystem/AtomicFile` (эксклюзивный tmp + rename, общий с `FileWriter`);
   `RouteIndexData` — чистый VO, конструктор проверяет, что controllers ссылаются на известные маршруты); в debug файл игнорируется
   (маршруты меняются без cache:clear, а опциональные warmer'ы при пересборке контейнера в dev не запускаются).
   Битый/чужой версии/отсутствующий файл → `null` → ленивый fallback (`RouterRouteReader`, `RouteIndexData::pointsOf`).
 - `CatalogExtras::hasHttpPoints` (ставит `CatalogAssembler`, в дампе `has_http_points`): `HttpSloObserver` выходит сразу,
   если нет ни одного http_route SLO/конфликта, — приложение без HTTP SLO не трогает роутер на пути запроса.
-- Опциональные warmer'ы запускаются только `cache:warmup` и `cache:clear` (без `--no-optional-warmers`), не при boot ядра.
+- Опциональные warmer'ы запускаются только `cache:warmup` и `cache:clear` (без `--no-optional-warmers`), не при boot ядра; поэтому
+  `SloCacheWarmer` с R2-010 не опциональный (цена: прогрев всегда сканирует маршруты).
 
 ## Привязка метрик: Strategy A / B (Task 7)
 
@@ -121,7 +125,8 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
 - `Infrastructure/MetricsBundle/SloMetric::EVENTS` = `slo_events_total` (counter; метки `slo`, `objective` ENUM, `revision`, `result` ENUM). Регистрируется `RegisterSloMetricPass` (TYPE_BEFORE_OPTIMIZATION, приоритет 0, как у metrics-bridge-logic): добавляет enum в параметр `msstc4symfony_metrics.metric_enums` (идемпотентно); без MetricsBundle компиляция падает с `LogicException`.
 - Порт `Application/Port/EventWriterInterface`, адаптер `MetricsEventWriter` (один `increment` на (событие, цель)).
 - Публичный driving-порт `Application/Port/EventRecorderInterface::record(Input)` (публичный алиас); реализация
-  `Application/Evaluation/RecordEvent/Action` (`@internal`, `record(Input{point, observation})`): для каждого SLO точки и каждой цели с `isDedicated()` классифицирует и пишет; стратегия+ревизия берутся из `PrecomputedRevisionsInterface` (прогретые warmer'ом), иначе `MetricBindingResolver` + `RevisionResolver`, и мемоизируются по (slo, kind) на процесс; любой `Throwable` логируется (канал `slo_bundle`, warning, контекст slo/objective/point/exception, один раз на slo|kind|класс до reset, максимум 100) и не пробрасывается. Конфликтные имена (`conflictedNamesFor`): один warning на имя за процесс, записи нет. `ResetInterface` (тег `kernel.reset`) очищает предупреждения и неудачные резолвы, успешные остаются.
+  `Application/Evaluation/RecordEvent/Action` (`@internal`, `record(Input{point, observation})`): для каждого SLO точки и каждой цели с `isDedicated()` классифицирует и пишет; стратегия+ревизия берутся из `PrecomputedRevisionsInterface` (прогретые warmer'ом), иначе `MetricBindingResolver` + `RevisionResolver`, и мемоизируются по (slo, kind) на процесс; любой `Throwable` логируется (канал `slo_bundle`, warning, контекст slo/objective/point/exception, один раз на slo|kind|класс до reset, максимум 100) и не пробрасывается. Конфликтные имена (`conflictedNamesFor`): один warning на имя за процесс, записи нет. `ResetInterface` (тег `kernel.reset`) очищает предупреждения о записи и неудачные резолвы, успешные остаются; неудачный резолв
+  повторяется после reset, но логируется один раз на `slo|kind|класс` за процесс (отдельный несбрасываемый `WarnOnceLimiter`, R2-011).
 
 ## Наблюдатели HTTP и Messenger (Task 9)
 
@@ -132,9 +137,10 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
   `Observation::http(status, duration)` → `RecordEvent\Action`. Пустой список → ранний выход (одна выборка из массива).
 - `Application/Port/RoutePointIndexInterface` + `Infrastructure/Symfony/RoutePointIndex`: имя маршрута → `list<PointId>`
   (контроллер `Class::method` из `RouteCatalogInterface::all()`), в индекс попадают только точки с SLO или с
-  конфликтным именем (чтобы Action выдал warning о конфликте). Читается из прогретого индекса (`RouteIndexStoreInterface::points()`), иначе строится лениво
-  один раз за процесс; ошибка построения мемоизируется пустым индексом (один warning, HTTP SLO ничего не пишут до
-  следующего `kernel.reset`, который повторяет только неудачную сборку; удачный индекс reset не сбрасывает).
+  конфликтным именем (чтобы Action выдал warning о конфликте). Читается по маршруту из прогретого индекса (`RouteIndexStoreInterface::pointsFor()`), иначе строится лениво
+  один раз за процесс; ошибка построения мемоизируется пустым индексом (HTTP SLO ничего не пишут до следующего
+  `kernel.reset`, который повторяет только неудачную сборку; удачный индекс reset не сбрасывает); warning о сбое — один раз
+  на класс исключения за процесс (`WarnOnceLimiter`, не сбрасывается, R2-011).
 - Messenger: `PointId(messenger_message, messageClass)`; нет SLO и конфликтов → ранний выход; иначе
   `Observation::delivery(DeliveryStatusMapperInterface::map(status->value), transport ∈ failureTransports(), duration)`;
   неизвестный статус (новый case в metrics-bundle) → событие пропускается, один warning на статус до `kernel.reset`.

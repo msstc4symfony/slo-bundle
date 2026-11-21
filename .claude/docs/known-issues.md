@@ -163,16 +163,18 @@
   `latency-bucket.test.yml` подаёт `le="1.0"` явно.
 - **Совпадение бакета с порогом** — `abs(bucket*1000 - ms) <= 1e-9*ms` по экспонируемому значению; `round()` больше нет (0.2504 ≠ 250ms).
 - **Дамп каталога**: `CatalogShape` теперь с `format` (= `CatalogDump::FORMAT`, 2), `point_index` (точка → индексы определений) и
-  `conflicted_points`. `CompiledSloCatalog` гидрирует лениво по точке; несовпадение формата/битый дамп на runtime-пути = пусто + одно
-  предупреждение, диагностические методы (`all/get/conflicts/shared/ignored/extras`) бросают `RuntimeException` «clear the cache».
-  Дешёвые `hasHttpPoints()`/`failureTransports()` в `CatalogDiagnosticsInterface` — для наблюдателей, без гидрации extras.
+  `conflicted_points`. `CompiledSloCatalog` гидрирует лениво по точке; несовпадение формата = пусто + одно предупреждение, битое определение
+  пропускается само (остальные SLO точки работают), такая точка повторяется после reset (R2-006); `get()` бросает до reset (R2-005);
+  диагностические методы (`all/get/conflicts/shared/ignored/extras`) бросают `RuntimeException` «clear the cache».
+  Дешёвые `hasHttpPoints()`/`failureTransports()`/`controllerServiceOf()` (R2-001, для `RouterRouteReader`) в `CatalogDiagnosticsInterface` —
+  для горячего пути, без гидрации extras.
 - **`%` в аргументах сервиса** резолвится как параметр: `CollectSloDefinitionsPass::escape()` удваивает `%` в строковых значениях дампа.
   `ParameterBag::unescapeValue()` НЕ раскавычивает ключи массива (PhpDumper раскавычивает), поэтому `%` в ключах недопустим —
   единственный пользовательский источник ключей с `%` (id тега точки) отклоняется на компиляции.
 - **Числовые имена маршрутов** (`404`) становятся int-ключами PHP-массивов: `RouteIndexData` кастует ключи в строку при каждом чтении
   и принимает int-ключи при разборе файла.
-- **route_index.php версия 2**: секции `routes`, `controllers`, `points`, `revisions` валидируются по отдельности (`RouteIndexParser::points()` через `RouteIndexFile::points()`,
-  `::revisions()`, `::load()`); горячий путь трогает только `points` и `revisions`. `revisions` = `"<slo>|<kind>" => 8 hex | ''`
+- **route_index.php версия 2**: горячий путь читает и валидирует отдельные записи (`RouteIndexFile::pointsFor()`, `::revisionOf()`,
+  `::routesFor()`, с R2-008/009), `::load()` валидирует весь файл (CLI). `revisions` = `"<slo>|<kind>" => 8 hex | ''`
   (`''` — Strategy A), их считает `SloCacheWarmer` резолвером поверх только что прочитанных маршрутов; `WarmedRevisions`
   (`PrecomputedRevisionsInterface`) отдаёт их `RecordEvent\Action`. В debug или без файла — runtime-резолв как раньше.
 - **`RecordEvent\Action::reset()`** очищает только предупреждения и неудачные резолвы; успешные резолвы (стратегия+ревизия) живут
@@ -204,3 +206,27 @@
 - **Ревизии в Redis**: поле хэша `PROMETHEUS_:counter:symfony_slo_events_total` — JSON значений меток; README описывает
   `metrics:clear` и точечный `HDEL` по ревизии.
 
+## acc:code-review high #2, батч C (2026-11-21 UTC)
+
+- **PHPDoc `@return list<X>|null [] for …`**: PHPStan читает `null []` как `null[]`, и тип становится `list<X>|array<null>`
+  (ошибки «array<X|null>» в вызывающем коде). Описание после типа не начинать с `[]`.
+- **Описания `@phpstan-type`** не ставить строкой между тегами (phpdoc приклеивает её к предыдущему тегу) — абзац «Shapes: …» в
+  описании класса (`Panel`, `DashboardBuilder`, `SlothSpecBuilder`, `SloBundle`).
+- **`@param SloConfig $config` у `SloBundle::loadExtension()` невозможен**: PHPStan `method.childParameterType` (родитель принимает
+  `array`); рекурсивных type alias у PHPStan нет, поэтому `flatten()` типизирован `array<array-key, mixed>`.
+- **Прототипные list-узлы конфига сохраняют ключи YAML-map** (`{a: 500}`), а `SloBundle::flatten()` разворачивает map в параметры
+  по ключам: list-узлы строятся через `listNode()` (`beforeNormalization` → `array_values`), иначе `bad_statuses` терялись молча.
+- **Параметры бандла в тестах ломать только compiler pass'ом** (`tests/Integration/CallbackPass`, `TYPE_BEFORE_OPTIMIZATION`, приоритет 10):
+  `TestContainer` загружает расширение во время `compile()`, правка параметра в `configure` до этого перезаписывается.
+- **Defaults проверяются строго** (`DefaultsReader`): отсутствующий/неверного типа `msstc4symfony_slo.defaults.*` или невалидное окно/статусы —
+  ошибка компиляции даже без HTTP-точек (раньше молча `30d`/`[]`).
+- **Порог латентности ≤ 999999999 ms** (`LatencyThreshold::MAX_MILLISECONDS`): каноническая форма `toString()` обязана разбираться
+  обратно (ms-форма — не больше 9 цифр); дамп каталога восстанавливает порог через `fromMilliseconds()`.
+- **`ContainerBuilder::addResource(ClassExistenceResource)`** не запоминает классы, которые уже лежат в vendor (их отслеживает composer):
+  трекинг logic-bundle в `ExpectedFailureClassifierSelector` наблюдаем только при отсутствии класса, юнит-тестом не проверяется.
+- **Окно слитого SLO**: при разном написании одной длины (`30d`/`1mo`) берётся `Window::canonical()` (крупнейшая точная единица, `1mo`);
+  одинаковые написания не меняются (golden-файлы те же). Окно не входит в ревизию.
+- **Markdown coverage-дашборда**: `$` пишется как `&#36;` (интерполяция Grafana видит `$var`/`${__…}` до рендера Markdown), обратный слэш
+  удваивается только перед ASCII-пунктуацией — обратные слэши FQCN остаются как есть.
+- **Вне debug отсутствующий `route_index.php`** логируется на `slo_bundle` один раз на процесс (под FPM — на каждый запрос с HTTP SLO):
+  это сигнал деградации, а не шум.

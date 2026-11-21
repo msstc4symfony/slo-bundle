@@ -53,6 +53,26 @@
   request path resolves strategies from cheap per-point catalog reads; the cache warmer still writes the route index
   when the revisions cannot be precomputed.
 - `monolog/monolog` is no longer a direct requirement (nothing in the bundle uses it).
+- The cache warmer is no longer optional; outside debug mode a missing route index is logged once per process as degraded
+  mode. The request path reads single entries of the route index (points of a route, revision of an objective, routes of
+  a controller) instead of validating whole sections, and resolves controller service ids without hydrating the
+  catalog extras.
+- A corrupt definition in the compiled catalog skips only that definition, and its point is retried after
+  `kernel.reset`; deterministic resolution and route-index failures are retried after `kernel.reset` but logged once per
+  process.
+- Configuration: a YAML map given to a list option (`bad_statuses`, `ineligible_statuses`, `ignored_routes`,
+  `components`) is taken as its values; `defaults.*` are validated once per compilation, also without HTTP points;
+  operation objectives reject `threshold` on availability, `include_errors` outside latency and a missing threshold on
+  latency/combined.
+- Latency thresholds are at most `999999999ms` (`999999.999s`), so every threshold survives the compiled catalog.
+- Compilation errors for a tagged point id used by two services and for a `metric_label` with control characters, invalid
+  UTF-8, `{{` or `}}`; generated PromQL strings escape control characters and reject invalid UTF-8; free text in the
+  coverage dashboard is escaped against HTML, links and Grafana variables.
+- `slo:validate` no longer reports equal windows spelled differently (`30d`, `1mo`) as a difference; such a shared SLO
+  uses the canonical spelling (`1mo`).
+- Public API listed type by type in the README; `Domain\Enum\CoverageStatus` and `Domain\Enum\Strategy` moved to
+  `Application\Coverage\Analyze\CoverageStatus` and `Application\Binding\Strategy` (internal); `Revision` and
+  `EventResult` are internal. The Grafana datasource, folder and dashboards path are settings of the Grafana adapter.
 
 ### Documentation
 
