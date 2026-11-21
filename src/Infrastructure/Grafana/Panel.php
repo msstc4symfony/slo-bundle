@@ -15,15 +15,15 @@ final readonly class Panel
 
     /**
      * @param array<string, mixed> $json the panel as Grafana JSON
-     * @param int<1, 24> $width in grid columns
-     * @param positive-int $height in grid rows
+     * @param int $width in grid columns, 1..GRID_COLUMNS (checked at runtime)
+     * @param int $height in grid rows, at least 1 (checked at runtime)
      */
     public function __construct(
         public array $json,
         public int $width,
         public int $height,
     ) {
-        if ($height < 1) {
+        if ($width < 1 || $width > self::GRID_COLUMNS || $height < 1) {
             throw new InvalidArgumentException(\sprintf('Panel size %dx%d is outside the %d column grid.', $width, $height, self::GRID_COLUMNS));
         }
     }

@@ -75,6 +75,9 @@ final class ActionTest extends TestCase
                     self::assertIsString($expr);
                     preg_match_all('/[a-zA-Z_:][a-zA-Z0-9_:]*(?=\{)/', $expr, $matches);
                     self::assertNotSame([], $matches[0], $path . ': ' . $expr);
+                    if (str_contains($expr, 'slo:')) {
+                        self::assertStringContainsString('application="$application"', $expr, $path);
+                    }
                     foreach ($matches[0] as $series) {
                         self::assertMatchesRegularExpression('/^(symfony_|slo:)/', $series, $path . ': ' . $expr);
                         $seen++;
