@@ -33,10 +33,11 @@ final readonly class KindCoverage
     }
 
     /**
-     * Compared on the exact fraction: $sloPercent is rounded for display.
+     * Compared on the exact fraction in integer basis points ($sloPercent is rounded for display): the requirement is
+     * taken to 0.01 %, so a fractional --min never meets float rounding (7 of 10000 meets 0.07).
      */
     public function isBelow(float $requiredPercent): bool
     {
-        return $this->eligible > 0 && $this->monitored * 100 < $requiredPercent * $this->eligible;
+        return $this->eligible > 0 && $this->monitored * 10000 < (int) round($requiredPercent * 100) * $this->eligible;
     }
 }
