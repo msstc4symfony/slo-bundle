@@ -42,17 +42,19 @@ final readonly class Action
         usort($points, static fn (PointCoverage $a, PointCoverage $b): int => [array_search($a->kind, PointCoverage::KINDS, true), $a->point] <=> [array_search($b->kind, PointCoverage::KINDS, true), $b->point]);
 
         $slo = [];
+        $fraction = [];
         $measured = [];
         $invalid = 0;
         foreach (PointCoverage::KINDS as $kind) {
             $ofKind = array_filter($points, static fn (PointCoverage $p): bool => $p->kind === $kind);
             $count = static fn (CoverageStatus ...$statuses): int => \count(array_filter($ofKind, static fn (PointCoverage $p): bool => \in_array($p->status, $statuses, true)));
-            $slo[$kind] = $this->percent($count(CoverageStatus::Monitored), \count($ofKind) - $count(CoverageStatus::Ignored, CoverageStatus::Unsupported));
+            $fraction[$kind] = [$count(CoverageStatus::Monitored), max(0, \count($ofKind) - $count(CoverageStatus::Ignored, CoverageStatus::Unsupported))];
+            $slo[$kind] = $this->percent(...$fraction[$kind]);
             $measured[$kind] = $this->percent(\count(array_filter($ofKind, static fn (PointCoverage $p): bool => $p->measuredByUniversalMetric)), \count($ofKind));
             $invalid += $count(CoverageStatus::Invalid);
         }
 
-        return new Output($points, $slo, $measured, $invalid);
+        return new Output($points, $slo, $measured, $invalid, $fraction);
     }
 
     /**
