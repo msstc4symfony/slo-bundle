@@ -42,6 +42,8 @@ use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
  */
 final class SloBundle extends AbstractBundle
 {
+    private const LABEL_VALUE = '/^[A-Za-z0-9_.:-]{1,128}$/D';
+
     protected string $extensionAlias = 'msstc4symfony_slo';
 
     #[Override]
@@ -143,8 +145,22 @@ final class SloBundle extends AbstractBundle
                         ->arrayNode('selector')
                             ->addDefaultsIfNotSet()
                             ->children()
-                                ->scalarNode('application')->defaultNull()->end()
-                                ->arrayNode('components')->scalarPrototype()->end()->defaultValue([])->end()
+                                ->scalarNode('application')
+                                    ->defaultNull()
+                                    ->validate()
+                                        ->ifTrue(static fn (mixed $v): bool => $v !== null && !self::isLabelValue($v))
+                                        ->thenInvalid('application must match ' . self::LABEL_VALUE . ': it becomes a label value in the generated PromQL.')
+                                    ->end()
+                                ->end()
+                                ->arrayNode('components')
+                                    ->scalarPrototype()
+                                        ->validate()
+                                            ->ifTrue(static fn (mixed $v): bool => !self::isLabelValue($v))
+                                            ->thenInvalid('every component must match ' . self::LABEL_VALUE . ': it becomes a label value in the generated PromQL.')
+                                        ->end()
+                                    ->end()
+                                    ->defaultValue([])
+                                ->end()
                             ->end()
                         ->end()
                         ->scalarNode('output_dir')->cannotBeEmpty()->defaultValue('%kernel.project_dir%/infrastructure/observability')->end()
@@ -203,5 +219,10 @@ final class SloBundle extends AbstractBundle
         }
 
         $container->import(__DIR__ . '/Resources/config/services.php');
+    }
+
+    private static function isLabelValue(mixed $value): bool
+    {
+        return \is_string($value) && preg_match(self::LABEL_VALUE, $value) === 1;
     }
 }

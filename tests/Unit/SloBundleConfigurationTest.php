@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Msstc4Symfony\SloBundle\Test\Unit;
 
 use Msstc4Symfony\SloBundle\SloBundle;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -102,6 +103,35 @@ final class SloBundleConfigurationTest extends TestCase
         self::assertSame(['gateway'], $container->getParameter('msstc4symfony_slo.generation.selector.components'));
         self::assertSame(6, $container->getParameter('msstc4symfony_slo.generation.prometheus.no_events_alert_hours'));
         self::assertSame(['failed'], $container->getParameter('msstc4symfony_slo.defaults.messenger.failure_transports'));
+    }
+
+    /**
+     * @return iterable<string, array{array<string, mixed>}>
+     */
+    public static function invalidSelectorProvider(): iterable
+    {
+        yield 'quote in application' => [['application' => 'shop"} or vector(1) #']];
+        yield 'space in application' => [['application' => 'my shop']];
+        yield 'empty application' => [['application' => '']];
+        yield 'too long application' => [['application' => str_repeat('a', 129)]];
+        yield 'brace in component' => [['components' => ['web', 'w}']]];
+        yield 'empty component' => [['components' => ['']]];
+    }
+
+    /**
+     * @param array<string, mixed> $selector
+     */
+    #[DataProvider('invalidSelectorProvider')]
+    public function testInvalidSelectorIsRejected(array $selector): void
+    {
+        $this->assertRejected(['generation' => ['selector' => $selector]]);
+    }
+
+    public function testSelectorAcceptsLabelValueCharacters(): void
+    {
+        $container = $this->load(['generation' => ['selector' => ['application' => 'Shop_1.eu-west:prod', 'components' => [str_repeat('c', 128)]]]]);
+
+        self::assertSame('Shop_1.eu-west:prod', $container->getParameter('msstc4symfony_slo.generation.selector.application'));
     }
 
     public function testUnknownObjectiveTypeIsRejected(): void
