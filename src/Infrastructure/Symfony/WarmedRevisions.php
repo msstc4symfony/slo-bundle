@@ -17,7 +17,7 @@ use Override;
  */
 final readonly class WarmedRevisions implements PrecomputedRevisionsInterface
 {
-    public function __construct(private RouteIndexFile $file)
+    public function __construct(private RouteIndexStoreInterface $file)
     {
     }
 

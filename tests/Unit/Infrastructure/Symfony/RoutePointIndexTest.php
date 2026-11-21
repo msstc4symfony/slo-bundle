@@ -13,13 +13,11 @@ use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexData;
-use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexFile;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RoutePointIndex;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\CatalogFixture;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\InMemoryRouteCatalog;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
-use Symfony\Component\Filesystem\Filesystem;
 
 final class RoutePointIndexTest extends TestCase
 {
@@ -98,24 +96,19 @@ final class RoutePointIndexTest extends TestCase
 
     public function testWarmedIndexIsUsedWithoutReadingRoutes(): void
     {
-        $dir = sys_get_temp_dir() . '/msstc4symfony-slo-point-index-' . getmypid();
-        RouteIndexFile::write($dir, RouteIndexData::fromRoutes([], ['pay_create' => [PointId::of(PointType::HttpRoute, 'App\Pay::create')]]));
+        $store = new InMemoryRouteIndexStore(RouteIndexData::fromRoutes([], ['pay_create' => [PointId::of(PointType::HttpRoute, 'App\Pay::create')]]));
         $routes = $this->createMock(RouteCatalogInterface::class);
         $routes->expects(self::never())->method('all');
 
-        try {
-            $index = new RoutePointIndex($routes, $this->catalog(), new RouteIndexFile($dir, false), new RecordingLogger());
+        $index = new RoutePointIndex($routes, $this->catalog(), $store, new RecordingLogger());
 
-            self::assertSame(['http_route:App\Pay::create'], $this->strings($index->pointsFor('pay_create')));
-            self::assertSame([], $index->pointsFor('pay_list'));
-        } finally {
-            (new Filesystem())->remove($dir);
-        }
+        self::assertSame(['http_route:App\Pay::create'], $this->strings($index->pointsFor('pay_create')));
+        self::assertSame([], $index->pointsFor('pay_list'));
     }
 
-    private function noFile(): RouteIndexFile
+    private function noFile(): InMemoryRouteIndexStore
     {
-        return new RouteIndexFile(sys_get_temp_dir() . '/msstc4symfony-slo-no-route-index', false);
+        return new InMemoryRouteIndexStore();
     }
 
     private function routes(): InMemoryRouteCatalog

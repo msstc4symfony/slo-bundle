@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Symfony;
+namespace Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Filesystem;
 
 use Msstc4Symfony\SloBundle\Application\Attribute\Availability;
 use Msstc4Symfony\SloBundle\Application\Attribute\Slo;
@@ -10,8 +10,8 @@ use Msstc4Symfony\SloBundle\Application\Discovery\CatalogAssembler;
 use Msstc4Symfony\SloBundle\Application\Port\RouteInfo;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
+use Msstc4Symfony\SloBundle\Infrastructure\Filesystem\RouteIndexFile;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexData;
-use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexFile;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\CatalogFixture;
 use Override;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -38,7 +38,7 @@ final class RouteIndexFileTest extends TestCase
 
     public function testWrittenIndexIsLoadedBack(): void
     {
-        RouteIndexFile::write($this->dir, $this->data());
+        (new RouteIndexFile($this->dir, false))->write($this->dir, $this->data());
         $loaded = (new RouteIndexFile($this->dir, false))->load();
 
         self::assertInstanceOf(RouteIndexData::class, $loaded);
@@ -60,7 +60,7 @@ final class RouteIndexFileTest extends TestCase
         self::assertSame(['404', '500', 'home'], array_map(static fn (RouteInfo $r): string => $r->name, $built->all()));
         self::assertSame(['404', '500'], array_map(static fn (RouteInfo $r): string => $r->name, $built->routesFor('App\Error::show')));
 
-        RouteIndexFile::write($this->dir, $built);
+        (new RouteIndexFile($this->dir, false))->write($this->dir, $built);
         $file = new RouteIndexFile($this->dir, false);
         $loaded = $file->load();
 
@@ -72,8 +72,8 @@ final class RouteIndexFileTest extends TestCase
 
     public function testRewritingReplacesTheIndex(): void
     {
-        RouteIndexFile::write($this->dir, $this->data());
-        RouteIndexFile::write($this->dir, RouteIndexData::fromRoutes([], []));
+        (new RouteIndexFile($this->dir, false))->write($this->dir, $this->data());
+        (new RouteIndexFile($this->dir, false))->write($this->dir, RouteIndexData::fromRoutes([], []));
 
         self::assertSame([], (new RouteIndexFile($this->dir, false))->load()?->all());
     }
@@ -85,7 +85,7 @@ final class RouteIndexFileTest extends TestCase
 
     public function testDebugModeIgnoresTheFileBecauseRoutesMayChangeWithoutACacheClear(): void
     {
-        RouteIndexFile::write($this->dir, $this->data());
+        (new RouteIndexFile($this->dir, false))->write($this->dir, $this->data());
 
         self::assertNull((new RouteIndexFile($this->dir, true))->load());
     }
@@ -142,7 +142,7 @@ final class RouteIndexFileTest extends TestCase
 
     public function testLoadIsMemoised(): void
     {
-        RouteIndexFile::write($this->dir, $this->data());
+        (new RouteIndexFile($this->dir, false))->write($this->dir, $this->data());
         $file = new RouteIndexFile($this->dir, false);
         $first = $file->load();
         (new Filesystem())->remove($this->dir);
@@ -155,7 +155,7 @@ final class RouteIndexFileTest extends TestCase
         (new Filesystem())->dumpFile($this->dir, 'a file, not a directory');
 
         $this->expectException(RuntimeException::class);
-        RouteIndexFile::write($this->dir, $this->data());
+        (new RouteIndexFile($this->dir, false))->write($this->dir, $this->data());
     }
 
     public function testPointsAreComputedFromTheCatalog(): void

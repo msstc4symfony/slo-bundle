@@ -11,7 +11,7 @@ use Symfony\Component\Routing\RouterInterface;
 
 /**
  * Reads and normalises every route of the router. FrameworkBundle reloads the route collection on each call, so the
- * result is memoised by the callers or warmed into RouteIndexFile. Without a router (framework.router.enabled: false)
+ * result is memoised by the callers or warmed into the route index. Without a router (framework.router.enabled: false)
  * there are no routes.
  *
  * @internal

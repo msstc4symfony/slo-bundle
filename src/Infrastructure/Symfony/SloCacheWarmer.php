@@ -31,6 +31,7 @@ final readonly class SloCacheWarmer implements CacheWarmerInterface
         private CatalogDiagnosticsInterface $diagnostics,
         private RevisionResolver $revisions,
         private SeriesCatalogInterface $series,
+        private RouteIndexStoreInterface $store,
     ) {
     }
 
@@ -43,27 +44,46 @@ final readonly class SloCacheWarmer implements CacheWarmerInterface
     #[Override]
     public function warmUp(string $cacheDir, ?string $buildDir = null): array
     {
-        try {
-            $result = ($this->validate)();
-            foreach ($result->errors as $message) {
-                $this->logger->warning('SLO catalog error: ' . $message);
-            }
-            foreach ($result->warnings as $message) {
-                $this->logger->warning('SLO catalog warning: ' . $message);
-            }
-        } catch (Throwable $e) {
-            $this->logger->warning('SLO catalog validation failed during cache warm-up.', ['exception' => $e]);
-        }
+        $this->reportCatalogProblems();
 
         try {
             $routes = $this->routes->read();
             $points = RouteIndexData::pointsOf($routes, $this->catalog);
-            RouteIndexFile::write($cacheDir, RouteIndexData::fromRoutes($routes, $points, $this->revisionsOf(RouteIndexData::fromRoutes($routes, $points))));
+        } catch (Throwable $e) {
+            $this->logger->warning('SLO route index could not be built during cache warm-up, routes are read on first use.', ['exception' => $e]);
+
+            return [];
+        }
+
+        try {
+            $revisions = $this->revisionsOf(RouteIndexData::fromRoutes($routes, $points));
+        } catch (Throwable $e) {
+            $revisions = [];
+            $this->logger->warning('SLO objective revisions could not be precomputed during cache warm-up, they are resolved on first use.', ['exception' => $e]);
+        }
+
+        try {
+            $this->store->write($cacheDir, RouteIndexData::fromRoutes($routes, $points, $revisions));
         } catch (Throwable $e) {
             $this->logger->warning('SLO route index could not be written during cache warm-up, routes are read on first use.', ['exception' => $e]);
         }
 
         return [];
+    }
+
+    private function reportCatalogProblems(): void
+    {
+        try {
+            $result = ($this->validate)();
+            foreach ($result->errors as $message) {
+                $this->logger->warning('SLO catalog error.', ['error' => $message]);
+            }
+            foreach ($result->warnings as $message) {
+                $this->logger->warning('SLO catalog warning.', ['warning' => $message]);
+            }
+        } catch (Throwable $e) {
+            $this->logger->warning('SLO catalog validation failed during cache warm-up.', ['exception' => $e]);
+        }
     }
 
     /**

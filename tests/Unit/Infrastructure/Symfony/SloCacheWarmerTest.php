@@ -17,7 +17,6 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\Logging\FailSafeLogger;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MetricsBundleSeriesCatalog;
-use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexFile;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouterRouteReader;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\SloCacheWarmer;
 use Msstc4Symfony\SloBundle\Test\Integration\TestContainer;
@@ -30,27 +29,13 @@ use Psr\Log\LoggerInterface;
 use RuntimeException;
 use Stringable;
 use Symfony\Component\DependencyInjection\Reference;
-use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
 use Symfony\Component\Routing\RouterInterface;
 
 final class SloCacheWarmerTest extends TestCase
 {
-    private string $dir;
-
-    #[Override]
-    protected function setUp(): void
-    {
-        $this->dir = sys_get_temp_dir() . '/msstc4symfony-slo-warmer-' . getmypid();
-        (new Filesystem())->remove($this->dir);
-    }
-
-    #[Override]
-    protected function tearDown(): void
-    {
-        (new Filesystem())->remove($this->dir);
-    }
+    private const CACHE_DIR = '/cache/prod';
 
     public function testIsOptionalAndTaggedAsCacheWarmerWithTheFailSafeLogger(): void
     {
@@ -68,11 +53,15 @@ final class SloCacheWarmerTest extends TestCase
         $logger = $this->logger();
         $warmer = $this->warmer(new InMemoryRouteCatalog(), $logger);
 
-        self::assertSame([], $warmer->warmUp($this->dir));
+        self::assertSame([], $warmer->warmUp(self::CACHE_DIR));
         self::assertCount(2, $logger->records);
         self::assertSame('warning', $logger->records[0][0]);
-        self::assertStringContainsString('SLO catalog error: SLO payment.create: A::create has no route', $logger->records[0][1]);
-        self::assertStringContainsString('SLO catalog warning: a warning', $logger->records[1][1]);
+        self::assertSame('SLO catalog error.', $logger->records[0][1]);
+        $error = $logger->contexts[0]['error'];
+        self::assertIsString($error);
+        self::assertStringContainsString('SLO payment.create: A::create has no route', $error);
+        self::assertSame('SLO catalog warning.', $logger->records[1][1]);
+        self::assertSame('a warning', $logger->contexts[1]['warning']);
     }
 
     public function testWritesTheRouteIndexIntoTheCacheDirectory(): void
@@ -84,8 +73,9 @@ final class SloCacheWarmerTest extends TestCase
         $router = self::createStub(RouterInterface::class);
         $router->method('getRouteCollection')->willReturn($collection);
 
-        $this->warmer(new InMemoryRouteCatalog(), $this->logger(), $router)->warmUp($this->dir);
-        $data = (new RouteIndexFile($this->dir, false))->load();
+        $store = new InMemoryRouteIndexStore();
+        $this->warmer(new InMemoryRouteCatalog(), $this->logger(), $router, $store)->warmUp(self::CACHE_DIR);
+        $data = $store->written[self::CACHE_DIR] ?? null;
 
         self::assertNotNull($data);
         self::assertSame(['http_route:A::create'], array_map(static fn (PointId $point): string => $point->toString(), $data->pointsFor('create')));
@@ -111,22 +101,61 @@ final class SloCacheWarmerTest extends TestCase
         };
         $logger = $this->logger();
 
-        self::assertSame([], $this->warmer($routes, $logger)->warmUp($this->dir));
+        self::assertSame([], $this->warmer($routes, $logger)->warmUp(self::CACHE_DIR));
         self::assertCount(1, $logger->records);
         self::assertSame('SLO catalog validation failed during cache warm-up.', $logger->records[0][1]);
         self::assertInstanceOf(RuntimeException::class, $logger->contexts[0]['exception']);
     }
 
-    public function testNeverThrowsWhenTheIndexCannotBeWritten(): void
+    public function testNeverThrowsWhenTheRoutesCannotBeRead(): void
     {
-        (new Filesystem())->dumpFile($this->dir, 'a file, not a directory');
         $router = self::createStub(RouterInterface::class);
         $router->method('getRouteCollection')->willThrowException(new RuntimeException('router broken'));
         $logger = $this->logger();
+        $store = new InMemoryRouteIndexStore();
 
-        self::assertSame([], $this->warmer(new InMemoryRouteCatalog(), $logger, $router)->warmUp($this->dir));
+        self::assertSame([], $this->warmer(new InMemoryRouteCatalog(), $logger, $router, $store)->warmUp(self::CACHE_DIR));
+        self::assertSame('SLO route index could not be built during cache warm-up, routes are read on first use.', $logger->records[2][1]);
+        self::assertInstanceOf(RuntimeException::class, $logger->contexts[2]['exception']);
+        self::assertSame([], $store->written);
+    }
+
+    public function testNeverThrowsWhenTheIndexCannotBeWritten(): void
+    {
+        $logger = $this->logger();
+
+        self::assertSame([], $this->warmer(new InMemoryRouteCatalog(), $logger, null, new InMemoryRouteIndexStore(failWrites: true))->warmUp(self::CACHE_DIR));
         self::assertSame('SLO route index could not be written during cache warm-up, routes are read on first use.', $logger->records[2][1]);
         self::assertInstanceOf(RuntimeException::class, $logger->contexts[2]['exception']);
+    }
+
+    public function testRoutesAreStillWrittenWhenTheRevisionsCannotBePrecomputed(): void
+    {
+        $collection = new RouteCollection();
+        $collection->add('create', new Route('/create', ['_controller' => 'A::create']));
+
+        $router = self::createStub(RouterInterface::class);
+        $router->method('getRouteCollection')->willReturn($collection);
+        $catalog = $this->catalog();
+        $logger = $this->logger();
+        $store = new InMemoryRouteIndexStore();
+        $warmer = new SloCacheWarmer(
+            new Action($catalog, $catalog, new InMemoryRouteCatalog(), new MetricBindingResolver(new InMemoryRouteCatalog(), $catalog, new MetricsBundleSeriesCatalog())),
+            new RouterRouteReader($router, $catalog),
+            new AllFailingCatalog($catalog),
+            $logger,
+            $catalog,
+            new RevisionResolver(new RevisionCalculator(), $catalog),
+            new MetricsBundleSeriesCatalog(),
+            $store,
+        );
+
+        self::assertSame([], $warmer->warmUp(self::CACHE_DIR));
+        $data = $store->written[self::CACHE_DIR] ?? null;
+        self::assertNotNull($data);
+        self::assertSame(['http_route:A::create'], array_map(static fn (PointId $point): string => $point->toString(), $data->pointsFor('create')));
+        self::assertSame([], $data->revisions());
+        self::assertContains('SLO objective revisions could not be precomputed during cache warm-up, they are resolved on first use.', array_column($logger->records, 1));
     }
 
     public function testNeverThrowsWhenTheLoggerFails(): void
@@ -142,10 +171,10 @@ final class SloCacheWarmerTest extends TestCase
             }
         };
 
-        self::assertSame([], $this->warmer(new InMemoryRouteCatalog(), new FailSafeLogger($throwing))->warmUp($this->dir));
+        self::assertSame([], $this->warmer(new InMemoryRouteCatalog(), new FailSafeLogger($throwing))->warmUp(self::CACHE_DIR));
     }
 
-    private function warmer(RouteCatalogInterface $routes, LoggerInterface $logger, ?RouterInterface $router = null): SloCacheWarmer
+    private function warmer(RouteCatalogInterface $routes, LoggerInterface $logger, ?RouterInterface $router = null, ?InMemoryRouteIndexStore $store = null): SloCacheWarmer
     {
         $catalog = $this->catalog();
 
@@ -157,6 +186,7 @@ final class SloCacheWarmerTest extends TestCase
             $catalog,
             new RevisionResolver(new RevisionCalculator(), $catalog),
             new MetricsBundleSeriesCatalog(),
+            $store ?? new InMemoryRouteIndexStore(),
         );
     }
 

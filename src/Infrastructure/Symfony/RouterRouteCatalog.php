@@ -8,7 +8,7 @@ use Msstc4Symfony\SloBundle\Application\Port\RouteCatalogInterface;
 use Override;
 
 /**
- * Routes come from the warmed RouteIndexFile, else from the router on first use, memoised: routes are fixed per
+ * Routes come from the warmed route index, else from the router on first use, memoised: routes are fixed per
  * container (ruling 7).
  *
  * @internal
@@ -19,7 +19,7 @@ final class RouterRouteCatalog implements RouteCatalogInterface
 
     public function __construct(
         private readonly RouterRouteReader $reader,
-        private readonly RouteIndexFile $file,
+        private readonly RouteIndexStoreInterface $file,
     ) {
     }
 

@@ -2,20 +2,24 @@
 
 declare(strict_types=1);
 
-namespace Msstc4Symfony\SloBundle\Infrastructure\Symfony;
+namespace Msstc4Symfony\SloBundle\Infrastructure\Filesystem;
 
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
+use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexData;
+use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexParser;
+use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexStoreInterface;
+use Override;
 use RuntimeException;
 use Throwable;
 
 /**
- * The route index that SloCacheWarmer writes into the cache directory: FrameworkBundle's Router reloads the whole
+ * The route index as a PHP file in the cache directory (opcache-friendly), written by SloCacheWarmer: FrameworkBundle's Router reloads the whole
  * route collection on every getRouteCollection() call, i.e. once per request under PHP-FPM. Ignored in debug mode,
  * where routes may change without a cache clear.
  *
  * @internal
  */
-final class RouteIndexFile
+final class RouteIndexFile implements RouteIndexStoreInterface
 {
     public const PATH = 'msstc4symfony_slo/route_index.php';
 
@@ -43,54 +47,41 @@ final class RouteIndexFile
     ) {
     }
 
-    /**
-     * The whole index, validated. Never throws: a missing, unreadable or malformed file loads nothing and the callers
-     * fall back to the router.
-     */
+    #[Override]
     public function load(): ?RouteIndexData
     {
         if (!$this->loaded) {
             $this->loaded = true;
-            $this->data = RouteIndexData::fromArray($this->raw());
+            $this->data = RouteIndexParser::parse($this->raw());
         }
 
         return $this->data;
     }
 
-    /**
-     * Route name => SLO points, validating only that section (hot path). Never throws.
-     *
-     * @return array<array-key, non-empty-list<PointId>>|null
-     */
+    #[Override]
     public function points(): ?array
     {
         if (!$this->pointsLoaded) {
             $this->pointsLoaded = true;
-            $this->points = RouteIndexData::pointsFromArray($this->raw());
+            $this->points = RouteIndexParser::points($this->raw());
         }
 
         return $this->points;
     }
 
-    /**
-     * "<slo>|<objective>" => revision of a dedicated objective or '' (hot path). Never throws.
-     *
-     * @return array<non-empty-string, string>|null
-     */
+    #[Override]
     public function revisions(): ?array
     {
         if (!$this->revisionsLoaded) {
             $this->revisionsLoaded = true;
-            $this->revisions = RouteIndexData::revisionsFromArray($this->raw());
+            $this->revisions = RouteIndexParser::revisions($this->raw());
         }
 
         return $this->revisions;
     }
 
-    /**
-     * @throws RuntimeException when the file cannot be written
-     */
-    public static function write(string $cacheDir, RouteIndexData $data): void
+    #[Override]
+    public function write(string $cacheDir, RouteIndexData $data): void
     {
         $file = $cacheDir . '/' . self::PATH;
         $dir = \dirname($file);

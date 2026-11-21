@@ -14,7 +14,7 @@ use Symfony\Contracts\Service\ResetInterface;
 use Throwable;
 
 /**
- * Read from the warmed RouteIndexFile, else built from the routes on first use; memoised for the process, routes are
+ * Read from the warmed route index, else built from the routes on first use; memoised for the process, routes are
  * fixed per container (ruling 7). A failed build is memoised as an empty index: logged once, HTTP SLOs then record
  * nothing until the next kernel.reset retries it; a successful build survives resets.
  *
@@ -30,7 +30,7 @@ final class RoutePointIndex implements RoutePointIndexInterface, ResetInterface
     public function __construct(
         private readonly RouteCatalogInterface $routes,
         private readonly SloCatalogInterface $catalog,
-        private readonly RouteIndexFile $file,
+        private readonly RouteIndexStoreInterface $file,
         private readonly LoggerInterface $logger,
     ) {
     }

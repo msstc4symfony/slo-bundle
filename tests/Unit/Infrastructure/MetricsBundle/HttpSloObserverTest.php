@@ -22,7 +22,6 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\HttpSloObserver;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MetricsBundleSeriesCatalog;
-use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexFile;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RoutePointIndex;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouterRouteCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouterRouteReader;
@@ -31,6 +30,7 @@ use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\FailingCatalog;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\InMemoryRouteCatalog;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Evaluation\RecordEvent\FixedPrecomputedRevisions;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Evaluation\RecordEvent\InMemoryEventWriter;
+use Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Symfony\InMemoryRouteIndexStore;
 use Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Symfony\RecordingLogger;
 use Override;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -64,7 +64,7 @@ final class HttpSloObserverTest extends TestCase
         $this->writer = new InMemoryEventWriter();
         $this->logger = new RecordingLogger();
         $this->observer = new HttpSloObserver(
-            new RoutePointIndex($routes, $catalog, new RouteIndexFile(sys_get_temp_dir() . '/msstc4symfony-slo-no-route-index', false), $this->logger),
+            new RoutePointIndex($routes, $catalog, new InMemoryRouteIndexStore(), $this->logger),
             $catalog,
             ObserverFixture::action($catalog, $routes, $this->writer, $this->logger),
             $this->logger,
@@ -173,10 +173,10 @@ final class HttpSloObserverTest extends TestCase
         });
         $router = $this->createMock(RouterInterface::class);
         $router->expects(self::never())->method('getRouteCollection');
-        $routes = new RouterRouteCatalog(new RouterRouteReader($router, $catalog), new RouteIndexFile(sys_get_temp_dir() . '/msstc4symfony-slo-no-route-index', false));
+        $routes = new RouterRouteCatalog(new RouterRouteReader($router, $catalog), new InMemoryRouteIndexStore());
         $writer = new InMemoryEventWriter();
         $observer = new HttpSloObserver(
-            new RoutePointIndex($routes, $catalog, new RouteIndexFile(sys_get_temp_dir() . '/msstc4symfony-slo-no-route-index', false), $this->logger),
+            new RoutePointIndex($routes, $catalog, new InMemoryRouteIndexStore(), $this->logger),
             $catalog,
             ObserverFixture::action($catalog, $routes, $writer, $this->logger),
             $this->logger,
@@ -192,7 +192,7 @@ final class HttpSloObserverTest extends TestCase
     {
         $routes = new InMemoryRouteCatalog([new RouteInfo('payment_create', '/payments', ['POST'], self::CONTROLLER)]);
 
-        return new RoutePointIndex($routes, $this->catalog, new RouteIndexFile(sys_get_temp_dir() . '/msstc4symfony-slo-no-route-index', false), $this->logger);
+        return new RoutePointIndex($routes, $this->catalog, new InMemoryRouteIndexStore(), $this->logger);
     }
 
     private function action(): Action

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Msstc4Symfony\SloBundle\Test\Integration\Kernel;
 
 use Msstc4Symfony\MetricsBundle\Application\Port\MetricStorageInterface;
-use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexFile;
+use Msstc4Symfony\SloBundle\Infrastructure\Filesystem\RouteIndexFile;
 use Override;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;

@@ -37,6 +37,7 @@ use Msstc4Symfony\SloBundle\Domain\Service\RevisionCalculator;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\Clock\HrtimeClock;
 use Msstc4Symfony\SloBundle\Infrastructure\Filesystem\FileWriter;
+use Msstc4Symfony\SloBundle\Infrastructure\Filesystem\RouteIndexFile;
 use Msstc4Symfony\SloBundle\Infrastructure\Grafana\GrafanaFileBuilder;
 use Msstc4Symfony\SloBundle\Infrastructure\Logging\FailSafeLogger;
 use Msstc4Symfony\SloBundle\Infrastructure\LogicBundle\LogicBundleExpectedFailureClassifier;
@@ -50,7 +51,7 @@ use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MetricsEventWriter;
 use Msstc4Symfony\SloBundle\Infrastructure\Prometheus\PromQlBuilder;
 use Msstc4Symfony\SloBundle\Infrastructure\Prometheus\RuleGroupsBuilder;
 use Msstc4Symfony\SloBundle\Infrastructure\Sloth\SlothSpecBuilder;
-use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexFile;
+use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexStoreInterface;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RoutePointIndex;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouterRouteCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouterRouteReader;
@@ -83,6 +84,7 @@ return static function (ContainerConfigurator $container): void {
         ->arg('$cacheDir', param('kernel.cache_dir'))
         ->arg('$debug', param('kernel.debug'))
     ;
+    $services->alias(RouteIndexStoreInterface::class, RouteIndexFile::class);
     $services->set(RouterRouteCatalog::class);
     $services->alias(RouteCatalogInterface::class, RouterRouteCatalog::class);
     $services->set(WarmedRevisions::class);

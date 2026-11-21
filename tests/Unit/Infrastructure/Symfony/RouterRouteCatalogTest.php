@@ -7,14 +7,12 @@ namespace Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Symfony;
 use Msstc4Symfony\SloBundle\Application\Discovery\CatalogExtras;
 use Msstc4Symfony\SloBundle\Application\Port\RouteInfo;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexData;
-use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexFile;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouterRouteCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouterRouteReader;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\InvokableController;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\PaymentController;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\CatalogFixture;
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
 use Symfony\Component\Routing\RouterInterface;
@@ -77,24 +75,19 @@ final class RouterRouteCatalogTest extends TestCase
 
     public function testWarmedRoutesAreUsedWithoutTouchingTheRouter(): void
     {
-        $dir = sys_get_temp_dir() . '/msstc4symfony-slo-route-catalog-' . getmypid();
-        RouteIndexFile::write($dir, RouteIndexData::fromRoutes([new RouteInfo('pay', '/pay', ['POST'], 'App\Pay::create')], []));
+        $store = new InMemoryRouteIndexStore(RouteIndexData::fromRoutes([new RouteInfo('pay', '/pay', ['POST'], 'App\Pay::create')], []));
         $router = $this->createMock(RouterInterface::class);
         $router->expects(self::never())->method('getRouteCollection');
 
-        try {
-            $catalog = new RouterRouteCatalog(new RouterRouteReader($router, CatalogFixture::build(static function (): void {
-            })), new RouteIndexFile($dir, false));
+        $catalog = new RouterRouteCatalog(new RouterRouteReader($router, CatalogFixture::build(static function (): void {
+        })), $store);
 
-            self::assertEquals([new RouteInfo('pay', '/pay', ['POST'], 'App\Pay::create')], $catalog->routesFor('App\Pay::create'));
-            self::assertCount(1, $catalog->all());
-        } finally {
-            (new Filesystem())->remove($dir);
-        }
+        self::assertEquals([new RouteInfo('pay', '/pay', ['POST'], 'App\Pay::create')], $catalog->routesFor('App\Pay::create'));
+        self::assertCount(1, $catalog->all());
     }
 
-    private function noFile(): RouteIndexFile
+    private function noFile(): InMemoryRouteIndexStore
     {
-        return new RouteIndexFile(sys_get_temp_dir() . '/msstc4symfony-slo-no-route-index', false);
+        return new InMemoryRouteIndexStore();
     }
 }
