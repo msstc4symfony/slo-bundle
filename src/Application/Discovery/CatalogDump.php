@@ -230,7 +230,7 @@ final class CatalogDump
     private static function objectiveFromArray(array $shape): Objective
     {
         $target = Target::fromPercent($shape['target']);
-        $threshold = $shape['threshold_ms'] === null ? null : LatencyThreshold::fromString($shape['threshold_ms'] . 'ms');
+        $threshold = $shape['threshold_ms'] === null ? null : LatencyThreshold::fromMilliseconds($shape['threshold_ms']);
 
         return match (ObjectiveKind::from($shape['kind'])) {
             ObjectiveKind::Availability => Objective::availability($target),

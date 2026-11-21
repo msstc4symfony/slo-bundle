@@ -10,6 +10,9 @@ final readonly class LatencyThreshold
 {
     private const PATTERN = '/^(?:([0-9]{1,9})ms|([0-9]{1,9})(?:\.([0-9]{1,12}))?s)$/D';
 
+    /** The canonical form must parse back: the ms form takes at most nine digits. */
+    private const MAX_MILLISECONDS = 999_999_999;
+
     /**
      * @param positive-int $milliseconds
      */
@@ -35,6 +38,18 @@ final readonly class LatencyThreshold
 
         if ($milliseconds < 1) {
             throw new InvalidArgumentException(\sprintf('Invalid latency threshold "%s": must be positive.', $value));
+        }
+        if ($milliseconds > self::MAX_MILLISECONDS) {
+            throw new InvalidArgumentException(\sprintf('Invalid latency threshold "%s": at most %dms.', $value, self::MAX_MILLISECONDS));
+        }
+
+        return new self($milliseconds);
+    }
+
+    public static function fromMilliseconds(int $milliseconds): self
+    {
+        if ($milliseconds < 1 || $milliseconds > self::MAX_MILLISECONDS) {
+            throw new InvalidArgumentException(\sprintf('Invalid latency threshold %dms: expected 1 to %d.', $milliseconds, self::MAX_MILLISECONDS));
         }
 
         return new self($milliseconds);

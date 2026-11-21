@@ -107,6 +107,18 @@ final class CatalogDumpTest extends TestCase
         self::assertSame('App\X::run', CatalogDump::point('http_route:App\X::run')->id);
     }
 
+    public function testLargestThresholdSurvivesTheDump(): void
+    {
+        $assembler = new CatalogAssembler();
+        $assembler->declare(PointId::of(PointType::HttpRoute, 'App\Controller::slow'), new Slo('report.export', [new Latency('999999.999s', 99)]));
+
+        $errors = new DiscoveryErrors();
+        $contents = $assembler->assemble(new DefinitionFactory('30d', ['5xx'], [], true, false), $errors, new CatalogExtras());
+        self::assertTrue($errors->isEmpty(), $errors->summary());
+
+        self::assertEquals($contents, CatalogDump::fromArray(CatalogDump::toArray($contents)));
+    }
+
     public function testInvalidPointIsRejected(): void
     {
         $this->expectException(InvalidArgumentException::class);

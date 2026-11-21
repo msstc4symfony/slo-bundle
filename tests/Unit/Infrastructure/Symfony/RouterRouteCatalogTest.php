@@ -57,6 +57,7 @@ final class RouterRouteCatalogTest extends TestCase
     {
         $collection = new RouteCollection();
         $collection->add('d_service', new Route('/d', ['_controller' => 'app.payment::create']));
+
         $router = self::createStub(RouterInterface::class);
         $router->method('getRouteCollection')->willReturn($collection);
         $diagnostics = new FailingCatalog(CatalogFixture::build(static function (): void {

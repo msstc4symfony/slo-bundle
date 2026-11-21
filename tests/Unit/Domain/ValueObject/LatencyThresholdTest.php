@@ -25,7 +25,8 @@ final class LatencyThresholdTest extends TestCase
         yield '2.500s' => ['2.500s', 2500, '2500ms'];
         yield 'smallest' => ['1ms', 1, '1ms'];
         yield 'largest ms' => ['999999999ms', 999999999, '999999999ms'];
-        yield 'largest s with ms' => ['999999999.999s', 999999999999, '999999999999ms'];
+        yield 'largest s with ms' => ['999999.999s', 999999999, '999999999ms'];
+        yield 'largest whole seconds' => ['999999s', 999999000, '999999s'];
     }
 
     /**
@@ -57,6 +58,36 @@ final class LatencyThresholdTest extends TestCase
         yield 'huge' => ['99999999999999999999ms'];
         yield 'ten digits of ms' => ['1000000000ms'];
         yield 'thirteen fraction digits' => ['1.0000000000000s'];
+        yield 'seconds beyond the ms form' => ['1000000s'];
+        yield 'nine digits of seconds' => ['999999999.999s'];
+    }
+
+    /**
+     * @param positive-int $ms
+     */
+    #[DataProvider('provideValid')]
+    public function testCanonicalFormAndMillisecondsRoundTrip(string $declared, int $ms, string $canonical): void
+    {
+        self::assertSame($ms, LatencyThreshold::fromString($canonical)->milliseconds);
+        self::assertSame($ms, LatencyThreshold::fromMilliseconds($ms)->milliseconds);
+        self::assertSame($canonical, LatencyThreshold::fromMilliseconds($ms)->toString());
+    }
+
+    /**
+     * @return iterable<string, array{int}>
+     */
+    public static function provideInvalidMilliseconds(): iterable
+    {
+        yield 'zero' => [0];
+        yield 'negative' => [-1];
+        yield 'beyond nine digits' => [1_000_000_000];
+    }
+
+    #[DataProvider('provideInvalidMilliseconds')]
+    public function testInvalidMilliseconds(int $milliseconds): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        LatencyThreshold::fromMilliseconds($milliseconds);
     }
 
     #[DataProvider('provideInvalid')]

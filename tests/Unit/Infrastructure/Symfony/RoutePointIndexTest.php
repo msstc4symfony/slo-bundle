@@ -83,6 +83,7 @@ final class RoutePointIndexTest extends TestCase
     {
         $collection = new RouteCollection();
         $collection->add('pay_create', new Route('/pay', ['_controller' => 'app.pay::create']));
+
         $router = self::createStub(RouterInterface::class);
         $router->method('getRouteCollection')->willReturn($collection);
         $catalog = CatalogFixture::build(static function (CatalogAssembler $assembler): void {

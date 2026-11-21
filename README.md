@@ -103,7 +103,7 @@ public function debug(): Response { /* ... */ }
 | Attribute / argument | Meaning |
 |----------------------|---------|
 | `Availability(target)` | share of eligible events that are not bad, `0 < target < 100`, up to 4 decimals |
-| `Latency(threshold, target, includeErrors: false)` | share of eligible events not slower than `threshold` (`<int>ms` or `<decimal>s`, stored as whole milliseconds); `includeErrors` is HTTP only |
+| `Latency(threshold, target, includeErrors: false)` | share of eligible events not slower than `threshold` (`<int>ms` or `<decimal>s`, stored as whole milliseconds, 1ms to 999999999ms); `includeErrors` is HTTP only |
 | `Combined(threshold, target)` | good = not bad **and** not slower than `threshold`; eligible like availability |
 | `name` | unique per application, `^[a-z][a-z0-9_.-]{0,62}$`; becomes the `slo` label |
 | `window` | `<N>h`, `<N>d`, `<N>w`, `<N>mo` (month = 30 days; `m` is minutes and rejected), 1h - 90d, default `defaults.window` |
