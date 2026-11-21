@@ -17,7 +17,7 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\Revision;
 final readonly class RevisionCalculator
 {
     /**
-     * @param list<string> $failureTransports enter the revision of messenger_message SLOs only: changing them changes which deliveries are eligible
+     * @param list<non-empty-string> $failureTransports enter the revision of messenger_message SLOs only: changing them changes which deliveries are eligible
      */
     public function revision(SloDefinition $slo, ObjectiveKind $kind, array $failureTransports): Revision
     {
