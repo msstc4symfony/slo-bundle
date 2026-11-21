@@ -14,9 +14,11 @@ use Msstc4Symfony\SloBundle\Application\Generation\GenerateDashboards\Action as 
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateRules\Action as GenerateRulesAction;
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateSloth\Action as GenerateSlothAction;
 use Msstc4Symfony\SloBundle\Application\Generation\SyncFiles\Action as SyncFilesAction;
+use Msstc4Symfony\SloBundle\Application\Operation\OperationMonitor;
 use Msstc4Symfony\SloBundle\Application\Port\CatalogDiagnosticsInterface;
 use Msstc4Symfony\SloBundle\Application\Port\EventRecorderInterface;
 use Msstc4Symfony\SloBundle\Application\Port\EventWriterInterface;
+use Msstc4Symfony\SloBundle\Application\Port\ExpectedFailureClassifierInterface;
 use Msstc4Symfony\SloBundle\Application\Port\FileWriterInterface;
 use Msstc4Symfony\SloBundle\Application\Port\GrafanaFileBuilderInterface;
 use Msstc4Symfony\SloBundle\Application\Port\MonotonicClockInterface;
@@ -30,16 +32,17 @@ use Msstc4Symfony\SloBundle\Domain\Repository\SloCatalogInterface;
 use Msstc4Symfony\SloBundle\Domain\Service\EventClassifier;
 use Msstc4Symfony\SloBundle\Domain\Service\RevisionCalculator;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
+use Msstc4Symfony\SloBundle\Infrastructure\Clock\HrtimeClock;
 use Msstc4Symfony\SloBundle\Infrastructure\Filesystem\FileWriter;
 use Msstc4Symfony\SloBundle\Infrastructure\Grafana\GrafanaFileBuilder;
 use Msstc4Symfony\SloBundle\Infrastructure\Logging\FailSafeLogger;
+use Msstc4Symfony\SloBundle\Infrastructure\LogicBundle\LogicBundleExpectedFailureClassifier;
+use Msstc4Symfony\SloBundle\Infrastructure\LogicBundle\NullExpectedFailureClassifier;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\DeliveryStatusMapper;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\DeliveryStatusMapperInterface;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\HttpSloObserver;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MessengerSloObserver;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MetricsEventWriter;
-use Msstc4Symfony\SloBundle\Infrastructure\Operation\HrtimeClock;
-use Msstc4Symfony\SloBundle\Infrastructure\Operation\OperationMonitor;
 use Msstc4Symfony\SloBundle\Infrastructure\Prometheus\PromQlBuilder;
 use Msstc4Symfony\SloBundle\Infrastructure\Prometheus\RuleGroupsBuilder;
 use Msstc4Symfony\SloBundle\Infrastructure\Sloth\SlothSpecBuilder;
@@ -110,6 +113,10 @@ return static function (ContainerConfigurator $container): void {
 
     $services->set(HrtimeClock::class);
     $services->alias(MonotonicClockInterface::class, HrtimeClock::class);
+
+    $classifier = LogicBundleExpectedFailureClassifier::isAvailable() ? LogicBundleExpectedFailureClassifier::class : NullExpectedFailureClassifier::class;
+    $services->set($classifier);
+    $services->alias(ExpectedFailureClassifierInterface::class, $classifier);
     $services->set(OperationMonitor::class)
         ->arg('$logger', service(FailSafeLogger::class))
         ->tag('kernel.reset', ['method' => 'reset'])

@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Msstc4Symfony\SloBundle\Test\Integration\DependencyInjection;
 
 use Msstc4Symfony\SloBundle\Application\Evaluation\RecordEvent\Action as RecordEventAction;
+use Msstc4Symfony\SloBundle\Application\Operation\OperationMonitor;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\Logging\FailSafeLogger;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\DeliveryStatusMapper;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\HttpSloObserver;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MessengerSloObserver;
-use Msstc4Symfony\SloBundle\Infrastructure\Operation\OperationMonitor;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RoutePointIndex;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\SloCacheWarmer;
 use Msstc4Symfony\SloBundle\Test\Integration\TestContainer;

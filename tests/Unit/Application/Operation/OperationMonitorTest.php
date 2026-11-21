@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Operation;
+namespace Msstc4Symfony\SloBundle\Test\Unit\Application\Operation;
 
 use LogicException;
 use Msstc4Symfony\LogicBundle\Application\Action\ActionOutcome;
@@ -14,6 +14,8 @@ use Msstc4Symfony\SloBundle\Application\Binding\MetricBindingResolver;
 use Msstc4Symfony\SloBundle\Application\Binding\RevisionResolver;
 use Msstc4Symfony\SloBundle\Application\Discovery\CatalogAssembler;
 use Msstc4Symfony\SloBundle\Application\Evaluation\RecordEvent\Action;
+use Msstc4Symfony\SloBundle\Application\Operation\NoopOperationHandle;
+use Msstc4Symfony\SloBundle\Application\Operation\OperationMonitor;
 use Msstc4Symfony\SloBundle\Application\Port\EventWriterInterface;
 use Msstc4Symfony\SloBundle\Application\Port\OperationHandleInterface;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
@@ -21,8 +23,7 @@ use Msstc4Symfony\SloBundle\Domain\Service\EventClassifier;
 use Msstc4Symfony\SloBundle\Domain\Service\RevisionCalculator;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
-use Msstc4Symfony\SloBundle\Infrastructure\Operation\NoopOperationHandle;
-use Msstc4Symfony\SloBundle\Infrastructure\Operation\OperationMonitor;
+use Msstc4Symfony\SloBundle\Infrastructure\LogicBundle\LogicBundleExpectedFailureClassifier;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\CatalogFixture;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\InMemoryRouteCatalog;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Evaluation\RecordEvent\FixedPrecomputedRevisions;
@@ -32,7 +33,6 @@ use Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Symfony\RecordingLogger;
 use Override;
 use PHPUnit\Framework\Attributes\RequiresMethod;
 use PHPUnit\Framework\TestCase;
-use ReflectionProperty;
 use RuntimeException;
 use Symfony\Component\Validator\ConstraintViolationList;
 use Symfony\Component\Validator\Exception\ValidationFailedException;
@@ -206,9 +206,10 @@ final class OperationMonitorTest extends TestCase
         }
 
         self::assertCount(101, $this->logger->records);
-        $warned = (new ReflectionProperty(OperationMonitor::class, 'warned'))->getValue($this->monitor);
-        self::assertIsArray($warned);
-        self::assertCount(100, $warned);
+        self::assertSame('Further undeclared SLO operation names are suppressed until reset.', $this->logger->records[100][1]);
+        $this->monitor->start('unknown.op0')->end();
+        $this->monitor->start('unknown.op149')->end();
+        self::assertCount(101, $this->logger->records);
 
         $this->monitor->reset();
         $this->monitor->start('unknown.op0')->end();
@@ -269,7 +270,7 @@ final class OperationMonitorTest extends TestCase
 
     public function testCatalogFailureDoesNotThrow(): void
     {
-        $monitor = new OperationMonitor(new ThrowingCatalog(), $this->action($this->writer, $this->catalog()), $this->clock, $this->logger);
+        $monitor = new OperationMonitor(new ThrowingCatalog(), $this->action($this->writer, $this->catalog()), $this->clock, new LogicBundleExpectedFailureClassifier(), $this->logger);
 
         $monitor->start('payment.validation')->end();
 
@@ -280,7 +281,7 @@ final class OperationMonitorTest extends TestCase
     public function testFailingClockAtStartYieldsANoopHandleAndAWarning(): void
     {
         $catalog = $this->catalog();
-        $monitor = new OperationMonitor($catalog, $this->action($this->writer, $catalog), new ThrowingClock(), $this->logger);
+        $monitor = new OperationMonitor($catalog, $this->action($this->writer, $catalog), new ThrowingClock(), new LogicBundleExpectedFailureClassifier(), $this->logger);
 
         $handle = $monitor->start('payment.validation');
         $handle->end();
@@ -293,7 +294,7 @@ final class OperationMonitorTest extends TestCase
     public function testFailingClockAtEndIsLoggedNotThrown(): void
     {
         $catalog = $this->catalog();
-        $monitor = new OperationMonitor($catalog, $this->action($this->writer, $catalog), new ThrowingClock(1), $this->logger);
+        $monitor = new OperationMonitor($catalog, $this->action($this->writer, $catalog), new ThrowingClock(1), new LogicBundleExpectedFailureClassifier(), $this->logger);
 
         self::assertSame(7, $monitor->measure('payment.validation', static fn (): int => 7));
         self::assertSame([], $this->writer->writes);
@@ -304,9 +305,7 @@ final class OperationMonitorTest extends TestCase
     public function testFailingClassificationKeepsTheUserExceptionAndCountsAnError(): void
     {
         $catalog = $this->catalog();
-        $monitor = new OperationMonitor($catalog, $this->action($this->writer, $catalog), $this->clock, $this->logger, static function (): bool {
-            throw new LogicException('classifier broken');
-        });
+        $monitor = new OperationMonitor($catalog, $this->action($this->writer, $catalog), $this->clock, new ThrowingClassifier(), $this->logger);
         $thrown = new ExpectedFailure('declined');
 
         $caught = null;
@@ -360,6 +359,6 @@ final class OperationMonitorTest extends TestCase
     {
         $catalog = $this->catalog();
 
-        return new OperationMonitor($catalog, $this->action($writer, $catalog), $this->clock, $this->logger);
+        return new OperationMonitor($catalog, $this->action($writer, $catalog), $this->clock, new LogicBundleExpectedFailureClassifier(), $this->logger);
     }
 }

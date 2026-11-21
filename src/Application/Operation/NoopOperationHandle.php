@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Msstc4Symfony\SloBundle\Infrastructure\Operation;
+namespace Msstc4Symfony\SloBundle\Application\Operation;
 
 use Msstc4Symfony\SloBundle\Application\Port\OperationHandleInterface;
 use Override;

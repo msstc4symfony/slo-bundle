@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Operation;
+namespace Msstc4Symfony\SloBundle\Test\Unit\Application\Operation;
 
 use Msstc4Symfony\SloBundle\Domain\Entity\SloDefinition;
 use Msstc4Symfony\SloBundle\Domain\Repository\SloCatalogInterface;

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Operation;
+namespace Msstc4Symfony\SloBundle\Test\Unit\Application\Operation;
 
 use Msstc4Symfony\SloBundle\Application\Port\MonotonicClockInterface;
 use Override;

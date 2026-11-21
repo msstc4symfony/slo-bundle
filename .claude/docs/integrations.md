@@ -28,8 +28,15 @@
 ## Монитор операций и логирование (Task 10)
 
 - Порты `Application/Port/{OperationMonitorInterface,OperationHandleInterface,MonotonicClockInterface}`; публичный алиас
-  `OperationMonitorInterface` -> `Infrastructure/Operation/OperationMonitor` (его будет декорировать slo-bridge-profiling).
-  Часы `HrtimeClock` (`hrtime(true)`, наносекунды); в тестах `FakeClock`.
+  `OperationMonitorInterface` -> `Application/Operation/OperationMonitor` (его будет декорировать slo-bridge-profiling);
+  `OperationHandle`/`NoopOperationHandle` там же. Это реализация driving-порта с двумя методами и состоянием
+  (`warned`), поэтому не слайс `Action/Input/Output`. Часы `Infrastructure/Clock/HrtimeClock` (`hrtime(true)`,
+  наносекунды); в тестах `FakeClock`. Классификация исключений `measure()` — порт
+  `ExpectedFailureClassifierInterface`: `Infrastructure/LogicBundle/LogicBundleExpectedFailureClassifier`
+  (`ActionOutcome::of()` или `ExpectedFailureInterface`), если logic-bundle установлен (выбор в `services.php` при
+  сборке контейнера), иначе `NullExpectedFailureClassifier` (всё — error).
+- Публичный driving-порт для мостов — `Application/Port/EventRecorderInterface::record(RecordEvent\Input)` (публичный
+  алиас на `RecordEvent\Action`, который `@internal`).
 - Имя операции проверяется в `start()`/`measure()`: нет SLO и нет конфликта для `PointId::of(Operation, $name)` либо имя
   не проходит `SloName` (в т.ч. пустое) -> `NoopOperationHandle` + одно предупреждение на имя (`reset()` очищает, тег
   `kernel.reset`). Конфликтное имя считается объявленным: предупреждение даёт `RecordEvent\Action`.

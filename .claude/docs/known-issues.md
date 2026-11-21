@@ -178,8 +178,8 @@
 - **`RecordEvent\Action::reset()`** очищает только предупреждения и неудачные резолвы; успешные резолвы (стратегия+ревизия) живут
   весь процесс. Повторные сбои записи логируются один раз на `slo|objective|класс исключения` до reset (не больше 100 ключей).
   `RoutePointIndex` теперь `ResetInterface`: reset повторяет только неудачную сборку индекса.
-- **`OperationMonitor`** принимает необязательный `Closure(Throwable): bool $isExpectedFailure` (по умолчанию logic-bundle
-  `ActionOutcome`); сбой классификации = error, исключение пользователя пробрасывается без замены.
+- **`OperationMonitor`** классифицирует через `ExpectedFailureClassifierInterface` (logic-bundle `ActionOutcome` или null-адаптер);
+  сбой классификации = error, исключение пользователя пробрасывается без замены.
 - **`DeliveryStatusMapperInterface`** — шов для тестов наблюдателя Messenger (ветка «неизвестный статус» недостижима с реальным enum).
 - **Покрытие**: порог сравнивается по точной дроби (`monitored*100 < required*eligible`), процент округляется только для вывода
   (`Output::$sloFraction`).
