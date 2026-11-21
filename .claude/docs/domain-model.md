@@ -6,10 +6,15 @@
 ## Реализовано (Task 2, `src/Domain/`)
 
 - Значения: `SloName`, `Target` (0 < t < 100, до 4 знаков, NaN/INF отвергаются), `Window` (`h|d|w|mo`, 1h..90d,
-  месяц = 30 дней; `toPromQl()` — наибольшая точная единица из `w|d|h`), `LatencyThreshold` (целые миллисекунды),
-  `Revision`, `PointId` (`<type>:<id>`), `StatusSet` (канонический вид — отсортированные строки `429`, `5xx`,
-  `500-503`; `toRegex()` раскрывает диапазон в перечисление кодов), `Objective`, `Classification`, `Observation`.
-- `SloDefinition` — неизменяемая сущность; `sameSemanticsAs()` сравнивает всё, кроме точек (ruling 1).
+  месяц = 30 дней), `LatencyThreshold` (целые миллисекунды), `Revision`, `PointId` (`<type>:<id>`), `StatusSet`
+  (канонический вид — отсортированные строки `429`, `5xx`, `500-503`), `Objective`, `Classification`, `Observation`.
+  Синтаксис PromQL/RE2 в Domain не живёт (spec 4.1, CR-007): окно в PromQL (наибольшая точная единица из `w|d|h`) и
+  шаблон статусов (`5..`, диапазон — перечисление кодов) рендерит `Infrastructure/Prometheus/PromQlRenderer`.
+- `SloDefinition` — неизменяемая сущность; `sameSemanticsAs()` сравнивает всё, кроме точек (ruling 1). Конструктор
+  сам держит инварианты, от которых зависит стабильность ревизии (CR-008): `includeErrors` только у `http_route`;
+  поля классификации, неприменимые к типу точки, равны `Classification::defaults()` (статусы — только HTTP,
+  `expectedFailureIsGood` — logic/operation, `countAttempts` — Messenger). `DefinitionFactory` проверяет то же раньше,
+  чтобы собрать все ошибки разом; `CatalogDump::definition()` идёт через конструктор, так что битый дамп отвергается.
 - Равенство VO — явные `equals()` (PHPStan запрещает `==`); пустые списки в `SloDefinition` проверяет
   `assertNotEmpty()`, а не inline-условие: Rector удаляет такую проверку для `non-empty-list`.
 - `SloCatalogInterface` включает `conflictedNamesFor(PointId)` (R1, реализация — Task 5).

@@ -49,7 +49,12 @@ final readonly class SloDefinition
                 throw new InvalidArgumentException(\sprintf('SLO "%s" declares the "%s" objective twice.', $name->value, $objective->kind->value));
             }
             $kinds[$objective->kind->value] = true;
+            if ($objective->includeErrors && $pointType !== PointType::HttpRoute) {
+                throw new InvalidArgumentException(\sprintf('SLO "%s": includeErrors applies to http_route points only.', $name->value));
+            }
         }
+
+        $this->assertNeutralClassification($name, $pointType, $classification);
     }
 
     public function name(): SloName
@@ -141,6 +146,30 @@ final readonly class SloDefinition
         }
 
         return true;
+    }
+
+    /**
+     * Options that do not apply to the point type keep their defaults, so they never change the revision.
+     */
+    private function assertNeutralClassification(SloName $name, PointType $pointType, Classification $classification): void
+    {
+        $neutral = Classification::defaults();
+        $irrelevant = [];
+        if ($pointType !== PointType::HttpRoute && $classification->badStatuses->canonical() !== $neutral->badStatuses->canonical()) {
+            $irrelevant[] = 'badStatuses';
+        }
+        if ($pointType !== PointType::HttpRoute && $classification->ineligibleStatuses->canonical() !== $neutral->ineligibleStatuses->canonical()) {
+            $irrelevant[] = 'ineligibleStatuses';
+        }
+        if ($pointType !== PointType::LogicAction && $pointType !== PointType::Operation && $classification->expectedFailureIsGood !== $neutral->expectedFailureIsGood) {
+            $irrelevant[] = 'expectedFailureIsGood';
+        }
+        if ($pointType !== PointType::MessengerMessage && $classification->countAttempts !== $neutral->countAttempts) {
+            $irrelevant[] = 'countAttempts';
+        }
+        if ($irrelevant !== []) {
+            throw new InvalidArgumentException(\sprintf('SLO "%s": %s must keep the default on %s points.', $name->value, implode(', ', $irrelevant), $pointType->value));
+        }
     }
 
     /**

@@ -109,10 +109,6 @@ final readonly class MetricBindingResolver
             return $this->series->messengerAvailability($messages, $extras->failureTransports);
         }
 
-        // includeErrors is rejected for Messenger at compile time; the histogram could not express it anyway.
-        if ($objective->includeErrors) {
-            return null;
-        }
         $bucket = $this->bucket(PointType::MessengerMessage, $objective, $extras);
 
         return $bucket === null ? null : $this->series->messengerLatency($messages, $extras->failureTransports, $bucket);

@@ -91,8 +91,15 @@ final class RevisionCalculatorTest extends TestCase
     {
         $base = $this->revision($this->slo());
 
-        self::assertNotSame($base, $this->revision($this->slo(classification: new Classification(StatusSet::fromList(['5xx']), StatusSet::fromList([]), false, false))));
-        self::assertNotSame($base, $this->revision($this->slo(classification: new Classification(StatusSet::fromList(['5xx']), StatusSet::fromList([]), true, true))));
+        $availability = static fn (SloDefinition $slo): string => (new RevisionCalculator())->revision($slo, ObjectiveKind::Availability, [])->value;
+        self::assertNotSame(
+            $availability($this->slo(type: PointType::Operation)),
+            $availability($this->slo(classification: new Classification(StatusSet::fromList(['5xx']), StatusSet::fromList([]), false, false), type: PointType::Operation)),
+        );
+        self::assertNotSame(
+            $this->revision($this->slo(type: PointType::MessengerMessage)),
+            $this->revision($this->slo(classification: new Classification(StatusSet::fromList(['5xx']), StatusSet::fromList([]), true, true), type: PointType::MessengerMessage)),
+        );
         self::assertNotSame($base, $this->revision($this->slo(classification: new Classification(StatusSet::fromList(['5xx']), StatusSet::fromList([429]), true, false))));
         self::assertNotSame($base, $this->revision($this->slo(classification: new Classification(StatusSet::fromList(['500']), StatusSet::fromList([]), true, false))));
     }

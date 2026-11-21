@@ -27,7 +27,6 @@ use Msstc4Symfony\SloBundle\Domain\Enum\Strategy;
 use Msstc4Symfony\SloBundle\Domain\Enum\StrategyPreference;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Objective;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
-use Msstc4Symfony\SloBundle\Domain\ValueObject\Target;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MetricsBundleSeriesCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\Prometheus\PromQlRenderer;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\CatalogFixture;
@@ -227,23 +226,6 @@ final class MetricBindingResolverTest extends TestCase
         ];
 
         self::assertFalse($this->resolver($definition, new CatalogExtras(handlers: $handlers))->isDedicated($definition, ObjectiveKind::Availability));
-    }
-
-    public function testMessengerLatencyWithIncludeErrorsFallsBackToDedicated(): void
-    {
-        $compiled = $this->define(PointType::MessengerMessage, self::slo(new Latency('1s', 99)));
-        $threshold = $this->objective($compiled, ObjectiveKind::Latency)->threshold ?? throw new LogicException('threshold missing');
-        $definition = new SloDefinition(
-            $compiled->name(),
-            PointType::MessengerMessage,
-            $compiled->points(),
-            [Objective::latency($threshold, Target::fromPercent(99), true)],
-            $compiled->window(),
-            $compiled->classification(),
-            $compiled->strategy(),
-        );
-
-        self::assertTrue($this->resolver($definition, $this->extras())->isDedicated($definition, ObjectiveKind::Latency));
     }
 
     public function testMessengerLatencySeries(): void

@@ -17,6 +17,7 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\SloName;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\StatusSet;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Target;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Window;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class SloDefinitionTest extends TestCase
@@ -91,6 +92,54 @@ final class SloDefinitionTest extends TestCase
         $this->definition()->withPoint(PointId::of(PointType::Operation, 'x'));
     }
 
+    public function testIncludeErrorsIsAcceptedOnHttpRoutesOnly(): void
+    {
+        $latency = Objective::latency(LatencyThreshold::fromString('300ms'), Target::fromPercent(95.0), true);
+
+        self::assertTrue($this->definition(objectives: [$latency])->objectives()[0]->includeErrors);
+
+        $this->expectExceptionObject(new InvalidArgumentException('SLO "payment": includeErrors applies to http_route points only.'));
+        $this->definition(pointType: PointType::Operation, points: [PointId::of(PointType::Operation, 'a')], objectives: [$latency]);
+    }
+
+    /**
+     * @return iterable<string, array{PointType, Classification, non-empty-string}>
+     */
+    public static function provideIrrelevantClassification(): iterable
+    {
+        yield 'bad statuses on messenger' => [PointType::MessengerMessage, self::classification(['5xx', 429], []), 'badStatuses must keep the default on messenger_message points'];
+        yield 'ineligible statuses on operation' => [PointType::Operation, self::classification(['5xx'], [404]), 'ineligibleStatuses must keep the default on operation points'];
+        yield 'expected failure on http' => [PointType::HttpRoute, self::classification(['5xx'], [], false), 'expectedFailureIsGood must keep the default on http_route points'];
+        yield 'expected failure on messenger' => [PointType::MessengerMessage, self::classification(['5xx'], [], false), 'expectedFailureIsGood must keep the default on messenger_message points'];
+        yield 'count attempts on logic' => [PointType::LogicAction, self::classification(['5xx'], [], true, true), 'countAttempts must keep the default on logic_action points'];
+        yield 'several at once' => [PointType::LogicAction, self::classification(['4xx'], [], true, true), 'badStatuses, countAttempts must keep the default'];
+    }
+
+    /**
+     * @param non-empty-string $message
+     */
+    #[DataProvider('provideIrrelevantClassification')]
+    public function testClassificationFieldsIrrelevantToThePointTypeMustBeDefaults(PointType $type, Classification $classification, string $message): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage($message);
+
+        $this->definition(pointType: $type, points: [PointId::of($type, 'a')], classification: $classification);
+    }
+
+    public function testRelevantClassificationFieldsMayDiffer(): void
+    {
+        $http = $this->definition(classification: new Classification(StatusSet::fromList([429]), StatusSet::fromList([404]), true, false));
+        $logic = $this->definition(pointType: PointType::LogicAction, points: [PointId::of(PointType::LogicAction, 'a')], classification: new Classification(StatusSet::fromList(['5xx']), StatusSet::fromList([]), false, false));
+        $operation = $this->definition(pointType: PointType::Operation, points: [PointId::of(PointType::Operation, 'a')], classification: new Classification(StatusSet::fromList(['5xx']), StatusSet::fromList([]), false, false));
+        $messenger = $this->definition(pointType: PointType::MessengerMessage, points: [PointId::of(PointType::MessengerMessage, 'a')], classification: new Classification(StatusSet::fromList(['5xx']), StatusSet::fromList([]), true, true));
+
+        self::assertSame(['429'], $http->classification()->badStatuses->canonical());
+        self::assertFalse($logic->classification()->expectedFailureIsGood);
+        self::assertFalse($operation->classification()->expectedFailureIsGood);
+        self::assertTrue($messenger->classification()->countAttempts);
+    }
+
     public function testSameSemanticsIgnoresPointsOnly(): void
     {
         $base = $this->definition();
@@ -107,6 +156,15 @@ final class SloDefinitionTest extends TestCase
         ])));
         self::assertFalse($base->sameSemanticsAs($this->definition(name: 'other')));
         self::assertFalse($base->sameSemanticsAs($this->definition(pointType: PointType::Operation, points: [PointId::of(PointType::Operation, 'a')])));
+    }
+
+    /**
+     * @param list<int|string> $bad
+     * @param list<int|string> $ineligible
+     */
+    private static function classification(array $bad, array $ineligible, bool $expectedFailureIsGood = true, bool $countAttempts = false): Classification
+    {
+        return new Classification(StatusSet::fromList($bad), StatusSet::fromList($ineligible), $expectedFailureIsGood, $countAttempts);
     }
 
     /**

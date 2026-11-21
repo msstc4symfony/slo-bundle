@@ -112,24 +112,25 @@ final class EventClassifierTest extends TestCase
     #[DataProvider('provideCases')]
     public function testClassify(ObjectiveKind $kind, Closure $observation, ?EventResult $expected, array $options = []): void
     {
-        $slo = $this->slo($options['classification'] ?? Classification::defaults(), $options['includeErrors'] ?? false);
+        $event = $observation();
+        $slo = $this->slo($event->pointType, $options['classification'] ?? Classification::defaults(), $options['includeErrors'] ?? false);
         $objective = $slo->objective($kind);
         self::assertNotNull($objective);
 
-        $result = (new EventClassifier())->classify($slo, $objective, $observation());
+        $result = (new EventClassifier())->classify($slo, $objective, $event);
 
         self::assertSame($expected, $result);
     }
 
-    private function slo(Classification $classification, bool $includeErrors): SloDefinition
+    private function slo(PointType $type, Classification $classification, bool $includeErrors): SloDefinition
     {
         $threshold = LatencyThreshold::fromString('200ms');
         $target = Target::fromPercent(99.0);
 
         return new SloDefinition(
             SloName::fromString('payment'),
-            PointType::HttpRoute,
-            [PointId::of(PointType::HttpRoute, 'payment_create')],
+            $type,
+            [PointId::of($type, 'payment_create')],
             [
                 Objective::availability($target),
                 Objective::latency($threshold, $target, $includeErrors),

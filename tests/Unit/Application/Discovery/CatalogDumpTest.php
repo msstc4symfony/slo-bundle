@@ -113,4 +113,22 @@ final class CatalogDumpTest extends TestCase
 
         CatalogDump::point('http_route');
     }
+
+    public function testDumpedDefinitionGoesThroughTheEntityInvariants(): void
+    {
+        $this->expectExceptionObject(new InvalidArgumentException('SLO "payment.validation": badStatuses must keep the default on operation points.'));
+
+        CatalogDump::definition([
+            'name' => 'payment.validation',
+            'point_type' => 'operation',
+            'points' => ['operation:payment.validation'],
+            'objectives' => [['kind' => 'availability', 'target' => 99.0, 'threshold_ms' => null, 'include_errors' => false]],
+            'window' => '30d',
+            'bad_statuses' => ['4xx'],
+            'ineligible_statuses' => [],
+            'expected_failure_is_good' => true,
+            'count_attempts' => false,
+            'strategy' => 'dedicated',
+        ]);
+    }
 }
