@@ -9,11 +9,17 @@ use PHPUnit\Framework\TestCase;
 
 final class HrtimeClockTest extends TestCase
 {
-    public function testIsMonotonic(): void
+    public function testReadsTheMonotonicClockInNanoseconds(): void
     {
         $clock = new HrtimeClock();
-        $first = $clock->now();
 
-        self::assertGreaterThanOrEqual($first, $clock->now());
+        $before = hrtime(true);
+        $first = $clock->now();
+        $second = $clock->now();
+        $after = hrtime(true);
+
+        self::assertGreaterThanOrEqual($before, $first);
+        self::assertGreaterThanOrEqual($first, $second);
+        self::assertLessThanOrEqual($after, $second);
     }
 }

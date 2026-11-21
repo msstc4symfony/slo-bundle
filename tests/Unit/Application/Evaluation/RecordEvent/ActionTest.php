@@ -31,6 +31,7 @@ use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MetricsBundleSeriesCata
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouterRouteCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouterRouteReader;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\CatalogFixture;
+use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\CountingRouteCatalog;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\FailingCatalog;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\InMemoryRouteCatalog;
 use Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Symfony\InMemoryRouteIndexStore;
@@ -146,17 +147,21 @@ final class ActionTest extends TestCase
 
     public function testResetKeepsSuccessfulResolutions(): void
     {
-        $routes = $this->createMock(RouteCatalogInterface::class);
-        $routes->expects(self::exactly(2))->method('routesFor')->willReturn([new RouteInfo('payment_create', '/payments', [], self::CONTROLLER)]);
+        $routes = $this->countingRoutes();
         $writer = new InMemoryEventWriter();
         $action = $this->action($this->paymentCatalog(), $writer, new RecordingLogger(), $routes);
         $input = new Input($this->point(), Observation::http(200, 0.1));
+        $action->record($input);
+        $action->reset();
 
-        for ($i = 0; $i < 3; $i++) {
+        $resolved = $routes->lookups;
+
+        for ($i = 0; $i < 2; $i++) {
             $action->record($input);
             $action->reset();
         }
 
+        self::assertSame($resolved, $routes->lookups);
         self::assertCount(3, $writer->writes);
         self::assertSame($writer->writes[0], $writer->writes[2]);
     }
@@ -222,32 +227,43 @@ final class ActionTest extends TestCase
 
     public function testBindingIsResolvedOncePerObjectiveOverManyEvents(): void
     {
-        $routes = $this->createMock(RouteCatalogInterface::class);
-        $routes->expects(self::exactly(2))->method('routesFor')->willReturn([new RouteInfo('payment_create', '/payments', [], self::CONTROLLER)]);
-        $catalog = $this->paymentCatalog();
+        $routes = $this->countingRoutes();
         $writer = new InMemoryEventWriter();
-        $action = $this->action($catalog, $writer, new RecordingLogger(), $routes);
+        $action = $this->action($this->paymentCatalog(), $writer, new RecordingLogger(), $routes);
+        $action->record(new Input($this->point(), Observation::http(200, 0.1)));
 
-        for ($i = 0; $i < 5; $i++) {
+        $resolved = $routes->lookups;
+
+        for ($i = 0; $i < 4; $i++) {
             $action->record(new Input($this->point(), Observation::http(200, 0.1)));
         }
 
+        self::assertSame($resolved, $routes->lookups);
         self::assertCount(5, $writer->writes);
     }
 
     public function testThrowingRouterIsMemoisedAsSkipAndLoggedOncePerObjective(): void
     {
-        $router = $this->createMock(RouterInterface::class);
-        $router->expects(self::exactly(2))->method('getRouteCollection')->willThrowException(new RuntimeException('router broken'));
+        $loads = 0;
+        $router = self::createStub(RouterInterface::class);
+        $router->method('getRouteCollection')->willReturnCallback(static function () use (&$loads): never {
+            $loads++;
+
+            throw new RuntimeException('router broken');
+        });
         $catalog = $this->paymentCatalog();
         $writer = new InMemoryEventWriter();
         $logger = new RecordingLogger();
         $action = $this->action($catalog, $writer, $logger, new RouterRouteCatalog(new RouterRouteReader($router, $catalog), new InMemoryRouteIndexStore()));
+        $action->record(new Input($this->point(), Observation::http(200, 0.1)));
 
-        for ($i = 0; $i < 5; $i++) {
+        $afterFirstEvent = $loads;
+
+        for ($i = 0; $i < 4; $i++) {
             $action->record(new Input($this->point(), Observation::http(200, 0.1)));
         }
 
+        self::assertSame($afterFirstEvent, $loads);
         self::assertSame([], $writer->writes);
         self::assertCount(2, $logger->records);
         self::assertSame(['availability', 'latency'], array_map(static fn (array $context): mixed => $context['objective'] ?? null, $logger->contexts));
@@ -257,13 +273,7 @@ final class ActionTest extends TestCase
 
     public function testFailedResolutionIsRetriedAfterReset(): void
     {
-        $routes = $this->createMock(RouteCatalogInterface::class);
-        $routes->expects(self::exactly(4))->method('routesFor')->willReturnOnConsecutiveCalls(
-            self::throwException(new RuntimeException('router broken')),
-            self::throwException(new RuntimeException('router broken')),
-            [new RouteInfo('payment_create', '/payments', [], self::CONTROLLER)],
-            [new RouteInfo('payment_create', '/payments', [], self::CONTROLLER)],
-        );
+        $routes = $this->countingRoutes(failures: 2);
         $writer = new InMemoryEventWriter();
         $action = $this->action($this->paymentCatalog(), $writer, new RecordingLogger(), $routes);
         $input = new Input($this->point(), Observation::http(200, 0.1));
@@ -305,6 +315,14 @@ final class ActionTest extends TestCase
         self::assertCount(1, $writer->writes);
         self::assertCount(1, $logger->records);
         self::assertSame('http_route:' . self::CONTROLLER, $logger->contexts[0]['point']);
+    }
+
+    /**
+     * @param non-negative-int $failures
+     */
+    private function countingRoutes(int $failures = 0): CountingRouteCatalog
+    {
+        return new CountingRouteCatalog([new RouteInfo('payment_create', '/payments', [], self::CONTROLLER)], $failures);
     }
 
     private function point(): PointId

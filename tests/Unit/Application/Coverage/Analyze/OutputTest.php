@@ -14,17 +14,17 @@ use PHPUnit\Framework\TestCase;
 final class OutputTest extends TestCase
 {
     /**
-     * @return iterable<string, array{non-negative-int, non-negative-int, float, bool}>
+     * @return iterable<string, array{non-negative-int, non-negative-int, float, bool, float}>
      */
     public static function thresholdProvider(): iterable
     {
-        yield 'two of three is below the rounded 66.67' => [2, 3, 66.67, true];
-        yield 'two of three reaches 66.66' => [2, 3, 66.66, false];
-        yield 'exactly the required share' => [1, 2, 50.0, false];
-        yield 'just below 100' => [999, 1000, 100.0, true];
-        yield 'rounds to 100 but is below' => [99_999, 100_000, 100.0, true];
-        yield 'all covered' => [3, 3, 100.0, false];
-        yield 'nothing to cover' => [0, 0, 100.0, false];
+        yield 'two of three is below the rounded 66.67' => [2, 3, 66.67, true, 66.67];
+        yield 'two of three reaches 66.66' => [2, 3, 66.66, false, 66.67];
+        yield 'exactly the required share' => [1, 2, 50.0, false, 50.0];
+        yield 'just below 100' => [999, 1000, 100.0, true, 99.9];
+        yield 'rounds to 100 but is below' => [99_999, 100_000, 100.0, true, 100.0];
+        yield 'all covered' => [3, 3, 100.0, false, 100.0];
+        yield 'nothing to cover' => [0, 0, 100.0, false, 100.0];
     }
 
     /**
@@ -32,14 +32,14 @@ final class OutputTest extends TestCase
      * @param non-negative-int $eligible
      */
     #[DataProvider('thresholdProvider')]
-    public function testThresholdIsComparedOnTheExactFraction(int $monitored, int $eligible, float $required, bool $below): void
+    public function testThresholdIsComparedOnTheExactFraction(int $monitored, int $eligible, float $required, bool $below, float $shownPercent): void
     {
         $kinds = array_map(static fn (CoverageKind $kind): KindCoverage => new KindCoverage($kind, 0, 0, 100.0), CoverageKind::cases());
         $kinds[0] = new KindCoverage(CoverageKind::HttpRoute, $monitored, $eligible, 100.0);
         $output = new Output([], $kinds, 0);
 
         self::assertSame($below ? [CoverageKind::HttpRoute] : [], $output->belowThreshold([CoverageKind::HttpRoute->value => $required]));
-        self::assertSame($eligible === 0 ? 100.0 : round($monitored / $eligible * 100, 2), $output->of(CoverageKind::HttpRoute)->sloPercent);
+        self::assertSame($shownPercent, $output->of(CoverageKind::HttpRoute)->sloPercent);
     }
 
     public function testEveryKindMustBeReported(): void

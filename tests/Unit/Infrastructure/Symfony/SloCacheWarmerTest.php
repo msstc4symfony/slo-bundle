@@ -128,8 +128,7 @@ final class SloCacheWarmerTest extends TestCase
         $store = new InMemoryRouteIndexStore();
 
         self::assertSame([], $this->warmer(new InMemoryRouteCatalog(), $logger, $router, $store)->warmUp(self::CACHE_DIR));
-        self::assertSame('SLO route index could not be built during cache warm-up, routes are read on first use.', $logger->records[2][1]);
-        self::assertInstanceOf(RuntimeException::class, $logger->contexts[2]['exception']);
+        self::assertInstanceOf(RuntimeException::class, $this->contextOf($logger, 'SLO route index could not be built during cache warm-up, routes are read on first use.')['exception'] ?? null);
         self::assertSame([], $store->written);
     }
 
@@ -138,8 +137,7 @@ final class SloCacheWarmerTest extends TestCase
         $logger = $this->logger();
 
         self::assertSame([], $this->warmer(new InMemoryRouteCatalog(), $logger, null, new InMemoryRouteIndexStore(failWrites: true))->warmUp(self::CACHE_DIR));
-        self::assertSame('SLO route index could not be written during cache warm-up, routes are read on first use.', $logger->records[2][1]);
-        self::assertInstanceOf(RuntimeException::class, $logger->contexts[2]['exception']);
+        self::assertInstanceOf(RuntimeException::class, $this->contextOf($logger, 'SLO route index could not be written during cache warm-up, routes are read on first use.')['exception'] ?? null);
     }
 
     public function testRoutesAreStillWrittenWhenTheRevisionsCannotBePrecomputed(): void
@@ -213,6 +211,7 @@ final class SloCacheWarmerTest extends TestCase
         $diagnostics = new FailingCatalog($catalog, ['failureTransports']);
         $collection = new RouteCollection();
         $collection->add('create', new Route('/create', ['_controller' => 'A::create']));
+
         $router = self::createStub(RouterInterface::class);
         $router->method('getRouteCollection')->willReturn($collection);
         $logger = $this->logger();
@@ -231,10 +230,9 @@ final class SloCacheWarmerTest extends TestCase
         ))->warmUp(self::CACHE_DIR);
 
         self::assertSame(['payment.create|availability' => ''], ($store->written[self::CACHE_DIR] ?? null)?->revisions());
-        $index = array_search('SLO objective could not be resolved during cache warm-up, it is resolved on first use.', array_column($logger->records, 1), true);
-        self::assertIsInt($index);
-        self::assertSame('payment.process', $logger->contexts[$index]['slo']);
-        self::assertSame('availability', $logger->contexts[$index]['objective']);
+        $context = $this->contextOf($logger, 'SLO objective could not be resolved during cache warm-up, it is resolved on first use.');
+        self::assertSame('payment.process', $context['slo'] ?? null);
+        self::assertSame('availability', $context['objective'] ?? null);
     }
 
     public function testNeverThrowsWhenTheLoggerFails(): void
@@ -274,6 +272,19 @@ final class SloCacheWarmerTest extends TestCase
         return CatalogFixture::build(static function ($assembler): void {
             $assembler->declare(PointId::of(PointType::HttpRoute, 'A::create'), new Slo('payment.create', [new Availability(99.9)]));
         }, new CatalogExtras(warnings: ['a warning']));
+    }
+
+    /**
+     * @param non-empty-string $message
+     *
+     * @return array<array-key, mixed>
+     */
+    private function contextOf(RecordingLogger $logger, string $message): array
+    {
+        $index = array_search($message, array_column($logger->records, 1), true);
+        self::assertIsInt($index, $message . ' was not logged');
+
+        return $logger->contexts[$index];
     }
 
     private function logger(): RecordingLogger
