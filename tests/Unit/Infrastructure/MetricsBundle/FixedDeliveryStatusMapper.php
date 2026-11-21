@@ -10,7 +10,7 @@ use Override;
 use RuntimeException;
 
 /**
- * Answers every status with the given one; throws when constructed without.
+ * Answers every status with the given one (null: an unknown status); throws instead when $throws is true.
  */
 final readonly class FixedDeliveryStatusMapper implements DeliveryStatusMapperInterface
 {
