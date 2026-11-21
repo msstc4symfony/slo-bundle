@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Infrastructure\Symfony;
 
+use Msstc4Symfony\SloBundle\Application\Logging\WarnOnceLimiter;
 use Msstc4Symfony\SloBundle\Application\Port\RouteCatalogInterface;
 use Msstc4Symfony\SloBundle\Application\Port\RoutePointIndexInterface;
 use Msstc4Symfony\SloBundle\Domain\Repository\SloCatalogInterface;
@@ -15,8 +16,8 @@ use Throwable;
 
 /**
  * Read from the warmed route index, else built from the routes on first use; memoised for the process, routes are
- * fixed per container (ruling 7). A failed build is memoised as an empty index: logged once, HTTP SLOs then record
- * nothing until the next kernel.reset retries it; a successful build survives resets.
+ * fixed per container (ruling 7). A failed build is memoised as an empty index: HTTP SLOs then record nothing until
+ * the next kernel.reset retries it; a successful build survives resets.
  *
  * @internal
  */
@@ -27,12 +28,16 @@ final class RoutePointIndex implements RoutePointIndexInterface, ResetInterface
 
     private bool $failed = false;
 
+    /** never reset: a deterministic build failure is retried after every reset but logged once per exception class */
+    private readonly WarnOnceLimiter $failureWarnings;
+
     public function __construct(
         private readonly RouteCatalogInterface $routes,
         private readonly SloCatalogInterface $catalog,
         private readonly RouteIndexStoreInterface $file,
-        private readonly LoggerInterface $logger,
+        LoggerInterface $logger,
     ) {
+        $this->failureWarnings = new WarnOnceLimiter($logger, 'Further SLO route index failures are not logged.', 10);
     }
 
     #[Override]
@@ -67,7 +72,7 @@ final class RoutePointIndex implements RoutePointIndexInterface, ResetInterface
             return RouteIndexData::pointsOf($this->routes->all(), $this->catalog);
         } catch (Throwable $e) {
             $this->failed = true;
-            $this->logger->warning('SLO route index could not be built, HTTP SLO events are not recorded until reset.', ['exception' => $e]);
+            $this->failureWarnings->warn($e::class, 'SLO route index could not be built, HTTP SLO events are not recorded until reset; repeats are not logged.', ['exception' => $e]);
 
             return [];
         }

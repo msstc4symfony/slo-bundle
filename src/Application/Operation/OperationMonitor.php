@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Msstc4Symfony\SloBundle\Application\Operation;
 
 use Closure;
+use Msstc4Symfony\SloBundle\Application\Logging\WarnOnceLimiter;
 use Msstc4Symfony\SloBundle\Application\Port\EventRecorderInterface;
 use Msstc4Symfony\SloBundle\Application\Port\ExpectedFailureClassifierInterface;
 use Msstc4Symfony\SloBundle\Application\Port\MonotonicClockInterface;
@@ -24,24 +25,20 @@ use Throwable;
  *
  * @internal
  */
-final class OperationMonitor implements OperationMonitorInterface, ResetInterface
+final readonly class OperationMonitor implements OperationMonitorInterface, ResetInterface
 {
-    private const MAX_WARNED_NAMES = 100;
-
     private const INVALID_KEY = '(invalid)';
 
-    /** @var array<string, true> */
-    private array $warned = [];
-
-    private bool $suppressionWarned = false;
+    private WarnOnceLimiter $warnings;
 
     public function __construct(
-        private readonly SloCatalogInterface $catalog,
-        private readonly EventRecorderInterface $recorder,
-        private readonly MonotonicClockInterface $clock,
-        private readonly ExpectedFailureClassifierInterface $classifier,
-        private readonly LoggerInterface $logger,
+        private SloCatalogInterface $catalog,
+        private EventRecorderInterface $recorder,
+        private MonotonicClockInterface $clock,
+        private ExpectedFailureClassifierInterface $classifier,
+        private LoggerInterface $logger,
     ) {
+        $this->warnings = new WarnOnceLimiter($logger, 'Further undeclared SLO operation names are suppressed until reset.');
     }
 
     #[Override]
@@ -86,8 +83,7 @@ final class OperationMonitor implements OperationMonitorInterface, ResetInterfac
     #[Override]
     public function reset(): void
     {
-        $this->warned = [];
-        $this->suppressionWarned = false;
+        $this->warnings->reset();
     }
 
     /**
@@ -110,20 +106,11 @@ final class OperationMonitor implements OperationMonitorInterface, ResetInterfac
         $handle->end();
     }
 
+    /**
+     * @param non-empty-string $message
+     */
     private function warnOnce(string $key, string $name, string $message, ?Throwable $exception): void
     {
-        if (isset($this->warned[$key])) {
-            return;
-        }
-        if (\count($this->warned) >= self::MAX_WARNED_NAMES) {
-            if (!$this->suppressionWarned) {
-                $this->suppressionWarned = true;
-                $this->logger->warning('Further undeclared SLO operation names are suppressed until reset.');
-            }
-
-            return;
-        }
-        $this->warned[$key] = true;
-        $this->logger->warning($message, $exception instanceof Throwable ? ['operation' => $name, 'exception' => $exception] : ['operation' => $name]);
+        $this->warnings->warn($key, $message, $exception instanceof Throwable ? ['operation' => $name, 'exception' => $exception] : ['operation' => $name]);
     }
 }

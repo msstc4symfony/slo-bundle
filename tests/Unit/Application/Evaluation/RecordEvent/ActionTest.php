@@ -277,6 +277,22 @@ final class ActionTest extends TestCase
         self::assertCount(2, $writer->writes);
     }
 
+    public function testDeterministicResolutionFailureIsRetriedButNotLoggedAgainAfterReset(): void
+    {
+        $routes = self::createStub(RouteCatalogInterface::class);
+        $routes->method('routesFor')->willThrowException(new RuntimeException('router broken'));
+        $logger = new RecordingLogger();
+        $action = $this->action($this->paymentCatalog(), new InMemoryEventWriter(), $logger, $routes);
+        $input = new Input($this->point(), Observation::http(200, 0.1));
+
+        for ($i = 0; $i < 3; $i++) {
+            $action->record($input);
+            $action->reset();
+        }
+
+        self::assertSame(['availability', 'latency'], array_map(static fn (array $context): mixed => $context['objective'] ?? null, $logger->contexts));
+    }
+
     public function testFailingConflictLookupDoesNotStopRecording(): void
     {
         $catalog = new FailingCatalog($this->paymentCatalog(), ['conflictedNamesFor']);

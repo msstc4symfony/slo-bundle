@@ -97,6 +97,21 @@ final class RoutePointIndexTest extends TestCase
         self::assertSame([], $logger->records);
     }
 
+    public function testRepeatedBuildFailureIsRetriedButLoggedOnceAcrossResets(): void
+    {
+        $routes = $this->createMock(RouteCatalogInterface::class);
+        $routes->expects(self::exactly(3))->method('all')->willThrowException(new RuntimeException('router broken'));
+        $logger = new RecordingLogger();
+        $index = new RoutePointIndex($routes, $this->catalog(), $this->noFile(), $logger);
+
+        for ($i = 0; $i < 3; $i++) {
+            self::assertSame([], $index->pointsFor('pay_create'));
+            $index->reset();
+        }
+
+        self::assertCount(1, $logger->records);
+    }
+
     public function testNumericRouteNameIsIndexed(): void
     {
         $index = new RoutePointIndex(new InMemoryRouteCatalog([new RouteInfo('404', '/pay', [], 'App\Pay::create')]), $this->catalog(), $this->noFile(), new RecordingLogger());

@@ -6,6 +6,7 @@ namespace Msstc4Symfony\SloBundle\Application\Evaluation\RecordEvent;
 
 use Msstc4Symfony\SloBundle\Application\Binding\MetricBindingResolver;
 use Msstc4Symfony\SloBundle\Application\Binding\RevisionResolver;
+use Msstc4Symfony\SloBundle\Application\Logging\WarnOnceLimiter;
 use Msstc4Symfony\SloBundle\Application\Port\EventRecorderInterface;
 use Msstc4Symfony\SloBundle\Application\Port\EventWriterInterface;
 use Msstc4Symfony\SloBundle\Application\Port\PrecomputedRevisionsInterface;
@@ -27,8 +28,6 @@ use Throwable;
  */
 final class Action implements EventRecorderInterface, ResetInterface
 {
-    private const MAX_WARNED_FAILURES = 100;
-
     /** @var array<string, Revision|null> "<slo>|<kind>" => revision when the objective is written by this bundle, null otherwise (also after a resolution failure) */
     private array $resolved = [];
 
@@ -38,10 +37,11 @@ final class Action implements EventRecorderInterface, ResetInterface
     /** @var array<non-empty-string, true> */
     private array $warnedConflicts = [];
 
-    /** @var array<string, true> "<slo>|<kind>|<exception class>" of failures already logged */
-    private array $warnedFailures = [];
+    /** keyed "<slo>|<kind>|<exception class>", forgotten on reset */
+    private readonly WarnOnceLimiter $failureWarnings;
 
-    private bool $failureSuppressionWarned = false;
+    /** keyed like the failures but never reset: a deterministic resolution failure is retried after reset, logged once */
+    private readonly WarnOnceLimiter $resolutionWarnings;
 
     public function __construct(
         private readonly SloCatalogInterface $catalog,
@@ -52,6 +52,8 @@ final class Action implements EventRecorderInterface, ResetInterface
         private readonly LoggerInterface $logger,
         private readonly PrecomputedRevisionsInterface $precomputed,
     ) {
+        $this->failureWarnings = new WarnOnceLimiter($logger, 'Further SLO recording failures are suppressed until reset.');
+        $this->resolutionWarnings = new WarnOnceLimiter($logger, 'Further SLO resolution failures are not logged.');
     }
 
     #[Override]
@@ -78,8 +80,7 @@ final class Action implements EventRecorderInterface, ResetInterface
         $this->resolved = array_diff_key($this->resolved, $this->failedResolutions);
         $this->failedResolutions = [];
         $this->warnedConflicts = [];
-        $this->warnedFailures = [];
-        $this->failureSuppressionWarned = false;
+        $this->failureWarnings->reset();
     }
 
     private function recordDefinition(SloDefinition $definition, Input $input): void
@@ -102,7 +103,7 @@ final class Action implements EventRecorderInterface, ResetInterface
 
     private function revisionIfDedicated(SloDefinition $definition, Objective $objective, Input $input): ?Revision
     {
-        $key = $definition->name()->value . '|' . $objective->kind->value;
+        $key = $this->objectiveKey($definition, $objective);
         if (\array_key_exists($key, $this->resolved)) {
             return $this->resolved[$key];
         }
@@ -113,7 +114,7 @@ final class Action implements EventRecorderInterface, ResetInterface
             $this->resolved[$key] = $this->resolve($definition, $objective);
         } catch (Throwable $e) {
             $this->failedResolutions[$key] = true;
-            $this->logger->warning('SLO objective could not be resolved, its events are skipped until reset.', [
+            $this->resolutionWarnings->warn($key . '|' . $e::class, 'SLO objective could not be resolved, its events are skipped until reset; repeats are not logged.', [
                 'slo' => $definition->name()->value,
                 'objective' => $objective->kind->value,
                 'point' => $input->point->toString(),
@@ -141,25 +142,17 @@ final class Action implements EventRecorderInterface, ResetInterface
      */
     private function warnFailure(SloDefinition $definition, Objective $objective, Input $input, Throwable $e): void
     {
-        $key = $definition->name()->value . '|' . $objective->kind->value . '|' . $e::class;
-        if (isset($this->warnedFailures[$key])) {
-            return;
-        }
-        if (\count($this->warnedFailures) >= self::MAX_WARNED_FAILURES) {
-            if (!$this->failureSuppressionWarned) {
-                $this->failureSuppressionWarned = true;
-                $this->logger->warning('Further SLO recording failures are suppressed until reset.');
-            }
-
-            return;
-        }
-        $this->warnedFailures[$key] = true;
-        $this->logger->warning('SLO event was not recorded, repeats of this failure are not logged until reset.', [
+        $this->failureWarnings->warn($this->objectiveKey($definition, $objective) . '|' . $e::class, 'SLO event was not recorded, repeats of this failure are not logged until reset.', [
             'slo' => $definition->name()->value,
             'objective' => $objective->kind->value,
             'point' => $input->point->toString(),
             'exception' => $e,
         ]);
+    }
+
+    private function objectiveKey(SloDefinition $definition, Objective $objective): string
+    {
+        return $definition->name()->value . '|' . $objective->kind->value;
     }
 
     private function warnAboutConflicts(Input $input): void
