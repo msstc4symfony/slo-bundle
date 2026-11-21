@@ -18,6 +18,7 @@ use Msstc4Symfony\SloBundle\DependencyInjection\CompilerPass\Discovery\TaggedPoi
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CatalogDump;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MetricsBundleSeriesCatalog;
+use LogicException;
 use Override;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
@@ -75,19 +76,29 @@ final class CollectSloDefinitionsPass implements CompilerPassInterface
     /**
      * String values of a service argument are parameter-resolved ("%name%") and the dump holds user strings
      * (IgnoreMonitoring reasons, tag attributes): every "%" is doubled, the container turns "%%" back into "%".
-     * Keys are not unescaped by ContainerBuilder, so none may contain "%" (TaggedPointReader rejects it in point ids).
+     * Keys are not unescaped by ContainerBuilder, so a "%" in a key is rejected here for every reader at once.
      *
      * @param array<array-key, mixed> $value
      *
      * @return array<array-key, mixed>
+     *
+     * @throws LogicException when a key contains "%"
      */
-    private static function escape(array $value): array
+    public static function escape(array $value): array
     {
-        return array_map(static fn (mixed $item): mixed => match (true) {
-            \is_string($item) => str_replace('%', '%%', $item),
-            \is_array($item) => self::escape($item),
-            default => $item,
-        }, $value);
+        $escaped = [];
+        foreach ($value as $key => $item) {
+            if (\is_string($key) && str_contains($key, '%')) {
+                throw new LogicException(\sprintf('The compiled SLO catalog cannot hold the key "%s": "%%" is not allowed in dumped keys.', $key));
+            }
+            $escaped[$key] = match (true) {
+                \is_string($item) => str_replace('%', '%%', $item),
+                \is_array($item) => self::escape($item),
+                default => $item,
+            };
+        }
+
+        return $escaped;
     }
 
     private function parameter(ContainerBuilder $container, string $path): mixed
