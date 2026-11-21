@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Msstc4Symfony\SloBundle\Infrastructure\Symfony;
+namespace Msstc4Symfony\SloBundle\Infrastructure\RouteIndex;
 
 use InvalidArgumentException;
 use Msstc4Symfony\SloBundle\Application\Port\RouteInfo;

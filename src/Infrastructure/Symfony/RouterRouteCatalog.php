@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Msstc4Symfony\SloBundle\Infrastructure\Symfony;
 
 use Msstc4Symfony\SloBundle\Application\Port\RouteCatalogInterface;
+use Msstc4Symfony\SloBundle\Infrastructure\RouteIndex\RouteIndexData;
+use Msstc4Symfony\SloBundle\Infrastructure\RouteIndex\RouteIndexStoreInterface;
 use Override;
 
 /**

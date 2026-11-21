@@ -30,7 +30,7 @@ use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\FailingCatalog;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\InMemoryRouteCatalog;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Evaluation\RecordEvent\FixedPrecomputedRevisions;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Evaluation\RecordEvent\InMemoryEventWriter;
-use Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Symfony\InMemoryRouteIndexStore;
+use Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\RouteIndex\InMemoryRouteIndexStore;
 use Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Symfony\RecordingLogger;
 use Override;
 use PHPUnit\Framework\Attributes\DataProvider;

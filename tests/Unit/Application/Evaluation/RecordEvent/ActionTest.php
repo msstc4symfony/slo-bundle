@@ -34,7 +34,7 @@ use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\CatalogFixture;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\CountingRouteCatalog;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\FailingCatalog;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\InMemoryRouteCatalog;
-use Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Symfony\InMemoryRouteIndexStore;
+use Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\RouteIndex\InMemoryRouteIndexStore;
 use Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Symfony\RecordingLogger;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;

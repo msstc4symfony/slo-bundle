@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Symfony;
+namespace Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\RouteIndex;
 
 use Msstc4Symfony\SloBundle\Application\Binding\ObjectiveKey;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Revision;
-use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexData;
-use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexStoreInterface;
+use Msstc4Symfony\SloBundle\Infrastructure\RouteIndex\RouteIndexData;
+use Msstc4Symfony\SloBundle\Infrastructure\RouteIndex\RouteIndexStoreInterface;
 use Override;
 use RuntimeException;
 

@@ -2,14 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Msstc4Symfony\SloBundle\Infrastructure\Filesystem;
+namespace Msstc4Symfony\SloBundle\Infrastructure\RouteIndex;
 
 use Msstc4Symfony\SloBundle\Application\Binding\ObjectiveKey;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Revision;
-use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexData;
-use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexParser;
-use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouteIndexStoreInterface;
+use Msstc4Symfony\SloBundle\Infrastructure\Filesystem\AtomicFile;
 use Override;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
