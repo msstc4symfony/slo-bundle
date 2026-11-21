@@ -20,7 +20,7 @@ final class WarnOnceLimiter
     private bool $suppressionWarned = false;
 
     /**
-     * @param non-empty-string $suppressionMessage
+     * @param non-empty-literal-string $suppressionMessage
      * @param positive-int $capacity
      */
     public function __construct(
@@ -31,7 +31,7 @@ final class WarnOnceLimiter
     }
 
     /**
-     * @param non-empty-string $message static text, the variable parts go into $context
+     * @param non-empty-literal-string $message static text (enforced by type), the variable parts go into $context
      * @param array<string, mixed> $context
      */
     public function warn(string $key, string $message, array $context = []): void

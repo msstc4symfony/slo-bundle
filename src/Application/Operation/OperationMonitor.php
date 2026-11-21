@@ -107,7 +107,7 @@ final readonly class OperationMonitor implements OperationMonitorInterface, Rese
     }
 
     /**
-     * @param non-empty-string $message
+     * @param non-empty-literal-string $message
      */
     private function warnOnce(string $key, string $name, string $message, ?Throwable $exception): void
     {
