@@ -16,6 +16,7 @@ use Msstc4Symfony\SloBundle\Application\Binding\Matcher;
 use Msstc4Symfony\SloBundle\Application\Binding\MetricBindingResolver;
 use Msstc4Symfony\SloBundle\Application\Binding\SeriesBinding;
 use Msstc4Symfony\SloBundle\Application\Discovery\CatalogExtras;
+use Msstc4Symfony\SloBundle\Application\Discovery\HandlerInfo;
 use Msstc4Symfony\SloBundle\Application\Discovery\TaggedPoint;
 use Msstc4Symfony\SloBundle\Application\Port\RouteInfo;
 use Msstc4Symfony\SloBundle\Domain\Entity\SloDefinition;
@@ -24,10 +25,12 @@ use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
 use Msstc4Symfony\SloBundle\Domain\Enum\Strategy;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Objective;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
+use Msstc4Symfony\SloBundle\Domain\ValueObject\Target;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\CatalogFixture;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\InMemoryRouteCatalog;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use stdClass;
 
 final class MetricBindingResolverTest extends TestCase
 {
@@ -175,6 +178,48 @@ final class MetricBindingResolverTest extends TestCase
         $series = $this->series($this->resolver($definition, $this->extras())->resolve($definition, $definition->objectives()[0]));
 
         self::assertSame(['message="ProcessPayment"', 'status=~"handled|failed"'], $this->rendered($series->matchers));
+    }
+
+    public function testMessengerShortNameSharedWithAnotherHandledMessageForcesDedicated(): void
+    {
+        $definition = $this->define(PointType::MessengerMessage, self::slo(new Availability(99), new Latency('1s', 99)));
+        $handlers = [
+            new HandlerInfo(stdClass::class, 'App\Message\ProcessPayment', true, null),
+            new HandlerInfo(stdClass::class, 'App\Legacy\ProcessPayment', true, null),
+        ];
+        $resolver = $this->resolver($definition, new CatalogExtras(handlers: $handlers, metricBuckets: ['messenger_message_handling_duration_histogram_seconds' => [1.0]]));
+
+        self::assertTrue($resolver->isDedicated($definition, ObjectiveKind::Availability));
+        self::assertTrue($resolver->isDedicated($definition, ObjectiveKind::Latency));
+    }
+
+    public function testMessengerOwnHandlersDoNotForceDedicated(): void
+    {
+        $definition = $this->define(PointType::MessengerMessage, self::slo(new Availability(99)));
+        $handlers = [
+            new HandlerInfo(stdClass::class, 'App\Message\ProcessPayment', true, null),
+            new HandlerInfo(stdClass::class, 'App\Message\ProcessPayment', true, null, 'audit'),
+            new HandlerInfo(stdClass::class, 'App\Message\RefundPayment', true, null),
+        ];
+
+        self::assertFalse($this->resolver($definition, new CatalogExtras(handlers: $handlers))->isDedicated($definition, ObjectiveKind::Availability));
+    }
+
+    public function testMessengerLatencyWithIncludeErrorsFallsBackToDedicated(): void
+    {
+        $compiled = $this->define(PointType::MessengerMessage, self::slo(new Latency('1s', 99)));
+        $threshold = $this->objective($compiled, ObjectiveKind::Latency)->threshold ?? throw new LogicException('threshold missing');
+        $definition = new SloDefinition(
+            $compiled->name(),
+            PointType::MessengerMessage,
+            $compiled->points(),
+            [Objective::latency($threshold, Target::fromPercent(99), true)],
+            $compiled->window(),
+            $compiled->classification(),
+            $compiled->strategy(),
+        );
+
+        self::assertTrue($this->resolver($definition, $this->extras())->isDedicated($definition, ObjectiveKind::Latency));
     }
 
     public function testMessengerLatencySeries(): void

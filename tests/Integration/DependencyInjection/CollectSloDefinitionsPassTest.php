@@ -32,9 +32,11 @@ use Msstc4Symfony\SloBundle\Test\Fixtures\Handler\AuditPaymentHandler;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Handler\Invalid\IncludeErrorsReceiptHandler;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Handler\Invalid\LegacyPaymentHandler;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Handler\Invalid\SecondSloPaymentHandler;
+use Msstc4Symfony\SloBundle\Test\Fixtures\Handler\LegacyAuditHandler;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Handler\ProcessPaymentHandler;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Handler\ReceiptHandler;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Handler\RefundPaymentHandler;
+use Msstc4Symfony\SloBundle\Test\Fixtures\Message\Legacy\ProcessPayment as LegacyProcessPayment;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Message\ProcessPayment;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Message\SendReceipt;
 use Msstc4Symfony\SloBundle\Test\Integration\TestContainer;
@@ -204,6 +206,19 @@ final class CollectSloDefinitionsPassTest extends TestCase
 
         self::assertCount(1, $catalog->extras()->warnings);
         self::assertStringContainsString('messenger_message:' . ProcessPayment::class . ' has 2 handlers', $catalog->extras()->warnings[0]);
+    }
+
+    public function testShortNameSharedWithAMessageWithoutSloIsAWarning(): void
+    {
+        $catalog = $this->catalog([], static function (ContainerBuilder $container): void {
+            $container->register(ProcessPaymentHandler::class, ProcessPaymentHandler::class)->addTag('messenger.message_handler');
+            $container->register(LegacyAuditHandler::class, LegacyAuditHandler::class)->addTag('messenger.message_handler');
+        });
+
+        self::assertSame([
+            'messenger_message:' . ProcessPayment::class . ': short class name "ProcessPayment" is also used by message ' . LegacyProcessPayment::class
+            . ' without an SLO; metrics-bundle labels messages by short name, so the SLO uses dedicated counters.',
+        ], $catalog->extras()->warnings);
     }
 
     public function testRoutingAndFailureTransportsAreReadFromMessengerDefinitions(): void

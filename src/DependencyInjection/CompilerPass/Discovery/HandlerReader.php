@@ -79,14 +79,15 @@ final readonly class HandlerReader
     private function check(array $byMessage): array
     {
         $warnings = [];
+        /** @var array<string, array<non-empty-string, bool>> $shortNames short name => message => declares #[Slo] */
         $shortNames = [];
         foreach ($byMessage as $message => $handlers) {
             $sloHandlers = array_keys(array_filter($handlers));
+            $shortNames[$this->shortName($message)][$message] = $sloHandlers !== [];
             if ($sloHandlers === []) {
                 continue;
             }
             $point = PointType::MessengerMessage->value . ':' . $message;
-            $shortNames[$this->shortName($message)][] = $message;
             if (\count($sloHandlers) > 1) {
                 $this->errors->add(\sprintf('%s: #[Slo] is declared on %d handlers (%s); declare it on one handler, it measures the whole envelope.', $point, \count($sloHandlers), implode(', ', $sloHandlers)));
             } elseif (\count($handlers) > 1) {
@@ -95,9 +96,16 @@ final readonly class HandlerReader
         }
 
         foreach ($shortNames as $shortName => $messages) {
-            foreach (\count($messages) > 1 ? $messages : [] as $message) {
-                $others = array_values(array_diff($messages, [$message]));
-                $this->errors->add(\sprintf('%s:%s: short class name "%s" is also used by SLO message %s; metrics-bundle labels messages by short name.', PointType::MessengerMessage->value, $message, $shortName, implode(', ', $others)));
+            foreach (array_keys(array_filter($messages)) as $message) {
+                $others = array_diff_key($messages, [$message => true]);
+                $sloOthers = array_keys(array_filter($others));
+                $plainOthers = array_keys(array_diff_key($others, array_filter($others)));
+                $point = PointType::MessengerMessage->value . ':' . $message;
+                if ($sloOthers !== []) {
+                    $this->errors->add(\sprintf('%s: short class name "%s" is also used by SLO message %s; metrics-bundle labels messages by short name.', $point, $shortName, implode(', ', $sloOthers)));
+                } elseif ($plainOthers !== []) {
+                    $warnings[] = \sprintf('%s: short class name "%s" is also used by message %s without an SLO; metrics-bundle labels messages by short name, so the SLO uses dedicated counters.', $point, $shortName, implode(', ', $plainOthers));
+                }
             }
         }
 

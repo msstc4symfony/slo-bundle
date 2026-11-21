@@ -128,7 +128,7 @@ final readonly class MetricBindingResolver
 
     private function messenger(SloDefinition $definition, Objective $objective, CatalogExtras $extras): ?SeriesBinding
     {
-        if ($definition->classification()->countAttempts) {
+        if ($definition->classification()->countAttempts || $this->sharesShortName($definition, $extras)) {
             return null;
         }
 
@@ -147,6 +147,11 @@ final readonly class MetricBindingResolver
                 SeriesBinding::index([Matcher::equals('status', 'failed')]),
                 null,
             );
+        }
+
+        // includeErrors is rejected for Messenger at compile time; the histogram could not express it anyway.
+        if ($objective->includeErrors) {
+            return null;
         }
 
         return $this->latency(self::MESSENGER_HISTOGRAM, [$message, Matcher::equals('status', 'handled'), ...$transport], $objective, $extras);
@@ -232,6 +237,25 @@ final readonly class MetricBindingResolver
         sort($names, SORT_STRING);
 
         return array_values(array_filter($names, static fn (string $name): bool => $name !== ''));
+    }
+
+    /**
+     * metrics-bundle labels messages by short class name: another handled message with the same short name would be
+     * summed into the series.
+     */
+    private function sharesShortName(SloDefinition $definition, CatalogExtras $extras): bool
+    {
+        $own = [];
+        foreach ($definition->points() as $point) {
+            $own[$point->id] = self::shortName($point->id);
+        }
+        foreach ($extras->handlers as $handler) {
+            if (!isset($own[$handler->messageClass]) && \in_array(self::shortName($handler->messageClass), $own, true)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
