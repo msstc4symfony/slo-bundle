@@ -36,7 +36,6 @@ final class AtomicFile
 
             throw new RuntimeException(\sprintf('Cannot write "%s".', $path));
         }
-        @chmod($temporary, 0o666 & ~umask());
         if (!@rename($temporary, $path)) {
             @unlink($temporary);
 

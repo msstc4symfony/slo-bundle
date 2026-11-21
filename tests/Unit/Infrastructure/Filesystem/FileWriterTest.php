@@ -37,6 +37,7 @@ final class FileWriterTest extends TestCase
 
         self::assertSame("b\n", $writer->read($this->root, 'prometheus/a.yml'));
         self::assertSame([], glob($this->root . '/prometheus/.*.tmp*'));
+        self::assertSame(0o666 & ~umask(), fileperms($this->root . '/prometheus/a.yml') & 0o777, 'a new file gets the default permissions');
     }
 
     public function testAPlantedLinkAtAGuessableTemporaryNameIsNotFollowed(): void
