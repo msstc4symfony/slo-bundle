@@ -109,6 +109,42 @@ final class StatusSetTest extends TestCase
         self::assertFalse(StatusSet::fromList(['5xx'])->intersects(StatusSet::fromList([])));
     }
 
+    /**
+     * Every pair of these sets, both ways round: touching, nested, disjoint and adjacent bounds, the code range ends.
+     *
+     * @return iterable<string, array{list<int|string>, list<int|string>}>
+     */
+    public static function provideSetPairs(): iterable
+    {
+        $sets = [[], [100], [599], [429], ['4xx'], ['5xx'], ['1xx', '5xx'], ['500-503'], ['503-510'], ['504-599'], ['498-502'], [499], [500], ['400-499'], [404, 429, '502-504'], ['100-599'], ['200-299', 418]];
+        foreach ($sets as $left) {
+            foreach ($sets as $right) {
+                yield json_encode($left) . ' and ' . json_encode($right) => [$left, $right];
+            }
+        }
+    }
+
+    /**
+     * @param list<int|string> $left
+     * @param list<int|string> $right
+     */
+    #[DataProvider('provideSetPairs')]
+    public function testIntersectsEqualsACodeByCodeComparison(array $left, array $right): void
+    {
+        $leftSet = StatusSet::fromList($left);
+        $rightSet = StatusSet::fromList($right);
+        $bruteForce = false;
+        for ($code = 100; $code <= 599; $code++) {
+            if ($leftSet->contains($code) && $rightSet->contains($code)) {
+                $bruteForce = true;
+
+                break;
+            }
+        }
+
+        self::assertSame($bruteForce, $leftSet->intersects($rightSet));
+    }
+
     public function testRedundantDeclarationsAreEqual(): void
     {
         self::assertSame(StatusSet::fromList(['5xx'])->canonical(), StatusSet::fromList([500, '5xx', '501-503'])->canonical());

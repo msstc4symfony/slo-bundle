@@ -55,8 +55,9 @@ final readonly class StatusSet
     {
         foreach ($this->canonical as $item) {
             [$from, $to] = self::bounds($item);
-            for ($code = $from; $code <= $to; $code++) {
-                if ($other->contains($code)) {
+            foreach ($other->canonical as $otherItem) {
+                [$otherFrom, $otherTo] = self::bounds($otherItem);
+                if ($from <= $otherTo && $otherFrom <= $to) {
                     return true;
                 }
             }
