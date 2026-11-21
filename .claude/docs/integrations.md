@@ -40,3 +40,12 @@
   глотает Throwable) через `->arg('$logger', service(FailSafeLogger::class))` в `services.php`; тег
   `monolog.logger` стоит только на самом `FailSafeLogger` (+ `SloCacheWarmer`). Application-классы зависят лишь от
   `Psr\Log\LoggerInterface`; try/catch вокруг `warning()` больше нигде не нужен.
+
+## Имена серий и promtool (Task 12)
+
+- Экспорт metrics-bundle: префикс `symfony_` (`PrometheusMetricRecorder::NAMESPACE`), имя счётчика = значение enum без добавления `_total`
+  (`symfony_http_response`, `symfony_messenger_message_handled`, `symfony_slo_events_total`); гистограммы — `<name>_bucket{le}` / `_count`.
+  `le` рендерится `(string) $bucket` (`"1"`, `"0.5"`) — сверено с promphp `RenderTextFormat`.
+- `promtool` — образ `prom/prometheus:v3.15.0`, `docker run --rm -v <dir>:/work:ro -w /work --entrypoint promtool ... check rules|test rules`.
+  Golden-файлы `tests/Fixtures/Generated/prometheus/*.yml` проверяются `check rules`, сценарии `tests/Fixtures/Promtool/*.test.yml`
+  ссылаются на них через `../Generated/...`.

@@ -1,0 +1,65 @@
+# Two days of a 30d window: coverage 2/30 (within one 1h subquery step), the ticket alert is suppressed while the
+# page alert still fires. Once a window (3d) is covered, the ticket alert fires.
+rule_files:
+  - ../Generated/prometheus/slo-recording.rules.yml
+  - ../Generated/prometheus/slo-alerts.rules.yml
+
+evaluation_interval: 1m
+
+tests:
+  - name: 2 days of a 30d window
+    interval: 1m
+    input_series:
+      - series: 'symfony_http_response{application="shop",component="web",method="POST",route="checkout_pay",status="200"}'
+        values: '0+50x2880'
+      - series: 'symfony_http_response{application="shop",component="web",method="POST",route="checkout_pay",status="500"}'
+        values: '0+50x2880'
+    promql_expr_test:
+      - expr: >-
+          (slo:window:coverage_ratio{slo="checkout.pay",objective="availability"} >= bool (2/30 - 1/720))
+          * (slo:window:coverage_ratio{slo="checkout.pay",objective="availability"} <= bool (2/30 + 1/720))
+        eval_time: 2d
+        exp_samples:
+          - labels: '{objective="availability",slo="checkout.pay",window="30d"}'
+            value: 1
+    alert_rule_test:
+      - eval_time: 2d
+        alertname: SloErrorBudgetBurn
+        exp_alerts:
+          - exp_labels:
+              objective: availability
+              severity: page
+              slo: checkout.pay
+              window: 30d
+            exp_annotations:
+              summary: 'SLO checkout.pay availability burns its error budget fast (target 99.9%, window 30d)'
+
+  - name: a fully covered 3d window
+    interval: 1m
+    input_series:
+      - series: 'symfony_slo_events_total{application="shop",component="worker",slo="report.export",objective="availability",revision="1c380329",result="good"}'
+        values: '0+995x4330'
+      - series: 'symfony_slo_events_total{application="shop",component="worker",slo="report.export",objective="availability",revision="1c380329",result="bad"}'
+        values: '0+5x4330'
+    promql_expr_test:
+      - expr: slo:window:coverage_ratio{slo="report.export"}
+        eval_time: 3d
+        exp_samples:
+          - labels: 'slo:window:coverage_ratio{objective="availability",revision="1c380329",slo="report.export",window="3d"}'
+            value: 1
+    alert_rule_test:
+      - eval_time: 2d23h
+        alertname: SloErrorBudgetBurn
+        exp_alerts: []
+      # The alert group reads the coverage recorded one evaluation earlier.
+      - eval_time: 3d10m
+        alertname: SloErrorBudgetBurn
+        exp_alerts:
+          - exp_labels:
+              objective: availability
+              revision: 1c380329
+              severity: ticket
+              slo: report.export
+              window: 3d
+            exp_annotations:
+              summary: 'SLO report.export availability burns its error budget (target 99%, window 3d)'

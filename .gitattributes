@@ -16,6 +16,7 @@
 /CHANGELOG.md          export-ignore
 /CLAUDE.md             export-ignore
 /Makefile              export-ignore
+/GNUmakefile           export-ignore
 /SECURITY.md           export-ignore
 /composer-ci.json      export-ignore
 /composer-ci.lock      export-ignore

@@ -1,0 +1,28 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Msstc4Symfony\SloBundle\Application\Generation\SyncFiles;
+
+/**
+ * State of the output directory before the sync; in write mode stale and missing files were written, extra ones deleted.
+ */
+final readonly class Output
+{
+    /**
+     * @param list<string> $stale on disk with other contents
+     * @param list<string> $missing generated but not on disk
+     * @param list<string> $extra on disk in a managed directory but not generated
+     */
+    public function __construct(
+        public array $stale,
+        public array $missing,
+        public array $extra,
+    ) {
+    }
+
+    public function isUpToDate(): bool
+    {
+        return $this->stale === [] && $this->missing === [] && $this->extra === [];
+    }
+}

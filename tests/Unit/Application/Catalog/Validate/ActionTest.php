@@ -107,6 +107,18 @@ final class ActionTest extends TestCase
         self::assertSame(['a warning', 'b warning'], $output->warnings);
     }
 
+    public function testBurnRatePairsReachingTheWholeBudgetAreWarnings(): void
+    {
+        $catalog = CatalogFixture::build(function ($assembler): void {
+            $assembler->declare(PointId::of(PointType::Operation, 'report.export'), new Slo('report.export', [new Availability(90)]));
+        });
+
+        $output = (new Action($catalog, $catalog, new InMemoryRouteCatalog(), new MetricBindingResolver(new InMemoryRouteCatalog(), $catalog)))();
+
+        self::assertTrue($output->isValid());
+        self::assertSame(['SLO report.export availability: page burn-rate alert 1h/5m omitted, factor 14.4 x error budget 0.1 >= 1'], $output->warnings);
+    }
+
     public function testCleanCatalogIsValid(): void
     {
         $catalog = CatalogFixture::build(function ($assembler): void {

@@ -1,0 +1,458 @@
+groups:
+  - interval: 1m
+    name: slo-checkout.pay
+    rules:
+      - expr: 'sum(rate(symfony_http_response{application="shop",component=~"web|worker",route=~"checkout_pay"}[5m]))'
+        labels:
+          objective: availability
+          slo: checkout.pay
+          window: 30d
+        record: 'slo:events:rate5m'
+      - expr: '(sum(rate(symfony_http_response{application="shop",component=~"web|worker",route=~"checkout_pay",status=~"5.."}[5m])) or vector(0)) / (sum(rate(symfony_http_response{application="shop",component=~"web|worker",route=~"checkout_pay"}[5m])) > 0)'
+        labels:
+          objective: availability
+          slo: checkout.pay
+          window: 30d
+        record: 'slo:error_ratio:rate5m'
+      - expr: 'sum(rate(symfony_http_response{application="shop",component=~"web|worker",route=~"checkout_pay"}[30m]))'
+        labels:
+          objective: availability
+          slo: checkout.pay
+          window: 30d
+        record: 'slo:events:rate30m'
+      - expr: '(sum(rate(symfony_http_response{application="shop",component=~"web|worker",route=~"checkout_pay",status=~"5.."}[30m])) or vector(0)) / (sum(rate(symfony_http_response{application="shop",component=~"web|worker",route=~"checkout_pay"}[30m])) > 0)'
+        labels:
+          objective: availability
+          slo: checkout.pay
+          window: 30d
+        record: 'slo:error_ratio:rate30m'
+      - expr: 'sum(rate(symfony_http_response{application="shop",component=~"web|worker",route=~"checkout_pay"}[1h]))'
+        labels:
+          objective: availability
+          slo: checkout.pay
+          window: 30d
+        record: 'slo:events:rate1h'
+      - expr: '(sum(rate(symfony_http_response{application="shop",component=~"web|worker",route=~"checkout_pay",status=~"5.."}[1h])) or vector(0)) / (sum(rate(symfony_http_response{application="shop",component=~"web|worker",route=~"checkout_pay"}[1h])) > 0)'
+        labels:
+          objective: availability
+          slo: checkout.pay
+          window: 30d
+        record: 'slo:error_ratio:rate1h'
+      - expr: 'sum(rate(symfony_http_response{application="shop",component=~"web|worker",route=~"checkout_pay"}[6h]))'
+        labels:
+          objective: availability
+          slo: checkout.pay
+          window: 30d
+        record: 'slo:events:rate6h'
+      - expr: '(sum(rate(symfony_http_response{application="shop",component=~"web|worker",route=~"checkout_pay",status=~"5.."}[6h])) or vector(0)) / (sum(rate(symfony_http_response{application="shop",component=~"web|worker",route=~"checkout_pay"}[6h])) > 0)'
+        labels:
+          objective: availability
+          slo: checkout.pay
+          window: 30d
+        record: 'slo:error_ratio:rate6h'
+      - expr: 'sum(rate(symfony_http_response{application="shop",component=~"web|worker",route=~"checkout_pay"}[3d]))'
+        labels:
+          objective: availability
+          slo: checkout.pay
+          window: 30d
+        record: 'slo:events:rate3d'
+      - expr: '(sum(rate(symfony_http_response{application="shop",component=~"web|worker",route=~"checkout_pay",status=~"5.."}[3d])) or vector(0)) / (sum(rate(symfony_http_response{application="shop",component=~"web|worker",route=~"checkout_pay"}[3d])) > 0)'
+        labels:
+          objective: availability
+          slo: checkout.pay
+          window: 30d
+        record: 'slo:error_ratio:rate3d'
+      - expr: '1 - ((sum(increase(symfony_http_response{application="shop",component=~"web|worker",route=~"checkout_pay",status=~"5.."}[30d])) or vector(0)) / (sum(increase(symfony_http_response{application="shop",component=~"web|worker",route=~"checkout_pay"}[30d])) > 0))'
+        labels:
+          objective: availability
+          slo: checkout.pay
+          window: 30d
+        record: 'slo:sli:ratio'
+      - expr: vector(0.999)
+        labels:
+          objective: availability
+          slo: checkout.pay
+          window: 30d
+        record: 'slo:objective:target'
+      - expr: '1 - ((sum(increase(symfony_http_response{application="shop",component=~"web|worker",route=~"checkout_pay",status=~"5.."}[30d])) or vector(0)) / ((sum(increase(symfony_http_response{application="shop",component=~"web|worker",route=~"checkout_pay"}[30d])) > 0) * 0.001))'
+        labels:
+          objective: availability
+          slo: checkout.pay
+          window: 30d
+        record: 'slo:error_budget:remaining'
+      - expr: 'clamp((time() - min_over_time(timestamp(sum(symfony_http_response{application="shop",component=~"web|worker",route=~"checkout_pay"}))[721h:1h])) / 2592000, 0, 1)'
+        labels:
+          objective: availability
+          slo: checkout.pay
+          window: 30d
+        record: 'slo:window:coverage_ratio'
+      - expr: 'sum(rate(symfony_slo_events_total{application="shop",component=~"web|worker",slo="checkout.pay",objective="latency",revision="bd652502"}[5m]))'
+        labels:
+          objective: latency
+          revision: bd652502
+          slo: checkout.pay
+          window: 30d
+        record: 'slo:events:rate5m'
+      - expr: '(sum(rate(symfony_slo_events_total{application="shop",component=~"web|worker",slo="checkout.pay",objective="latency",revision="bd652502",result="bad"}[5m])) or vector(0)) / (sum(rate(symfony_slo_events_total{application="shop",component=~"web|worker",slo="checkout.pay",objective="latency",revision="bd652502"}[5m])) > 0)'
+        labels:
+          objective: latency
+          revision: bd652502
+          slo: checkout.pay
+          window: 30d
+        record: 'slo:error_ratio:rate5m'
+      - expr: 'sum(rate(symfony_slo_events_total{application="shop",component=~"web|worker",slo="checkout.pay",objective="latency",revision="bd652502"}[30m]))'
+        labels:
+          objective: latency
+          revision: bd652502
+          slo: checkout.pay
+          window: 30d
+        record: 'slo:events:rate30m'
+      - expr: '(sum(rate(symfony_slo_events_total{application="shop",component=~"web|worker",slo="checkout.pay",objective="latency",revision="bd652502",result="bad"}[30m])) or vector(0)) / (sum(rate(symfony_slo_events_total{application="shop",component=~"web|worker",slo="checkout.pay",objective="latency",revision="bd652502"}[30m])) > 0)'
+        labels:
+          objective: latency
+          revision: bd652502
+          slo: checkout.pay
+          window: 30d
+        record: 'slo:error_ratio:rate30m'
+      - expr: 'sum(rate(symfony_slo_events_total{application="shop",component=~"web|worker",slo="checkout.pay",objective="latency",revision="bd652502"}[1h]))'
+        labels:
+          objective: latency
+          revision: bd652502
+          slo: checkout.pay
+          window: 30d
+        record: 'slo:events:rate1h'
+      - expr: '(sum(rate(symfony_slo_events_total{application="shop",component=~"web|worker",slo="checkout.pay",objective="latency",revision="bd652502",result="bad"}[1h])) or vector(0)) / (sum(rate(symfony_slo_events_total{application="shop",component=~"web|worker",slo="checkout.pay",objective="latency",revision="bd652502"}[1h])) > 0)'
+        labels:
+          objective: latency
+          revision: bd652502
+          slo: checkout.pay
+          window: 30d
+        record: 'slo:error_ratio:rate1h'
+      - expr: 'sum(rate(symfony_slo_events_total{application="shop",component=~"web|worker",slo="checkout.pay",objective="latency",revision="bd652502"}[6h]))'
+        labels:
+          objective: latency
+          revision: bd652502
+          slo: checkout.pay
+          window: 30d
+        record: 'slo:events:rate6h'
+      - expr: '(sum(rate(symfony_slo_events_total{application="shop",component=~"web|worker",slo="checkout.pay",objective="latency",revision="bd652502",result="bad"}[6h])) or vector(0)) / (sum(rate(symfony_slo_events_total{application="shop",component=~"web|worker",slo="checkout.pay",objective="latency",revision="bd652502"}[6h])) > 0)'
+        labels:
+          objective: latency
+          revision: bd652502
+          slo: checkout.pay
+          window: 30d
+        record: 'slo:error_ratio:rate6h'
+      - expr: 'sum(rate(symfony_slo_events_total{application="shop",component=~"web|worker",slo="checkout.pay",objective="latency",revision="bd652502"}[3d]))'
+        labels:
+          objective: latency
+          revision: bd652502
+          slo: checkout.pay
+          window: 30d
+        record: 'slo:events:rate3d'
+      - expr: '(sum(rate(symfony_slo_events_total{application="shop",component=~"web|worker",slo="checkout.pay",objective="latency",revision="bd652502",result="bad"}[3d])) or vector(0)) / (sum(rate(symfony_slo_events_total{application="shop",component=~"web|worker",slo="checkout.pay",objective="latency",revision="bd652502"}[3d])) > 0)'
+        labels:
+          objective: latency
+          revision: bd652502
+          slo: checkout.pay
+          window: 30d
+        record: 'slo:error_ratio:rate3d'
+      - expr: '1 - ((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="checkout.pay",objective="latency",revision="bd652502",result="bad"}[30d])) or vector(0)) / (sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="checkout.pay",objective="latency",revision="bd652502"}[30d])) > 0))'
+        labels:
+          objective: latency
+          revision: bd652502
+          slo: checkout.pay
+          window: 30d
+        record: 'slo:sli:ratio'
+      - expr: vector(0.99)
+        labels:
+          objective: latency
+          revision: bd652502
+          slo: checkout.pay
+          window: 30d
+        record: 'slo:objective:target'
+      - expr: '1 - ((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="checkout.pay",objective="latency",revision="bd652502",result="bad"}[30d])) or vector(0)) / ((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="checkout.pay",objective="latency",revision="bd652502"}[30d])) > 0) * 0.01))'
+        labels:
+          objective: latency
+          revision: bd652502
+          slo: checkout.pay
+          window: 30d
+        record: 'slo:error_budget:remaining'
+      - expr: 'clamp((time() - min_over_time(timestamp(sum(symfony_slo_events_total{application="shop",component=~"web|worker",slo="checkout.pay",objective="latency",revision="bd652502"}))[721h:1h])) / 2592000, 0, 1)'
+        labels:
+          objective: latency
+          revision: bd652502
+          slo: checkout.pay
+          window: 30d
+        record: 'slo:window:coverage_ratio'
+  - interval: 1m
+    name: slo-payment.process
+    rules:
+      - expr: 'sum(rate(symfony_messenger_message_handled{application="shop",component=~"web|worker",message="ProcessPayment",status=~"handled|failed",transport!~"failed"}[5m]))'
+        labels:
+          objective: availability
+          slo: payment.process
+          window: 30d
+        record: 'slo:events:rate5m'
+      - expr: '(sum(rate(symfony_messenger_message_handled{application="shop",component=~"web|worker",message="ProcessPayment",status="failed",transport!~"failed"}[5m])) or vector(0)) / (sum(rate(symfony_messenger_message_handled{application="shop",component=~"web|worker",message="ProcessPayment",status=~"handled|failed",transport!~"failed"}[5m])) > 0)'
+        labels:
+          objective: availability
+          slo: payment.process
+          window: 30d
+        record: 'slo:error_ratio:rate5m'
+      - expr: 'sum(rate(symfony_messenger_message_handled{application="shop",component=~"web|worker",message="ProcessPayment",status=~"handled|failed",transport!~"failed"}[30m]))'
+        labels:
+          objective: availability
+          slo: payment.process
+          window: 30d
+        record: 'slo:events:rate30m'
+      - expr: '(sum(rate(symfony_messenger_message_handled{application="shop",component=~"web|worker",message="ProcessPayment",status="failed",transport!~"failed"}[30m])) or vector(0)) / (sum(rate(symfony_messenger_message_handled{application="shop",component=~"web|worker",message="ProcessPayment",status=~"handled|failed",transport!~"failed"}[30m])) > 0)'
+        labels:
+          objective: availability
+          slo: payment.process
+          window: 30d
+        record: 'slo:error_ratio:rate30m'
+      - expr: 'sum(rate(symfony_messenger_message_handled{application="shop",component=~"web|worker",message="ProcessPayment",status=~"handled|failed",transport!~"failed"}[1h]))'
+        labels:
+          objective: availability
+          slo: payment.process
+          window: 30d
+        record: 'slo:events:rate1h'
+      - expr: '(sum(rate(symfony_messenger_message_handled{application="shop",component=~"web|worker",message="ProcessPayment",status="failed",transport!~"failed"}[1h])) or vector(0)) / (sum(rate(symfony_messenger_message_handled{application="shop",component=~"web|worker",message="ProcessPayment",status=~"handled|failed",transport!~"failed"}[1h])) > 0)'
+        labels:
+          objective: availability
+          slo: payment.process
+          window: 30d
+        record: 'slo:error_ratio:rate1h'
+      - expr: 'sum(rate(symfony_messenger_message_handled{application="shop",component=~"web|worker",message="ProcessPayment",status=~"handled|failed",transport!~"failed"}[6h]))'
+        labels:
+          objective: availability
+          slo: payment.process
+          window: 30d
+        record: 'slo:events:rate6h'
+      - expr: '(sum(rate(symfony_messenger_message_handled{application="shop",component=~"web|worker",message="ProcessPayment",status="failed",transport!~"failed"}[6h])) or vector(0)) / (sum(rate(symfony_messenger_message_handled{application="shop",component=~"web|worker",message="ProcessPayment",status=~"handled|failed",transport!~"failed"}[6h])) > 0)'
+        labels:
+          objective: availability
+          slo: payment.process
+          window: 30d
+        record: 'slo:error_ratio:rate6h'
+      - expr: 'sum(rate(symfony_messenger_message_handled{application="shop",component=~"web|worker",message="ProcessPayment",status=~"handled|failed",transport!~"failed"}[3d]))'
+        labels:
+          objective: availability
+          slo: payment.process
+          window: 30d
+        record: 'slo:events:rate3d'
+      - expr: '(sum(rate(symfony_messenger_message_handled{application="shop",component=~"web|worker",message="ProcessPayment",status="failed",transport!~"failed"}[3d])) or vector(0)) / (sum(rate(symfony_messenger_message_handled{application="shop",component=~"web|worker",message="ProcessPayment",status=~"handled|failed",transport!~"failed"}[3d])) > 0)'
+        labels:
+          objective: availability
+          slo: payment.process
+          window: 30d
+        record: 'slo:error_ratio:rate3d'
+      - expr: '1 - ((sum(increase(symfony_messenger_message_handled{application="shop",component=~"web|worker",message="ProcessPayment",status="failed",transport!~"failed"}[30d])) or vector(0)) / (sum(increase(symfony_messenger_message_handled{application="shop",component=~"web|worker",message="ProcessPayment",status=~"handled|failed",transport!~"failed"}[30d])) > 0))'
+        labels:
+          objective: availability
+          slo: payment.process
+          window: 30d
+        record: 'slo:sli:ratio'
+      - expr: vector(0.995)
+        labels:
+          objective: availability
+          slo: payment.process
+          window: 30d
+        record: 'slo:objective:target'
+      - expr: '1 - ((sum(increase(symfony_messenger_message_handled{application="shop",component=~"web|worker",message="ProcessPayment",status="failed",transport!~"failed"}[30d])) or vector(0)) / ((sum(increase(symfony_messenger_message_handled{application="shop",component=~"web|worker",message="ProcessPayment",status=~"handled|failed",transport!~"failed"}[30d])) > 0) * 0.005))'
+        labels:
+          objective: availability
+          slo: payment.process
+          window: 30d
+        record: 'slo:error_budget:remaining'
+      - expr: 'clamp((time() - min_over_time(timestamp(sum(symfony_messenger_message_handled{application="shop",component=~"web|worker",message="ProcessPayment",status=~"handled|failed",transport!~"failed"}))[721h:1h])) / 2592000, 0, 1)'
+        labels:
+          objective: availability
+          slo: payment.process
+          window: 30d
+        record: 'slo:window:coverage_ratio'
+      - expr: 'sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[5m]))'
+        labels:
+          objective: latency
+          slo: payment.process
+          window: 30d
+        record: 'slo:events:rate5m'
+      - expr: '(sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[5m])) - sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_bucket{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed",le="1"}[5m]))) / (sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[5m])) > 0)'
+        labels:
+          objective: latency
+          slo: payment.process
+          window: 30d
+        record: 'slo:error_ratio:rate5m'
+      - expr: 'sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[30m]))'
+        labels:
+          objective: latency
+          slo: payment.process
+          window: 30d
+        record: 'slo:events:rate30m'
+      - expr: '(sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[30m])) - sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_bucket{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed",le="1"}[30m]))) / (sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[30m])) > 0)'
+        labels:
+          objective: latency
+          slo: payment.process
+          window: 30d
+        record: 'slo:error_ratio:rate30m'
+      - expr: 'sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[1h]))'
+        labels:
+          objective: latency
+          slo: payment.process
+          window: 30d
+        record: 'slo:events:rate1h'
+      - expr: '(sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[1h])) - sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_bucket{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed",le="1"}[1h]))) / (sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[1h])) > 0)'
+        labels:
+          objective: latency
+          slo: payment.process
+          window: 30d
+        record: 'slo:error_ratio:rate1h'
+      - expr: 'sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[6h]))'
+        labels:
+          objective: latency
+          slo: payment.process
+          window: 30d
+        record: 'slo:events:rate6h'
+      - expr: '(sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[6h])) - sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_bucket{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed",le="1"}[6h]))) / (sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[6h])) > 0)'
+        labels:
+          objective: latency
+          slo: payment.process
+          window: 30d
+        record: 'slo:error_ratio:rate6h'
+      - expr: 'sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[3d]))'
+        labels:
+          objective: latency
+          slo: payment.process
+          window: 30d
+        record: 'slo:events:rate3d'
+      - expr: '(sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[3d])) - sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_bucket{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed",le="1"}[3d]))) / (sum(rate(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[3d])) > 0)'
+        labels:
+          objective: latency
+          slo: payment.process
+          window: 30d
+        record: 'slo:error_ratio:rate3d'
+      - expr: '1 - ((sum(increase(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[30d])) - sum(increase(symfony_messenger_message_handling_duration_histogram_seconds_bucket{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed",le="1"}[30d]))) / (sum(increase(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[30d])) > 0))'
+        labels:
+          objective: latency
+          slo: payment.process
+          window: 30d
+        record: 'slo:sli:ratio'
+      - expr: vector(0.99)
+        labels:
+          objective: latency
+          slo: payment.process
+          window: 30d
+        record: 'slo:objective:target'
+      - expr: '1 - ((sum(increase(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[30d])) - sum(increase(symfony_messenger_message_handling_duration_histogram_seconds_bucket{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed",le="1"}[30d]))) / ((sum(increase(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}[30d])) > 0) * 0.01))'
+        labels:
+          objective: latency
+          slo: payment.process
+          window: 30d
+        record: 'slo:error_budget:remaining'
+      - expr: 'clamp((time() - min_over_time(timestamp(sum(symfony_messenger_message_handling_duration_histogram_seconds_count{application="shop",component=~"web|worker",message="ProcessPayment",status="handled",transport!~"failed"}))[721h:1h])) / 2592000, 0, 1)'
+        labels:
+          objective: latency
+          slo: payment.process
+          window: 30d
+        record: 'slo:window:coverage_ratio'
+  - interval: 1m
+    name: slo-report.export
+    rules:
+      - expr: 'sum(rate(symfony_slo_events_total{application="shop",component=~"web|worker",slo="report.export",objective="availability",revision="1c380329"}[5m]))'
+        labels:
+          objective: availability
+          revision: 1c380329
+          slo: report.export
+          window: 3d
+        record: 'slo:events:rate5m'
+      - expr: '(sum(rate(symfony_slo_events_total{application="shop",component=~"web|worker",slo="report.export",objective="availability",revision="1c380329",result="bad"}[5m])) or vector(0)) / (sum(rate(symfony_slo_events_total{application="shop",component=~"web|worker",slo="report.export",objective="availability",revision="1c380329"}[5m])) > 0)'
+        labels:
+          objective: availability
+          revision: 1c380329
+          slo: report.export
+          window: 3d
+        record: 'slo:error_ratio:rate5m'
+      - expr: 'sum(rate(symfony_slo_events_total{application="shop",component=~"web|worker",slo="report.export",objective="availability",revision="1c380329"}[30m]))'
+        labels:
+          objective: availability
+          revision: 1c380329
+          slo: report.export
+          window: 3d
+        record: 'slo:events:rate30m'
+      - expr: '(sum(rate(symfony_slo_events_total{application="shop",component=~"web|worker",slo="report.export",objective="availability",revision="1c380329",result="bad"}[30m])) or vector(0)) / (sum(rate(symfony_slo_events_total{application="shop",component=~"web|worker",slo="report.export",objective="availability",revision="1c380329"}[30m])) > 0)'
+        labels:
+          objective: availability
+          revision: 1c380329
+          slo: report.export
+          window: 3d
+        record: 'slo:error_ratio:rate30m'
+      - expr: 'sum(rate(symfony_slo_events_total{application="shop",component=~"web|worker",slo="report.export",objective="availability",revision="1c380329"}[1h]))'
+        labels:
+          objective: availability
+          revision: 1c380329
+          slo: report.export
+          window: 3d
+        record: 'slo:events:rate1h'
+      - expr: '(sum(rate(symfony_slo_events_total{application="shop",component=~"web|worker",slo="report.export",objective="availability",revision="1c380329",result="bad"}[1h])) or vector(0)) / (sum(rate(symfony_slo_events_total{application="shop",component=~"web|worker",slo="report.export",objective="availability",revision="1c380329"}[1h])) > 0)'
+        labels:
+          objective: availability
+          revision: 1c380329
+          slo: report.export
+          window: 3d
+        record: 'slo:error_ratio:rate1h'
+      - expr: 'sum(rate(symfony_slo_events_total{application="shop",component=~"web|worker",slo="report.export",objective="availability",revision="1c380329"}[6h]))'
+        labels:
+          objective: availability
+          revision: 1c380329
+          slo: report.export
+          window: 3d
+        record: 'slo:events:rate6h'
+      - expr: '(sum(rate(symfony_slo_events_total{application="shop",component=~"web|worker",slo="report.export",objective="availability",revision="1c380329",result="bad"}[6h])) or vector(0)) / (sum(rate(symfony_slo_events_total{application="shop",component=~"web|worker",slo="report.export",objective="availability",revision="1c380329"}[6h])) > 0)'
+        labels:
+          objective: availability
+          revision: 1c380329
+          slo: report.export
+          window: 3d
+        record: 'slo:error_ratio:rate6h'
+      - expr: 'sum(rate(symfony_slo_events_total{application="shop",component=~"web|worker",slo="report.export",objective="availability",revision="1c380329"}[3d]))'
+        labels:
+          objective: availability
+          revision: 1c380329
+          slo: report.export
+          window: 3d
+        record: 'slo:events:rate3d'
+      - expr: '(sum(rate(symfony_slo_events_total{application="shop",component=~"web|worker",slo="report.export",objective="availability",revision="1c380329",result="bad"}[3d])) or vector(0)) / (sum(rate(symfony_slo_events_total{application="shop",component=~"web|worker",slo="report.export",objective="availability",revision="1c380329"}[3d])) > 0)'
+        labels:
+          objective: availability
+          revision: 1c380329
+          slo: report.export
+          window: 3d
+        record: 'slo:error_ratio:rate3d'
+      - expr: '1 - ((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="report.export",objective="availability",revision="1c380329",result="bad"}[3d])) or vector(0)) / (sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="report.export",objective="availability",revision="1c380329"}[3d])) > 0))'
+        labels:
+          objective: availability
+          revision: 1c380329
+          slo: report.export
+          window: 3d
+        record: 'slo:sli:ratio'
+      - expr: vector(0.99)
+        labels:
+          objective: availability
+          revision: 1c380329
+          slo: report.export
+          window: 3d
+        record: 'slo:objective:target'
+      - expr: '1 - ((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="report.export",objective="availability",revision="1c380329",result="bad"}[3d])) or vector(0)) / ((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="report.export",objective="availability",revision="1c380329"}[3d])) > 0) * 0.01))'
+        labels:
+          objective: availability
+          revision: 1c380329
+          slo: report.export
+          window: 3d
+        record: 'slo:error_budget:remaining'
+      - expr: 'clamp((time() - min_over_time(timestamp(sum(symfony_slo_events_total{application="shop",component=~"web|worker",slo="report.export",objective="availability",revision="1c380329"}))[73h:1h])) / 259200, 0, 1)'
+        labels:
+          objective: availability
+          revision: 1c380329
+          slo: report.export
+          window: 3d
+        record: 'slo:window:coverage_ratio'

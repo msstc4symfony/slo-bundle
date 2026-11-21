@@ -7,26 +7,37 @@ use Msstc4Symfony\SloBundle\Application\Catalog\List\Action as ListAction;
 use Msstc4Symfony\SloBundle\Application\Catalog\Validate\Action as ValidateAction;
 use Msstc4Symfony\SloBundle\Application\Coverage\Analyze\Action as CoverageAction;
 use Msstc4Symfony\SloBundle\Application\Evaluation\RecordEvent\Action as RecordEventAction;
+use Msstc4Symfony\SloBundle\Application\Generation\BoundObjectiveCollector;
+use Msstc4Symfony\SloBundle\Application\Generation\BurnRatePolicy;
+use Msstc4Symfony\SloBundle\Application\Generation\GenerateRules\Action as GenerateRulesAction;
+use Msstc4Symfony\SloBundle\Application\Generation\SyncFiles\Action as SyncFilesAction;
 use Msstc4Symfony\SloBundle\Application\Port\CatalogDiagnosticsInterface;
 use Msstc4Symfony\SloBundle\Application\Port\ClockInterface;
 use Msstc4Symfony\SloBundle\Application\Port\EventWriterInterface;
+use Msstc4Symfony\SloBundle\Application\Port\FileWriterInterface;
 use Msstc4Symfony\SloBundle\Application\Port\OperationMonitorInterface;
 use Msstc4Symfony\SloBundle\Application\Port\RouteCatalogInterface;
 use Msstc4Symfony\SloBundle\Application\Port\RoutePointIndexInterface;
+use Msstc4Symfony\SloBundle\Application\Port\RuleFileBuilderInterface;
 use Msstc4Symfony\SloBundle\Domain\Repository\SloCatalogInterface;
 use Msstc4Symfony\SloBundle\Domain\Service\EventClassifier;
 use Msstc4Symfony\SloBundle\Domain\Service\RevisionCalculator;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
+use Msstc4Symfony\SloBundle\Infrastructure\Filesystem\FileWriter;
 use Msstc4Symfony\SloBundle\Infrastructure\Logging\FailSafeLogger;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\HttpSloObserver;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MessengerSloObserver;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MetricsEventWriter;
 use Msstc4Symfony\SloBundle\Infrastructure\Operation\HrtimeClock;
 use Msstc4Symfony\SloBundle\Infrastructure\Operation\OperationMonitor;
+use Msstc4Symfony\SloBundle\Infrastructure\Prometheus\PromQlBuilder;
+use Msstc4Symfony\SloBundle\Infrastructure\Prometheus\RuleGroupsBuilder;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RoutePointIndex;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouterRouteCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\SloCacheWarmer;
+use Msstc4Symfony\SloBundle\Infrastructure\Yaml\DeterministicYaml;
 use Msstc4Symfony\SloBundle\Presentation\Command\CoverageCommand;
+use Msstc4Symfony\SloBundle\Presentation\Command\GenerateCommand;
 use Msstc4Symfony\SloBundle\Presentation\Command\ListCommand;
 use Msstc4Symfony\SloBundle\Presentation\Command\ValidateCommand;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
@@ -81,6 +92,24 @@ return static function (ContainerConfigurator $container): void {
         ->arg('$httpRequiredPercent', param('msstc4symfony_slo.coverage.http_routes.required_percent'))
         ->arg('$messengerRequiredPercent', param('msstc4symfony_slo.coverage.messenger_handlers.required_percent'))
         ->arg('$logicRequiredPercent', param('msstc4symfony_slo.coverage.logic_actions.required_percent'))
+    ;
+    $services->set(BurnRatePolicy::class);
+    $services->set(BoundObjectiveCollector::class);
+    $services->set(PromQlBuilder::class);
+    $services->set(DeterministicYaml::class);
+    $services->set(RuleGroupsBuilder::class);
+    $services->alias(RuleFileBuilderInterface::class, RuleGroupsBuilder::class);
+    $services->set(FileWriter::class);
+    $services->alias(FileWriterInterface::class, FileWriter::class);
+    $services->set(GenerateRulesAction::class);
+    $services->set(SyncFilesAction::class);
+    $services->set(GenerateCommand::class)
+        ->arg('$application', param('msstc4symfony_slo.generation.selector.application'))
+        ->arg('$components', param('msstc4symfony_slo.generation.selector.components'))
+        ->arg('$outputDir', param('msstc4symfony_slo.generation.output_dir'))
+        ->arg('$prometheusRules', param('msstc4symfony_slo.generation.prometheus.rules'))
+        ->arg('$prometheusAlerts', param('msstc4symfony_slo.generation.prometheus.alerts'))
+        ->arg('$noEventsAlertHours', param('msstc4symfony_slo.generation.prometheus.no_events_alert_hours'))
     ;
     $services->set(ListCommand::class);
     $services->set(ValidateCommand::class);

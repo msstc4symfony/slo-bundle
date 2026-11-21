@@ -1,0 +1,54 @@
+# Review focus 3: after a threshold change only the current revision (bd652502 for checkout.pay latency 200ms) counts.
+rule_files:
+  - ../Generated/prometheus/slo-recording.rules.yml
+  - ../Generated/prometheus/slo-alerts.rules.yml
+
+evaluation_interval: 1m
+
+tests:
+  - name: events of an old revision only
+    interval: 1m
+    input_series:
+      - series: 'symfony_slo_events_total{application="shop",component="web",slo="checkout.pay",objective="latency",revision="0badc0de",result="good"}'
+        values: '0+10x60'
+      - series: 'symfony_slo_events_total{application="shop",component="web",slo="checkout.pay",objective="latency",revision="0badc0de",result="bad"}'
+        values: '0+10x60'
+    promql_expr_test:
+      - expr: slo:sli:ratio{slo="checkout.pay",objective="latency"}
+        eval_time: 1h
+        exp_samples: []
+      - expr: slo:error_ratio:rate5m{slo="checkout.pay",objective="latency"}
+        eval_time: 1h
+        exp_samples: []
+    alert_rule_test:
+      - eval_time: 1h
+        alertname: SloErrorBudgetBurn
+        exp_alerts: []
+
+  - name: events of the current revision
+    interval: 1m
+    input_series:
+      - series: 'symfony_slo_events_total{application="shop",component="web",slo="checkout.pay",objective="latency",revision="0badc0de",result="bad"}'
+        values: '0+90x60'
+      - series: 'symfony_slo_events_total{application="shop",component="web",slo="checkout.pay",objective="latency",revision="bd652502",result="good"}'
+        values: '0+10x60'
+      - series: 'symfony_slo_events_total{application="shop",component="web",slo="checkout.pay",objective="latency",revision="bd652502",result="bad"}'
+        values: '0+10x60'
+    promql_expr_test:
+      - expr: slo:sli:ratio{slo="checkout.pay",objective="latency"}
+        eval_time: 1h
+        exp_samples:
+          - labels: 'slo:sli:ratio{objective="latency",revision="bd652502",slo="checkout.pay",window="30d"}'
+            value: 0.5
+    alert_rule_test:
+      - eval_time: 1h
+        alertname: SloErrorBudgetBurn
+        exp_alerts:
+          - exp_labels:
+              objective: latency
+              revision: bd652502
+              severity: page
+              slo: checkout.pay
+              window: 30d
+            exp_annotations:
+              summary: 'SLO checkout.pay latency burns its error budget fast (target 99%, window 30d)'

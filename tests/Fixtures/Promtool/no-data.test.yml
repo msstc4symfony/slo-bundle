@@ -1,0 +1,47 @@
+# Review focus 5: without events every SLI series is absent (NoData, never 100 %) and no alert fires.
+rule_files:
+  - ../Generated/prometheus/slo-recording.rules.yml
+  - ../Generated/prometheus/slo-alerts.rules.yml
+
+evaluation_interval: 1m
+
+tests:
+  - name: no series at all
+    interval: 1m
+    input_series: []
+    promql_expr_test:
+      - expr: slo:sli:ratio
+        eval_time: 2h
+        exp_samples: []
+      - expr: slo:error_budget:remaining
+        eval_time: 2h
+        exp_samples: []
+      - expr: slo:error_ratio:rate5m
+        eval_time: 2h
+        exp_samples: []
+      - expr: slo:events:rate1h
+        eval_time: 2h
+        exp_samples: []
+      - expr: slo:window:coverage_ratio
+        eval_time: 2h
+        exp_samples: []
+    alert_rule_test:
+      - eval_time: 2h
+        alertname: SloErrorBudgetBurn
+        exp_alerts: []
+
+  - name: series of another application only
+    interval: 1m
+    input_series:
+      - series: 'symfony_http_response{application="other",component="web",method="POST",route="checkout_pay",status="500"}'
+        values: '0+10x120'
+      - series: 'symfony_slo_events_total{application="other",component="web",slo="checkout.pay",objective="latency",revision="bd652502",result="bad"}'
+        values: '0+10x120'
+    promql_expr_test:
+      - expr: slo:sli:ratio
+        eval_time: 2h
+        exp_samples: []
+    alert_rule_test:
+      - eval_time: 2h
+        alertname: SloErrorBudgetBurn
+        exp_alerts: []

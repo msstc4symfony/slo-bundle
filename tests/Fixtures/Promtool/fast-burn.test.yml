@@ -1,0 +1,47 @@
+# 5 % of the checkout.pay requests fail for an hour against a 99.9 % target: the page alert fires at once,
+# the ticket alert waits for a fully covered window.
+rule_files:
+  - ../Generated/prometheus/slo-recording.rules.yml
+  - ../Generated/prometheus/slo-alerts.rules.yml
+
+evaluation_interval: 1m
+
+tests:
+  - interval: 1m
+    input_series:
+      - series: 'symfony_http_response{application="shop",component="web",method="POST",route="checkout_pay",status="200"}'
+        values: '0+95x60'
+      - series: 'symfony_http_response{application="shop",component="web",method="POST",route="checkout_pay",status="500"}'
+        values: '0+5x60'
+    promql_expr_test:
+      - expr: slo:error_ratio:rate5m{slo="checkout.pay",objective="availability"}
+        eval_time: 1h
+        exp_samples:
+          - labels: 'slo:error_ratio:rate5m{objective="availability",slo="checkout.pay",window="30d"}'
+            value: 0.05
+      - expr: slo:sli:ratio{slo="checkout.pay",objective="availability"}
+        eval_time: 1h
+        exp_samples:
+          - labels: 'slo:sli:ratio{objective="availability",slo="checkout.pay",window="30d"}'
+            value: 0.95
+      - expr: slo:error_budget:remaining{slo="checkout.pay",objective="availability"}
+        eval_time: 1h
+        exp_samples:
+          - labels: 'slo:error_budget:remaining{objective="availability",slo="checkout.pay",window="30d"}'
+            value: -49
+      - expr: slo:objective:target{slo="checkout.pay",objective="availability"}
+        eval_time: 1h
+        exp_samples:
+          - labels: 'slo:objective:target{objective="availability",slo="checkout.pay",window="30d"}'
+            value: 0.999
+    alert_rule_test:
+      - eval_time: 1h
+        alertname: SloErrorBudgetBurn
+        exp_alerts:
+          - exp_labels:
+              objective: availability
+              severity: page
+              slo: checkout.pay
+              window: 30d
+            exp_annotations:
+              summary: 'SLO checkout.pay availability burns its error budget fast (target 99.9%, window 30d)'

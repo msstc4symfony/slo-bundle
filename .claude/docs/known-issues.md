@@ -86,3 +86,22 @@
   не поддерживается библиотекой надёжно — в схеме используется `oneOf`. `Validator::validate()` берёт значение по ссылке и
   требует объекты (`json_decode(..., false)`), массивы не годятся. `composer-ci.lock` не пересобран (устарел и без этого —
   регенерирует владелец после тега metrics-bundle 2.3.0); `composer update --lock` без доступа к GitHub падает на клонировании logic-bundle.
+
+## Генерация правил и promtool (Task 12)
+
+- **`Makefile` и `phpunit.xml.dist` — `ExactFileRule` bundle-standard** (байт-в-байт с шаблоном), поэтому бриф («цель в Makefile, exclude группы
+  в phpunit.xml.dist») не выполним буквально. Сделано: тест `tests/Promtool/PromtoolTest.php` вне testsuite-каталогов (default `make test` и
+  Infection его не видят), цель `test-promtool` — в `GNUmakefile` (GNU make читает его раньше `Makefile`, `include Makefile`).
+  `vendor/bin/phpunit --group promtool` без пути находит 0 тестов — нужен путь `tests/Promtool`.
+- Тест promtool без Docker (или без доступа к сокету, как в песочнице) падает с «Docker is required...», не пропускается (ruling 10).
+  В песочнице запускать с отключённым sandbox. Полный прогон ≈ 50 с (сценарии на 2-3 дня вычисляют все правила каждую минуту).
+- В `promtool test rules` группа алертов (другой файл) вычисляется до группы записей того же момента и видит coverage предыдущей итерации:
+  ticket начинает срабатывать через одну итерацию после того, как coverage стал 1 (в тесте `eval_time: 3d10m`).
+- promtool режет запросы по числу сэмплов («query processing would load too many samples»): `increase(...[7d])` на 1m-сериях упал около 7d,
+  поэтому позитивный сценарий ticket — на окне 3d. В проде лимит `query.max-samples` (50M) — increase за 30d по сырым сериям дорог при большом
+  числе серий; при проблемах переходить на агрегацию 5m-записей.
+- Coverage-подзапрос берёт окно + 1h (`[721h:1h]` для 30d): иначе первый шаг подзапроса после начала окна даёт `< 1` навсегда и ticket никогда
+  не срабатывает.
+- Golden-файлы зависят от формата дампера `symfony/yaml` (кавычки строк): сверено, что 7.4.23 и 8.1 дают те же байты.
+- Новая CI-job `promtool` ставит `composer-ci.json`, а `composer-ci.lock` устарел до тега metrics-bundle 2.3.0 — job упадёт на install так же,
+  как стандартная, до пересборки lock владельцем.

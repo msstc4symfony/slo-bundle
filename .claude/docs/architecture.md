@@ -123,3 +123,38 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
   `--min` перекрывает все виды; невалидный `--min`/`--format` → код 2; код 1 при любой invalid точке или виде ниже порога
   (сравнение по округлённому значению). JSON: ключи отсортированы, `JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES`, OUTPUT_RAW,
   схема `doc/coverage-schema.json` (JSON Schema 2020-12; `doc/` допустим для verify-standard). Целые проценты печатаются как `50`, не `50.0`.
+
+## Генерация правил Prometheus и `slo:generate` (Task 12)
+
+- `Application/Generation/`: `GeneratedFile{relativePath, contents}` (путь относительный, без `.`/`..`), `GeneratedFileSet{managedDirectories,
+  files}` (файлы отсортированы, каждый внутри управляемого каталога; `merge()` для генераторов Task 13-14 — они добавляют свой каталог
+  `grafana`/`sloth` и файлы), `Selector{application, components}` (компоненты отсортированы, уникальны), `BoundObjective{definition,
+  objective, binding, revision}` — единица рендеринга всех генераторов, `BoundObjectiveCollector::collect()` (SLO по имени, цели в порядке
+  `ObjectiveKind::cases()`; конфликтные имена отсутствуют в `all()` и правил не получают), `BurnRatePolicy` + `BurnRateWindow` (ruling 9).
+- `BurnRatePolicy` лежит в Application (а не в Infrastructure, как в брифе): им пользуется и `slo:validate` (warning об опущенной паре), а
+  Application не может зависеть от Infrastructure. `BurnRatePolicy::number()` — общий формат чисел для PromQL (без экспоненты и хвостовых нулей).
+- Use cases: `GenerateRules\{Action,Input,Output}` (файлы `prometheus/slo-recording.rules.yml`, `prometheus/slo-alerts.rules.yml`, флаги
+  `generation.prometheus.rules/alerts`, `no_events_alert_hours`; warnings — конфликтные SLO и опущенные burn-rate пары) и
+  `SyncFiles\{Action,Input,Output}` (stale/missing/extra по управляемым каталогам; в режиме записи пишет stale+missing и удаляет extra).
+- Порты: `FileWriterInterface` (read/write/list/delete относительно корня; адаптер `Infrastructure/Filesystem/FileWriter` пишет через
+  временный файл + rename) и `RuleFileBuilderInterface` (адаптер `Infrastructure/Prometheus/RuleGroupsBuilder`).
+- `Infrastructure/Prometheus/PromQlBuilder` — все выражения; `RuleGroupsBuilder` — группы `slo-<name>`, `interval: 1m`;
+  `Infrastructure/Yaml/DeterministicYaml` — `Yaml::dump(..., 10, 2, COMPACT_NESTED_MAPPING | EMPTY_ARRAY_AS_SEQUENCE)` с рекурсивно
+  отсортированными map-ключами (`groups: []` для пустого каталога).
+- `slo:generate [--output] [--check]`: нет `generation.selector.application` → код 2; `--check` → 0 / 1 со списком
+  `stale|missing|extra <path>`; warnings — в stderr с префиксом `WARNING`.
+
+### Форма правил
+
+- Базовый селектор: `application="<app>"` + `component=~"<a|b>"` (если компоненты заданы). Strategy B:
+  `symfony_slo_events_total{<base>,slo,objective,revision="<текущая>"}`, bad = `+ result="bad"`; сумма по `result` — через `sum(...)` без `by`.
+  Strategy A: `symfony_<metric>{<base>, matchers}`, bad = matchers с наложенными badMatchers; гистограмма — `_count`, latency =
+  `_count - _bucket{le}`; пустые badMatchers → `vector(0)`.
+- Все выражения агрегируются `sum(...)` до одной серии; метки ставит правило: `slo`, `objective`, `window` (окно как объявлено, `1mo`),
+  `revision` только у B. Плохая серия может отсутствовать (нет ни одного bad-события) → `(bad or vector(0))`; знаменатель `(total > 0)` → NoData.
+- Записи: `slo:events:rate<w>`, `slo:error_ratio:rate<w>` (w = 5m, 30m, 1h, 6h, 3d), `slo:sli:ratio` (increase за окно),
+  `slo:objective:target` (`vector(target/100)`), `slo:error_budget:remaining` (`1 - bad / ((total > 0) * (1 - target))`),
+  `slo:window:coverage_ratio` = `clamp((time() - min_over_time(timestamp(sum(<total>))[<W+1h>:1h])) / W, 0, 1)`.
+- Алерты: `SloErrorBudgetBurn` page = `(1h & 5m) or (6h & 30m)` одним правилом, ticket = `(3d & 6h) and on() (coverage >= 1)`;
+  пороги — готовые числа `factor × (1 - target)`; `SloNoEvents` (severity ticket) = `(sum(increase(<total>[Nh])) or vector(0)) == 0`.
+  Аннотация только `summary` (имя, objective, target, окно), без runbook.

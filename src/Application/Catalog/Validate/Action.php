@@ -6,6 +6,7 @@ namespace Msstc4Symfony\SloBundle\Application\Catalog\Validate;
 
 use Msstc4Symfony\SloBundle\Application\Binding\MetricBindingResolver;
 use Msstc4Symfony\SloBundle\Application\Discovery\SloDeclaration;
+use Msstc4Symfony\SloBundle\Application\Generation\BurnRatePolicy;
 use Msstc4Symfony\SloBundle\Application\Port\CatalogDiagnosticsInterface;
 use Msstc4Symfony\SloBundle\Application\Port\RouteCatalogInterface;
 use Msstc4Symfony\SloBundle\Domain\Enum\ObjectiveKind;
@@ -21,6 +22,7 @@ final readonly class Action
         private CatalogDiagnosticsInterface $diagnostics,
         private RouteCatalogInterface $routes,
         private MetricBindingResolver $bindings,
+        private BurnRatePolicy $burnRates = new BurnRatePolicy(),
     ) {
     }
 
@@ -59,6 +61,13 @@ final readonly class Action
             }
         }
 
+        $warnings = $this->diagnostics->extras()->warnings;
+        foreach ($this->catalog->all() as $definition) {
+            foreach ($definition->objectives() as $objective) {
+                array_push($warnings, ...$this->burnRates->warnings($definition->name()->value, $objective->kind->value, $definition->window(), $objective->target));
+            }
+        }
+
         $ignored = $this->diagnostics->extras()->httpIgnoredRoutes;
         foreach ($this->catalog->all() as $definition) {
             if ($definition->pointType() !== PointType::HttpRoute) {
@@ -80,7 +89,7 @@ final readonly class Action
 
         return new Output(
             $this->sorted($errors),
-            $this->sorted($this->diagnostics->extras()->warnings),
+            $this->sorted($warnings),
             $this->sorted($notices),
         );
     }
