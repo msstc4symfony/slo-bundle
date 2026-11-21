@@ -412,6 +412,22 @@ final class CollectSloDefinitionsPassTest extends TestCase
             $container->register(RefundAction::class, RefundAction::class)->addTag(PointTag::TAG, [PointTag::TYPE => 'logic_action']);
         }, [], 'service "' . RefundAction::class . '": tag "msstc4symfony_slo.point" needs attribute "type"'];
         yield 'attribute constructor rejects its value' => [[BlankIgnoreReasonController::class], null, [], $http(BlankIgnoreReasonController::class, 'debug') . ': invalid attribute: IgnoreMonitoring reason must not be blank.'];
+        yield 'template braces in a metric label' => [[], static function (ContainerBuilder $container): void {
+            $container->register(RefundAction::class, RefundAction::class)->addTag(PointTag::TAG, [PointTag::TYPE => 'logic_action', PointTag::ID => 'refund', PointTag::METRIC_LABEL => 'Refund{{.window}}']);
+        }, [], 'service "' . RefundAction::class . '": tag "msstc4symfony_slo.point" attribute "metric_label" must be valid UTF-8 without control characters, "{{" or "}}".'];
+        yield 'control character in a metric label' => [[], static function (ContainerBuilder $container): void {
+            $container->register(RefundAction::class, RefundAction::class)->addTag(PointTag::TAG, [PointTag::TYPE => 'logic_action', PointTag::ID => 'refund', PointTag::METRIC_LABEL => "Refund\r"]);
+        }, [], 'attribute "metric_label" must be valid UTF-8'];
+        yield 'invalid UTF-8 in a metric label' => [[], static function (ContainerBuilder $container): void {
+            $container->register(RefundAction::class, RefundAction::class)->addTag(PointTag::TAG, [PointTag::TYPE => 'logic_action', PointTag::ID => 'refund', PointTag::METRIC_LABEL => "Refund\xC3"]);
+        }, [], 'attribute "metric_label" must be valid UTF-8'];
+        yield 'non-string metric label' => [[], static function (ContainerBuilder $container): void {
+            $container->register(RefundAction::class, RefundAction::class)->addTag(PointTag::TAG, [PointTag::TYPE => 'logic_action', PointTag::ID => 'refund', PointTag::METRIC_LABEL => 7]);
+        }, [], 'attribute "metric_label" must be valid UTF-8'];
+        yield 'same tagged point id on two services' => [[], static function (ContainerBuilder $container): void {
+            $container->register(RefundAction::class, RefundAction::class)->addTag(PointTag::TAG, [PointTag::TYPE => 'logic_action', PointTag::ID => 'refund']);
+            $container->register('second_refund', CleanupAction::class)->addTag(PointTag::TAG, [PointTag::TYPE => 'logic_action', PointTag::ID => 'refund']);
+        }, [], 'logic_action:refund: tagged on services "' . RefundAction::class . '" and "second_refund"'];
         yield 'invalid tagged point type' => [[], static function (ContainerBuilder $container): void {
             $container->register(RefundAction::class, RefundAction::class)->addTag(PointTag::TAG, [PointTag::TYPE => 'job', PointTag::ID => 'refund']);
         }, [], 'service "' . RefundAction::class . '": tag "msstc4symfony_slo.point" needs attribute "type"'];

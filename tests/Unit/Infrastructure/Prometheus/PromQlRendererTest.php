@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Test\Unit\Infrastructure\Prometheus;
 
+use InvalidArgumentException;
 use Msstc4Symfony\SloBundle\Application\Binding\Matcher;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\StatusSet;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Window;
@@ -25,6 +26,19 @@ final class PromQlRendererTest extends TestCase
     public function testEscapesBackslashQuoteAndNewlineForPromQlStrings(): void
     {
         self::assertSame('a="x\\\\y\\"z\\n"', PromQlRenderer::matcher(Matcher::equals('a', "x\\y\"z\n")));
+    }
+
+    public function testEscapesControlCharactersForPromQlStrings(): void
+    {
+        self::assertSame('a="x\\r\\ty\\x00\\x1b\\x7fz"', PromQlRenderer::matcher(Matcher::equals('a', "x\r\ty\x00\x1b\x7fz")));
+        self::assertSame('a="Zürich"', PromQlRenderer::matcher(Matcher::equals('a', 'Zürich')));
+    }
+
+    public function testRejectsAValueThatIsNotUtf8(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        PromQlRenderer::matcher(Matcher::equals('a', "x\xC3"));
     }
 
     public function testEscapeRegexQuotesRe2Metacharacters(): void

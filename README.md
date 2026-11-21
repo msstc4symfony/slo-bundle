@@ -335,8 +335,9 @@ Commit the directory, run `slo:generate --check` in CI ("rules are stale" fails 
 ## Bridges and measurement points
 
 Any service tagged `msstc4symfony_slo.point` becomes a measurement point of the catalog; the bundle reflects its class
-for `#[Slo]` and `#[IgnoreMonitoring]`. Tag attributes: `type` (a `PointType` value), `id` (non-empty, without `%`),
-optional `metric_label`.
+for `#[Slo]` and `#[IgnoreMonitoring]`. Tag attributes: `type` (a `PointType` value), `id` (non-empty, without `%`,
+unique across services), optional `metric_label` (the label value of the existing series; valid UTF-8 without control
+characters, `{{` or `}}`).
 slo-bundle never depends on logic-bundle: the `slo-bridge-logic` package tags `msstc4symfony_logic.action` services and
 records their events through `Application\Port\EventRecorderInterface` (inject it, call
 `record(new RecordEvent\Input($point, $observation))`).

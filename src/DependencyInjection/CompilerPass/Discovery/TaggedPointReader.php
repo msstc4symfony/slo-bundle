@@ -29,6 +29,7 @@ final readonly class TaggedPointReader
     public function read(ContainerBuilder $container): array
     {
         $points = [];
+        $owners = [];
         foreach ($container->findTaggedServiceIds(PointTag::TAG) as $id => $tags) {
             $class = ServiceClass::reflect($container, $id);
             if (!$class instanceof ReflectionClass) {
@@ -39,17 +40,46 @@ final readonly class TaggedPointReader
                     continue;
                 }
                 $point = $this->point($id, $tag);
-                if (!$point instanceof PointId || isset($points[$point->toString()])) {
+                if (!$point instanceof PointId) {
                     continue;
                 }
-                $label = $tag[PointTag::METRIC_LABEL] ?? null;
-                $points[$point->toString()] = new TaggedPoint($point, \is_string($label) && $label !== '' ? $label : null);
+                $key = $point->toString();
+                if (isset($owners[$key])) {
+                    if ($owners[$key] !== $id) {
+                        $this->errors->add(\sprintf('%s: tagged on services "%s" and "%s"; a tagged point id must be unique.', $key, $owners[$key], $id));
+                    }
+
+                    continue;
+                }
+                $owners[$key] = $id;
+                $points[$key] = new TaggedPoint($point, $this->metricLabel($id, $tag));
                 $this->attributes->apply($point, $class);
             }
         }
         ksort($points, SORT_STRING);
 
         return array_values($points);
+    }
+
+    /**
+     * The label value reaches PromQL strings and Sloth's Go templates.
+     *
+     * @param array<array-key, mixed> $tag
+     *
+     * @return non-empty-string|null
+     */
+    private function metricLabel(string $id, array $tag): ?string
+    {
+        $label = $tag[PointTag::METRIC_LABEL] ?? null;
+        if ($label === null || $label === '') {
+            return null;
+        }
+        if (\is_string($label) && preg_match('/^[^\x00-\x1F\x7F]*$/Du', $label) === 1 && !str_contains($label, '{{') && !str_contains($label, '}}')) {
+            return $label;
+        }
+        $this->errors->add(\sprintf('service "%s": tag "%s" attribute "%s" must be valid UTF-8 without control characters, "{{" or "}}".', $id, PointTag::TAG, PointTag::METRIC_LABEL));
+
+        return null;
     }
 
     /**

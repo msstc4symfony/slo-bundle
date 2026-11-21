@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle\Infrastructure\Prometheus;
 
+use InvalidArgumentException;
 use Msstc4Symfony\SloBundle\Application\Binding\Matcher;
 use Msstc4Symfony\SloBundle\Application\Binding\MatchOperator;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\StatusSet;
@@ -85,7 +86,7 @@ final class PromQlRenderer
             MatchOperator::NotRegex => '!~',
         };
 
-        return $matcher->label . $operator . '"' . strtr($matcher->value, ['\\' => '\\\\', '"' => '\\"', "\n" => '\\n']) . '"';
+        return $matcher->label . $operator . '"' . self::stringLiteral($matcher->value) . '"';
     }
 
     /**
@@ -96,5 +97,22 @@ final class PromQlRenderer
     public static function selector(array $matchers): string
     {
         return '{' . implode(',', array_map(self::matcher(...), $matchers)) . '}';
+    }
+
+    /**
+     * Prometheus rejects a rule file with raw control characters or invalid UTF-8 in a string, which would silently drop
+     * every alert of the file: control characters are escaped, invalid UTF-8 fails the generation.
+     *
+     * @throws InvalidArgumentException
+     */
+    private static function stringLiteral(string $value): string
+    {
+        if (preg_match('//u', $value) !== 1) {
+            throw new InvalidArgumentException(\sprintf('PromQL label value "%s" is not valid UTF-8.', bin2hex($value)));
+        }
+
+        $escaped = strtr($value, ['\\' => '\\\\', '"' => '\\"', "\n" => '\\n', "\r" => '\\r', "\t" => '\\t']);
+
+        return preg_replace_callback('/[\x00-\x1F\x7F]/', static fn (array $m): string => \sprintf('\\x%02x', \ord($m[0])), $escaped) ?? $escaped;
     }
 }
