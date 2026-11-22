@@ -243,6 +243,10 @@ final class SloBundleConfigurationTest extends TestCase
     private function load(array $config): ContainerBuilder
     {
         $container = new ContainerBuilder();
+        // Symfony 7.4 reads both parameters while loading an AbstractBundle extension.
+        $container->setParameter('kernel.environment', 'test');
+        $container->setParameter('kernel.build_dir', sys_get_temp_dir());
+
         $extension = (new SloBundle())->getContainerExtension();
         self::assertInstanceOf(ExtensionInterface::class, $extension);
         $extension->load([$config], $container);

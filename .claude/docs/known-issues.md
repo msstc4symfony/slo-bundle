@@ -31,6 +31,11 @@
 - **metrics-bundle 2.3.0 выпущен 2026-11-22 UTC** (тег `v2.3.0`), `composer-ci.lock` пересобран на него.
   Git-ignored `composer-local.json` (path-репозитории `../metrics-bundle` как `2.3.0`, `../sql-labeller` как `1.0.0`)
   остаётся для работы с соседними чекаутами. Пакеты семейства не на Packagist: ставятся через vcs-репозитории.
+- **Symfony 7.4: `AbstractBundle`-расширение в голом `ContainerBuilder`** читает `kernel.environment` и
+  `kernel.build_dir` (`ExtensionTrait::executeConfiguratorCallback`); на 8.x — нет. Локально (Symfony 8) тест зелёный,
+  в CI ячейки 7.4 падают с `ParameterNotFoundException`: юнит-тесты конфигурации задают оба параметра.
+- **Ячейка CI «without optional libraries»** не ставит logic-bundle: тест, который просто бросает исключение, не должен
+  брать класс из logic-bundle (`ExpectedFailure` в тестах реализует `ExpectedFailureInterface`).
 - **`composer-ci.lock` у metrics-bundle держит Elastica 7** (`--with ruflin/elastica:^7.3` при `composer update`):
   на Elastica 9 PHPStan падает на `Elastica\Transport\AbstractTransport` в `TimingTransport`.
 

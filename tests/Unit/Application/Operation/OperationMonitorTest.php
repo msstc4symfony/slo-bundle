@@ -308,14 +308,14 @@ final class OperationMonitorTest extends TestCase
     {
         $catalog = $this->catalog();
         $monitor = new OperationMonitor($catalog, $this->action($this->writer, $catalog), $this->clock, new ThrowingClassifier(), $this->logger);
-        $thrown = new ExpectedFailure('declined');
+        $thrown = new RuntimeException('declined');
 
         $caught = null;
         try {
             $monitor->measure('payment.validation', static function () use ($thrown): never {
                 throw $thrown;
             });
-        } catch (ExpectedFailure $exception) {
+        } catch (RuntimeException $exception) {
             $caught = $exception;
         }
 
