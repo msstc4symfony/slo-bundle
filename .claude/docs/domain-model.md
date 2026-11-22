@@ -30,6 +30,8 @@
 - Точки на компиляции: HTTP — `http_route:Class::method` (маршрут привязывается позже, Task 6), Messenger —
   `messenger_message:<FQCN сообщения>` (SLO на handler = SLO на envelope сообщения), тег — `<type>:<id>` из атрибутов
   тега, операция — `operation:<name>` (имя операции = имя SLO, strategy всегда dedicated).
+- `HandlerInfo::$async` («handler читает worker») влияет только на `slo:validate` (WARNING про sync-only SLO) и
+  `slo:coverage` (`unsupported`); в ревизию, правила и дашборды не входит. Правило — `integrations.md` (rc.4).
 - Классовый `#[Slo]`/`#[IgnoreMonitoring]`: у invokable-контроллера — только `__invoke` (класс и `__invoke` — одна цель,
   `#[Slo]` + `#[IgnoreMonitoring]` между ними = ошибка); у не-invokable — на каждый action-метод, но атрибуты метода
   перекрывают классовые в обе стороны (метод `#[IgnoreMonitoring]` снимает классовый `#[Slo]`, метод `#[Slo]` — классовый

@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- A Messenger handler of a service that consumes messages another service routes (the transport and the worker are
+  here, the `routing` entry is in the producer) is now worker-consumed: `slo:validate` no longer warns that its SLO never
+  records events and `slo:coverage` judges it `monitored`/`unmonitored` instead of `unsupported`. A handler counts as
+  worker-consumed when its message is routed to a transport other than `sync://`, when it is bound with
+  `fromTransport`/`from_transport` to such a transport, or when its message is not routed in the app and the app has a
+  receive-only transport (not `sync://`, not a failure transport, targeted by no routing entry or `#[AsMessage]` of a
+  handled message). Unrouted framework messages (`Symfony\*`) stay synchronous. A message routed only to `sync://` is
+  now synchronous (before it counted as routed). Apps with a receive-only transport may see the messenger coverage gate
+  fall: their unrouted handlers now need `#[Slo]` or `#[IgnoreMonitoring]`. Revisions, generated rules and dashboards
+  do not change: the flag only feeds `slo:validate` and `slo:coverage`.
+
 ## [1.0.0-rc.3] - 2026-11-22
 
 ### Fixed

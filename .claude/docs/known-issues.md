@@ -306,3 +306,20 @@
   Symfony-приложений одного `application` (showcase: gateway, orders, billing) раньше давали одинаковые uid и заголовки. Без
   компонентов uid = `sha256(title . application)` и golden-файлы не меняются; с компонентами в хеш входит `"\0" . implode(',', components)`,
   заголовок `SLO: <title> (<application>: <c1>, <c2>)`.
+
+## Consumer-сервисы Messenger (rc.4)
+
+- **Async определялся только по routing этого приложения**: в multi-service (showcase: billing потребляет `ProcessPayment`,
+  routing — в orders) handler считался sync → ложный WARNING в `slo:validate` и `unsupported` в `slo:coverage` (гейт
+  messenger_handler проверял 0 точек), хотя события пишутся и Strategy A читает `symfony_messenger_message_handled`.
+  Runtime-путь async не проверяет — баг был только в discovery. Правило теперь в `integrations.md`.
+- **Receive-only транспорт, а не «есть хоть один транспорт»**: в монолите с `async` + query bus правило «не
+  маршрутизировано и есть транспорт» сделало бы все sync-handlers unmonitored. Ложное срабатывание осталось только когда
+  приложение одновременно и consumer, и имеет sync-handlers незамаршрутизированных сообщений — тогда они требуют
+  `#[Slo]`/`#[IgnoreMonitoring]` (гейт строже, а не слепой).
+- **`MessengerTestKernel`**: транспорт `priority` (нужен для per-transport `failure_transport`) стал бы receive-only и
+  сделал `SendReceipt` async — поэтому `ProcessPayment` маршрутизирован в `['async', 'priority']`.
+- **Сообщения на `sync://`** раньше считались async (непустой список sender'ов); теперь sync. Ревизии и сгенерированные
+  файлы флаг async не затрагивает (`RevisionCalculator` его не читает) — golden-файлы не менялись.
+- Тест consumer-приложения: `tests/Integration/Kernel/ConsumerOnlyKernelTest` (сообщение кладётся прямо в транспорт —
+  имитация продюсера — и `messenger:consume` даёт одно событие).

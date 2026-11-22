@@ -176,7 +176,7 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
   (`conflictedNamesFor`) или SLO на маршруте из `httpIgnoredRoutes` metrics-bundle. Ignored: `_`-маршрут или `httpIgnoredRoutes`
   ("system route"), `coverage.http_routes.ignored_routes`, `#[IgnoreMonitoring]` (ищется по controller-точке / message-точке / точке логики).
 - Messenger: точка на обработчик, но SLO и ignore ищутся по сообщению (`messenger_message:<FQCN>`); sync → unsupported
-  "sync handling is not measured".
+  "sync handling is not measured". Что считается async — `integrations.md` (правило rc.4 для consumer-сервисов).
 - `Output::of(kind)`/`kinds()` → `KindCoverage{monitored, eligible, sloPercent, measuredPercent}`, порог — `KindCoverage::isBelow()`
   по точной дроби; статус точки решает `CoverageVerdict::decide()`.
 - `sloPercent = monitored / (total - ignored - unsupported)`, `measuredPercent = measuredByUniversalMetric / total`; оба округлены до

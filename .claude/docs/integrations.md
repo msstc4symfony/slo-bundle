@@ -15,9 +15,18 @@
 ## Что discovery читает из чужих бандлов (Task 5)
 
 - Messenger (FrameworkExtension): маршрутизация — аргумент 0 `messenger.senders_locator` (тип сообщения → имена
-  sender'ов; ключи — класс, родители, интерфейсы, `Ns\*`, `*` как в `SendersLocator`). Сообщение async, если хоть один
-  ключ даёт непустой список; если ни один не совпал — как `SendersLocator`, смотрим `#[AsMessage(transport: ...)]`
-  (IS_INSTANCEOF) на классе, родителях и интерфейсах. Без определения `messenger.senders_locator` — всегда false.
+  sender'ов; ключи — класс, родители, интерфейсы, `Ns\*`, `*` как в `SendersLocator`, sender'ы объединяются); если ни один
+  не совпал — как `SendersLocator`, смотрим `#[AsMessage(transport: ...)]` (IS_INSTANCEOF) на классе, родителях и
+  интерфейсах. Транспорты — теги `messenger.receiver` (`alias`, `is_failure_transport`, `is_consumable: false` у
+  `sync://`; DSN из env FrameworkExtension не видит → считается worker-транспортом). Префикс `messenger.transport.`
+  срезается и у sender'ов. Без определения `messenger.senders_locator` — всегда false.
+- Handler async (rc.4, `MessengerRouting::isAsync`): (1) `from_transport` → async, если этот транспорт не `sync://`
+  (неизвестное имя → async); (2) сообщение маршрутизировано → async, если хоть один sender не `sync://` (чужой
+  sender-сервис → async); (3) не маршрутизировано → async, если в приложении есть receive-only транспорт (не `sync://`, не
+  failure, не цель ни одной записи routing и ни одного `#[AsMessage]` обрабатываемых сообщений) и сообщение не из
+  `Symfony\` (RunCommand/Redispatch/RunProcess приложение шлёт само, иначе в consumer-приложении они стали бы
+  unmonitored). Receive-only считается в `handling($messages)` после сбора всех handlers (`HandlerReader` двухфазный).
+  Failure-транспорты = флаг тега ∪ результат `failureTransports()` (с учётом `defaults.messenger.failure_transports`).
 - Failure-транспорты: явный `defaults.messenger.failure_transports` (не null) побеждает; иначе определение
   `messenger.failure.send_failed_message_to_failure_transport_listener`: аргумент 2 (транспорт → имя failure-транспорта)
   и локатор в аргументе 0 (`ServiceClosureArgument(Reference('messenger.transport.<name>'))`), префикс срезается.

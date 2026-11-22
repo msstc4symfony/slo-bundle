@@ -34,7 +34,7 @@ final readonly class HandlerReader
      */
     public function read(ContainerBuilder $container, MessengerRouting $routing): ReadResult
     {
-        $handlers = [];
+        $found = [];
         /** @var array<non-empty-string, array<non-empty-string, bool>> $byMessage message => handler "Class::method" => declares #[Slo] */
         $byMessage = [];
         foreach ($container->findTaggedServiceIds(self::TAG) as $id => $tags) {
@@ -64,10 +64,15 @@ final readonly class HandlerReader
                     if ($onMethod || $onClass) {
                         $this->checkConcrete($message, $handlerKey);
                     }
-                    $handlers[] = new HandlerInfo($class->getName(), $message, $routing->isAsync($message), $this->nonEmptyString($tag['from_transport'] ?? null), $method);
+                    $found[] = [$class->getName(), $message, $this->nonEmptyString($tag['from_transport'] ?? null), $method];
                 }
             }
         }
+        $routing = $routing->handling(array_keys($byMessage));
+        $handlers = array_map(
+            static fn (array $handler): HandlerInfo => new HandlerInfo($handler[0], $handler[1], $routing->isAsync($handler[1], $handler[2]), $handler[2], $handler[3]),
+            $found,
+        );
         usort($handlers, static fn (HandlerInfo $a, HandlerInfo $b): int => [$a->handlerClass, $a->messageClass] <=> [$b->handlerClass, $b->messageClass]);
         ksort($byMessage, SORT_STRING);
 

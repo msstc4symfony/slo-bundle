@@ -131,7 +131,11 @@ Events come from the metrics-bundle measurement observers, with the duration met
   retries are events only with `countAttempts: true`, anything consumed from a failure transport
   (`messenger:failed:retry`) never is. Batch handlers (`BatchHandlerInterface`) are counted per envelope like any async message.
   Synchronously handled messages are not measured (`slo:coverage` reports them as `unsupported`, `slo:validate` warns
-  about an SLO on a message that is never routed to a transport). `#[Slo]` on a handler is an SLO on the envelope of
+  about an SLO on a message that is never routed to a transport). A handler counts as worker-consumed when its message
+  is routed to a transport other than `sync://`, when it is bound to such a transport with `fromTransport`, or when the
+  app does not route its message but has a receive-only transport (not `sync://`, not a failure transport, targeted by no
+  routing entry or `#[AsMessage]` of a handled message): a consumer service whose producer owns the routing. Unrouted
+  framework messages (`Symfony\*`) stay synchronous. `#[Slo]` on a handler is an SLO on the envelope of
   its message; a message with several handlers gets a validation warning. The handler must take a concrete message
   class: events are matched by the dispatched message's class, so `#[Slo]` on a handler of an interface or abstract
   class is a compilation error.

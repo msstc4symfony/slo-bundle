@@ -73,7 +73,7 @@ final class MessengerTestKernel extends Kernel
                     'failed' => 'in-memory://',
                     'dead' => 'in-memory://',
                 ],
-                'routing' => [ProcessPayment::class => 'async'],
+                'routing' => [ProcessPayment::class => ['async', 'priority']],
             ],
         ]);
         $container->extension('monolog', ['handlers' => ['main' => ['type' => 'null']]]);
