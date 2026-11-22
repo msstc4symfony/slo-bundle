@@ -36,9 +36,10 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
 
 ## Discovery и скомпилированный каталог (Task 5)
 
-- `SloBundle::build()` добавляет `CollectSloDefinitionsPass` (`TYPE_BEFORE_OPTIMIZATION`, приоритет 0 — после
-  автоконфигурации атрибутов на 100, т.е. теги `#[AsController]`/`#[AsMessageHandler]` уже стоят). Мосты, которые
-  ставят тег `msstc4symfony_slo.point` из своего pass, регистрируют его с приоритетом >= 10 (описано в `PointTag`).
+- `SloBundle::build()` добавляет `CollectSloDefinitionsPass` (`TYPE_BEFORE_OPTIMIZATION`, приоритет -10 с rc.2 — после
+  автоконфигурации атрибутов на 100, т.е. теги `#[AsController]`/`#[AsMessageHandler]` уже стоят, и после enum'ов метрик,
+  которые бандлы добавляют на приоритете 0 в любом порядке бандлов). Мосты, которые ставят тег `msstc4symfony_slo.point`
+  из своего pass, регистрируют его с приоритетом >= 10 (описано в `PointTag`). `RegisterSloMetricPass` остаётся на 0.
 - Раскладка: чистая логика в `src/Application/Discovery/` (`DefinitionFactory`, `CatalogAssembler`, `DiscoveryErrors`,
   DTO `CatalogContents`, `CatalogExtras`, `HandlerInfo`, `TaggedPoint`, `SloDeclaration`, `PointTag`); маршалинг дампа контейнера
   (snake_case-скаляры) — `Infrastructure/Catalog/CatalogDump` (R2-021: им пользуются только DI и Infrastructure, новых рёбер deptrac нет);

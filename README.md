@@ -346,8 +346,14 @@ records their events through `Application\Port\EventRecorderInterface` (inject i
 `Input` inside its own `try` to stay fail-open.
 
 **A bridge that adds the tag from its own compiler pass must register that pass with `PassConfig::TYPE_BEFORE_OPTIMIZATION`
-and a priority of 10 or higher**: discovery runs at priority 0, after the attribute autoconfiguration (100) has tagged
-controllers and handlers, and the tag has to exist by then. `PointTag::TAG` is the constant for the tag name.
+and a priority of 10 or higher**: discovery runs at priority -10; a bridge pass that adds the tag uses priority 10 or
+higher (after autoconfiguration at 100). The tag has to exist by then. Discovery also reads the metric enums of
+metrics-bundle, so an enum appended at priority 0 by a bundle registered after slo-bundle (such as the logic-action
+histogram of metrics-bridge-logic) is seen in any bundle order. `PointTag::TAG` is the constant for the tag name.
+
+A bridge that decorates `OperationMonitorInterface` (`slo-bridge-profiling`) injects
+`Application\Port\ExpectedFailureClassifierInterface` to classify an exception exactly like `measure()` does, without
+depending on logic-bundle.
 
 ## Public API
 
@@ -358,7 +364,7 @@ few public methods of the types below that carry `@internal` (helpers of discove
 | Part | Contents |
 |------|----------|
 | Attributes | `Application\Attribute\*` (`Slo`, `Availability`, `Latency`, `Combined`, `IgnoreMonitoring`, `ObjectiveAttributeInterface`) |
-| Operations | `Application\Port\OperationMonitorInterface`, `Application\Port\OperationHandleInterface` |
+| Operations | `Application\Port\OperationMonitorInterface`, `Application\Port\OperationHandleInterface`, `Application\Port\ExpectedFailureClassifierInterface` |
 | Bridges | `Application\Discovery\PointTag`, `Application\Port\EventRecorderInterface` (a public service, inject it), `Application\Evaluation\RecordEvent\Input` |
 | Catalog | `Domain\Repository\SloCatalogInterface`, `Domain\Entity\SloDefinition` |
 | Value objects | `Domain\ValueObject\SloName`, `PointId`, `Objective`, `Target`, `LatencyThreshold`, `Window`, `Classification`, `StatusSet`, `Observation` |

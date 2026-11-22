@@ -61,8 +61,8 @@ final class SloBundle extends AbstractBundle
     #[Override]
     public function build(ContainerBuilder $container): void
     {
-        // Priority 0: after attribute autoconfiguration (100); bridges that tag points register at >= 10.
-        $container->addCompilerPass(new CollectSloDefinitionsPass(), PassConfig::TYPE_BEFORE_OPTIMIZATION, 0);
+        // Priority -10: sees metric enums that bundles registered after this one append at priority 0.
+        $container->addCompilerPass(new CollectSloDefinitionsPass(), PassConfig::TYPE_BEFORE_OPTIMIZATION, -10);
         $container->addCompilerPass(new RegisterSloMetricPass(), PassConfig::TYPE_BEFORE_OPTIMIZATION, 0);
     }
 

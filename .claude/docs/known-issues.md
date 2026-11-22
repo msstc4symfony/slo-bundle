@@ -141,6 +141,14 @@
   Запуск: `env -u TMPDIR make infection` с отключённым sandbox (нужен записываемый /tmp).
 - **`@internal`** в docblock класса — признак «не публичный API»; PHPStan не ругается, пока код в том же корневом namespace `Msstc4Symfony`.
 - **Мосты** обязаны регистрировать свой compiler pass с тегом `msstc4symfony_slo.point` в `TYPE_BEFORE_OPTIMIZATION` с приоритетом >= 10 (README, `PointTag`).
+- **Ловушка порядка бандлов (rc.2)**: passes одного типа и приоритета идут в порядке `build()` бандлов (порядок `config/bundles.php`).
+  Discovery на приоритете 0 не видел enum, добавленный на 0 бандлом, стоящим после slo-bundle (metrics-bridge-logic): бакетов
+  `logic_action_duration_histogram_seconds` нет → Strategy A logic-SLO молча становились dedicated. Discovery перенесён на -10;
+  тест порядка — `SloBundleTest::testDiscoveryRunsAfterPassesAtPriorityZero`. `TestContainer` вызывает `build()` до `configure`,
+  поэтому pass из `configure` на том же приоритете — «бандл после slo-bundle».
+- **`router` в `TestContainer`** — `new Definition(Router::class)` без аргументов: сервис, который тянет роутер при инстанцировании
+  (`MetricBindingResolver`, `OperationMonitor` через каталог), падает с `ArgumentCountError`. Роутер в бандле `nullOnInvalid()`, поэтому
+  такие тесты удаляют определение `router` (`BridgeExtensionPointsTest::withoutRouter()`).
 
 ## Финальное ревью ветки (2026-11-21 UTC)
 

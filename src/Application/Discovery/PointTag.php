@@ -8,8 +8,8 @@ namespace Msstc4Symfony\SloBundle\Application\Discovery;
  * Generic measurement point (ruling 6): a service tagged TAG with attributes TYPE (a PointType value), ID and an
  * optional METRIC_LABEL; its class is reflected for class-level #[Slo] / #[IgnoreMonitoring].
  *
- * Discovery runs as a TYPE_BEFORE_OPTIMIZATION pass with priority 0, so a bridge that adds this tag from its own
- * compiler pass must register that pass with priority >= 10.
+ * Discovery runs as a TYPE_BEFORE_OPTIMIZATION pass at priority -10; a bridge pass that adds the tag uses priority 10
+ * or higher (after autoconfiguration at 100).
  */
 final class PointTag
 {

@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Discovery (`CollectSloDefinitionsPass`) runs at `TYPE_BEFORE_OPTIMIZATION` priority -10 instead of 0, so metric enums
+  appended at priority 0 by bundles registered after slo-bundle (metrics-bridge-logic) are seen in any bundle order;
+  bridge passes that add the `msstc4symfony_slo.point` tag still use priority 10 or higher.
+
+### Added
+
+- `Application\Port\ExpectedFailureClassifierInterface` is public API (injectable service): bridges that decorate
+  `OperationMonitorInterface` classify exceptions like `measure()`.
+
+### Fixed
+
+- Composer `suggest` text of `msstc4symfony/slo-bridge-profiling`: it opens a profiling-bundle span around every SLO
+  operation.
+
 ## [1.0.0-rc.1] - 2026-11-22
 
 ### Added

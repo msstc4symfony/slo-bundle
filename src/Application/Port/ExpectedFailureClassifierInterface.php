@@ -7,9 +7,7 @@ namespace Msstc4Symfony\SloBundle\Application\Port;
 use Throwable;
 
 /**
- * Decides whether an exception thrown by a measured operation is an expected failure rather than an error.
- *
- * @internal
+ * Classifies an exception like `OperationMonitorInterface::measure()`; for bridges that decorate the monitor.
  */
 interface ExpectedFailureClassifierInterface
 {

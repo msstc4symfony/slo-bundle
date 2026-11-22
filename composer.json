@@ -78,7 +78,7 @@
   "suggest": {
     "msstc4symfony/logic-bundle": "To declare SLOs on logic-bundle Actions (with msstc4symfony/slo-bridge-logic)",
     "msstc4symfony/slo-bridge-logic": "To discover and measure msstc4symfony/logic-bundle Actions as SLO points",
-    "msstc4symfony/slo-bridge-profiling": "To measure msstc4symfony/profiling-bundle spans as SLO points",
+    "msstc4symfony/slo-bridge-profiling": "To open a msstc4symfony/profiling-bundle span around every SLO operation",
     "symfony/messenger": "To declare SLOs on Messenger messages"
   }
 }

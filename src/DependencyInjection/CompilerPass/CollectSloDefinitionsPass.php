@@ -27,7 +27,8 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
 
 /**
  * Builds the SLO catalog from controllers, Messenger handlers, tagged points and configured operations (spec 5.2).
- * Runs TYPE_BEFORE_OPTIMIZATION, priority 0: after attribute autoconfiguration has added the tags.
+ * Runs TYPE_BEFORE_OPTIMIZATION, priority -10: after attribute autoconfiguration has added the tags and after metric
+ * enums appended at priority 0 by any bundle.
  *
  * @internal
  */
