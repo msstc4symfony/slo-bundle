@@ -8,8 +8,6 @@ Declarative SLI/SLO for Symfony: discovery, coverage gate, good/bad counters, Pr
 Built on [`msstc4symfony/metrics-bundle`](https://github.com/msstc4symfony/metrics-bundle) 2.3: good and bad events
 are counted as `symfony_slo_events_total` through its storage and exported on its metrics endpoint.
 
-> Status: release candidate of 1.0, not released yet.
-
 - [Compatibility](#compatibility)
 - [Installation](#installation)
 - [Declaring SLOs](#declaring-slos)
