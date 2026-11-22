@@ -51,9 +51,7 @@ final readonly class DashboardBuilder
     public function build(DashboardInterface $dashboard, DashboardContext $context): array
     {
         $selector = $context->selector;
-        $scope = $selector->components === []
-            ? $selector->application
-            : \sprintf('%s: %s', $selector->application, implode(', ', $selector->components));
+        $scope = self::scoped($selector, ': ', ', ');
 
         return [
             'annotations' => ['list' => []],
@@ -78,12 +76,14 @@ final readonly class DashboardBuilder
      */
     public static function uid(string $name, Selector $selector): string
     {
-        $key = $name . $selector->application;
-        if ($selector->components !== []) {
-            $key .= "\0" . implode(',', $selector->components);
-        }
+        return 'slo-' . substr(hash('sha256', $name . self::scoped($selector, "\0", "\0")), 0, 12);
+    }
 
-        return 'slo-' . substr(hash('sha256', $key), 0, 12);
+    private static function scoped(Selector $selector, string $separator, string $glue): string
+    {
+        return $selector->components === []
+            ? $selector->application
+            : $selector->application . $separator . implode($glue, $selector->components);
     }
 
     /**

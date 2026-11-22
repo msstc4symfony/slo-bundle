@@ -34,6 +34,10 @@ final class DashboardBuilderTest extends TestCase
         self::assertNotSame($gateway['uid'], $orders['uid']);
         self::assertSame('SLO: SLO Overview (showcase: gateway)', $gateway['title']);
         self::assertSame('SLO: SLO Overview (showcase: orders)', $orders['title']);
+        self::assertNotSame($this->build(new Selector('shop', []))['uid'], $this->build(new Selector('shop', ['web']))['uid']);
+        self::assertNotSame($this->build(new Selector('shop', ['web']))['uid'], $this->build(new Selector('other', ['web']))['uid']);
+        self::assertNotSame($this->build(new Selector('shop', ['a,b']))['uid'], $this->build(new Selector('shop', ['a', 'b']))['uid']);
+        // Order-insensitivity relies on Selector sorting its components (see SelectorTest).
         self::assertSame(
             $this->build(new Selector('showcase', ['a', 'b']))['uid'],
             $this->build(new Selector('showcase', ['b', 'a']))['uid'],
