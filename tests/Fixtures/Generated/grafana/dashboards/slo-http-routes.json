@@ -994,6 +994,6 @@
         "to": "now"
     },
     "timezone": "utc",
-    "title": "SLO: HTTP Routes (shop)",
-    "uid": "slo-62515f35ca5b"
+    "title": "SLO: HTTP Routes (shop: web, worker)",
+    "uid": "slo-c49df04e26d7"
 }

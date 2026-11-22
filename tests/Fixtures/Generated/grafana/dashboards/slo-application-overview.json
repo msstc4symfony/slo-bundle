@@ -592,6 +592,6 @@
         "to": "now"
     },
     "timezone": "utc",
-    "title": "SLO: Application Overview (shop)",
-    "uid": "slo-dae361fb8d67"
+    "title": "SLO: Application Overview (shop: web, worker)",
+    "uid": "slo-2582edc0b8ec"
 }

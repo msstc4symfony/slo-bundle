@@ -134,6 +134,6 @@
         "to": "now"
     },
     "timezone": "utc",
-    "title": "SLO: Monitoring Coverage (shop)",
-    "uid": "slo-9cc648231190"
+    "title": "SLO: Monitoring Coverage (shop: web, worker)",
+    "uid": "slo-d25182ffa6db"
 }

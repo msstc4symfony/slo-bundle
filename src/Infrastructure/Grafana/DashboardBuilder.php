@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Msstc4Symfony\SloBundle\Infrastructure\Grafana;
 
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateDashboards\DashboardContext;
+use Msstc4Symfony\SloBundle\Application\Generation\Selector;
 
 /**
  * Wraps the panels of one dashboard: stable uid, panel ids 1..n and a fixed left-to-right grid layout, the four template
@@ -49,7 +50,10 @@ final readonly class DashboardBuilder
      */
     public function build(DashboardInterface $dashboard, DashboardContext $context): array
     {
-        $application = $context->selector->application;
+        $selector = $context->selector;
+        $scope = $selector->components === []
+            ? $selector->application
+            : \sprintf('%s: %s', $selector->application, implode(', ', $selector->components));
 
         return [
             'annotations' => ['list' => []],
@@ -64,17 +68,22 @@ final readonly class DashboardBuilder
             'templating' => ['list' => $this->variables($context)],
             'time' => ['from' => 'now-24h', 'to' => 'now'],
             'timezone' => 'utc',
-            'title' => \sprintf('SLO: %s (%s)', $dashboard->title(), $application),
-            'uid' => self::uid($dashboard->title(), $application),
+            'title' => \sprintf('SLO: %s (%s)', $dashboard->title(), $scope),
+            'uid' => self::uid($dashboard->title(), $selector),
         ];
     }
 
     /**
      * @return non-empty-string
      */
-    public static function uid(string $name, string $application): string
+    public static function uid(string $name, Selector $selector): string
     {
-        return 'slo-' . substr(hash('sha256', $name . $application), 0, 12);
+        $key = $name . $selector->application;
+        if ($selector->components !== []) {
+            $key .= "\0" . implode(',', $selector->components);
+        }
+
+        return 'slo-' . substr(hash('sha256', $key), 0, 12);
     }
 
     /**

@@ -549,6 +549,6 @@
         "to": "now"
     },
     "timezone": "utc",
-    "title": "SLO: Business Operations (shop)",
-    "uid": "slo-dd937095604a"
+    "title": "SLO: Business Operations (shop: web, worker)",
+    "uid": "slo-1267436a5bc2"
 }

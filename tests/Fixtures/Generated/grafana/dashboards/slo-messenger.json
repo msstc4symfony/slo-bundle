@@ -1039,6 +1039,6 @@
         "to": "now"
     },
     "timezone": "utc",
-    "title": "SLO: Messenger (shop)",
-    "uid": "slo-0a246820c3e0"
+    "title": "SLO: Messenger (shop: web, worker)",
+    "uid": "slo-1341bc756a34"
 }

@@ -1879,6 +1879,6 @@
         "to": "now"
     },
     "timezone": "utc",
-    "title": "SLO: SLO Overview (shop)",
-    "uid": "slo-8785f2a9fd0f"
+    "title": "SLO: SLO Overview (shop: web, worker)",
+    "uid": "slo-e94d747e2043"
 }

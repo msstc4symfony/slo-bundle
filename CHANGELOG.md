@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Dashboards of several applications sharing one `application` label no longer collide: uid and title include
+  `generation.selector.components` when set. Applications that set `generation.selector.components` get new dashboard
+  uids and titles once: provisioned Grafana replaces the old dashboards and bookmarks to the old uid break.
+
 ## [1.0.0-rc.2] - 2026-11-22
 
 ### Changed

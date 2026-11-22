@@ -299,3 +299,10 @@
 - **Помощники публичных доменных типов** (`Classification::appliesTo/pointTypesOf/inapplicableFieldsFor`, `SloDefinition::withWindow`,
   `Window::canonical`, `LatencyThreshold::fromMilliseconds`, `PointType::acceptsIncludeErrors`) — `@internal` на методе; README это оговаривает.
 - **Позиционные аргументы скомпилированных определений** в тестах — `tests/Integration/DefinitionArgument::of($definition, Class::class, 'param')`.
+
+## Уникальность дашбордов (rc.3)
+
+- **uid и заголовок дашборда зависят от `generation.selector.components`**: Grafana держит один дашборд на uid, а несколько
+  Symfony-приложений одного `application` (showcase: gateway, orders, billing) раньше давали одинаковые uid и заголовки. Без
+  компонентов uid = `sha256(title . application)` и golden-файлы не меняются; с компонентами в хеш входит `"\0" . implode(',', components)`,
+  заголовок `SLO: <title> (<application>: <c1>, <c2>)`.
