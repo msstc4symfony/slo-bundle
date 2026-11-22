@@ -131,11 +131,17 @@ Events come from the metrics-bundle measurement observers, with the duration met
   retries are events only with `countAttempts: true`, anything consumed from a failure transport
   (`messenger:failed:retry`) never is. Batch handlers (`BatchHandlerInterface`) are counted per envelope like any async message.
   Synchronously handled messages are not measured (`slo:coverage` reports them as `unsupported`, `slo:validate` warns
-  about an SLO on a message that is never routed to a transport). A handler counts as worker-consumed when its message
-  is routed to a transport other than `sync://`, when it is bound to such a transport with `fromTransport`, or when the
-  app does not route its message but has a receive-only transport (not `sync://`, not a failure transport, targeted by no
-  routing entry or `#[AsMessage]` of a handled message): a consumer service whose producer owns the routing. Unrouted
-  framework messages (`Symfony\*`) stay synchronous. `#[Slo]` on a handler is an SLO on the envelope of
+  about an SLO on a message that is not consumed by a worker: routed nowhere or only to `sync://`). A handler counts as
+  worker-consumed when it is bound with `fromTransport` to a worker transport (not `sync://`, not a failure transport),
+  when its message is routed to a transport other than `sync://`, or when the app does not route its message but has a
+  receive-only transport (not `sync://`, not a failure transport, not a Scheduler `schedule://` transport, targeted by
+  no routing entry or `#[AsMessage]` of a handled message): a consumer service whose producer owns the routing.
+  Unrouted framework messages (`Symfony\*`) stay synchronous. Discovery cannot see two cases, bind the handler with
+  `#[AsMessageHandler(fromTransport: '<transport>')]` (or add an explicit `routing` entry) there:
+  a transport the app both sends its own messages to and consumes other services' messages from (it is a routing
+  target, so a consumed unrouted message still looks synchronous), and a producer that targets a transport only through
+  `#[AsMessage]` on messages it does not handle or a `TransportNamesStamp` (the transport looks receive-only, so the
+  app's unrouted handlers look worker-consumed). `#[Slo]` on a handler is an SLO on the envelope of
   its message; a message with several handlers gets a validation warning. The handler must take a concrete message
   class: events are matched by the dispatched message's class, so `#[Slo]` on a handler of an interface or abstract
   class is a compilation error.

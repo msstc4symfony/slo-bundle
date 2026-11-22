@@ -52,7 +52,7 @@ final class CollectSloDefinitionsPass implements CompilerPassInterface
         $controllerReader = new ControllerReader($attributes);
         $controllers = $controllerReader->read($container);
         $failureTransports = MessengerRouting::failureTransports($container, $this->parameter($container, 'defaults.messenger.failure_transports'));
-        $handlers = (new HandlerReader($attributes, $errors))->read($container, MessengerRouting::fromContainer($container, $failureTransports));
+        $handlers = (new HandlerReader($attributes, $errors))->read($container, $failureTransports);
         $taggedPoints = (new TaggedPointReader($attributes, $errors))->read($container);
         $operations = (new OperationReader($assembler))->read($this->parameter($container, 'operations'));
 

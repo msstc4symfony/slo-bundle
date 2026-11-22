@@ -28,27 +28,31 @@ final readonly class MessengerRouting
 
     private const RECEIVER_TAG = 'messenger.receiver';
 
+    private const SCHEDULE_DSN = 'schedule://';
+
     private const FRAMEWORK_NAMESPACE = 'Symfony\\';
 
     /**
      * @param array<string, list<non-empty-string>> $routing sender names without the transport service prefix
-     * @param array<non-empty-string, bool> $transports transport name => a worker consumes it (false for `sync://`)
-     * @param list<non-empty-string> $failureTransports
-     * @param list<non-empty-string> $receiveOnly worker transports that are neither a failure transport nor a routing target
+     * @param array<non-empty-string, bool> $transports transport name => a worker consumes it for SLO events (false for `sync://` and failure transports)
      */
     private function __construct(
         private array $routing,
         private bool $enabled,
         private array $transports,
-        private array $failureTransports,
-        private array $receiveOnly,
+        private bool $receivesForeignMessages,
     ) {
     }
 
     /**
+     * A transport that is consumable, not a failure or Scheduler transport, and targeted by no routing entry and no
+     * #[AsMessage] of a handled message is read by a worker for messages another service produces, so the handled
+     * messages this app does not route may arrive there.
+     *
      * @param list<non-empty-string> $failureTransports
+     * @param list<string> $messages every message type handled in this app
      */
-    public static function fromContainer(ContainerBuilder $container, array $failureTransports): self
+    public static function fromContainer(ContainerBuilder $container, array $failureTransports, array $messages): self
     {
         $routing = [];
         $map = $container->hasDefinition(self::SENDERS_LOCATOR) ? ($container->getDefinition(self::SENDERS_LOCATOR)->getArguments()[0] ?? null) : null;
@@ -60,51 +64,39 @@ final readonly class MessengerRouting
             }
         }
 
+        $targets = array_merge([], ...array_values($routing));
+        foreach ($messages as $message) {
+            $targets = [...$targets, ...self::attributeTransports(self::hierarchy($message))];
+        }
+
         $transports = [];
-        foreach ($container->findTaggedServiceIds(self::RECEIVER_TAG) as $tags) {
+        $receivesForeignMessages = false;
+        foreach ($container->findTaggedServiceIds(self::RECEIVER_TAG) as $id => $tags) {
             foreach ($tags as $tag) {
                 $alias = \is_array($tag) ? ($tag['alias'] ?? null) : null;
                 if (!\is_string($alias) || $alias === '') {
                     continue;
                 }
-                $transports[$alias] = ($tag['is_consumable'] ?? true) !== false;
-                if (($tag['is_failure_transport'] ?? false) === true) {
-                    $failureTransports[] = $alias;
+                $failure = ($tag['is_failure_transport'] ?? false) === true || \in_array($alias, $failureTransports, true);
+                $consumable = ($tag['is_consumable'] ?? true) !== false;
+                $transports[$alias] = $consumable && !$failure;
+                $dsn = $container->getDefinition($id)->getArguments()[0] ?? null;
+                $scheduled = \is_string($dsn) && str_starts_with($dsn, self::SCHEDULE_DSN);
+                if ($consumable && !$failure && !$scheduled && !\in_array($alias, $targets, true)) {
+                    $receivesForeignMessages = true;
                 }
             }
         }
 
-        return new self($routing, $container->hasDefinition(self::SENDERS_LOCATOR), $transports, array_values(array_unique($failureTransports)), []);
+        return new self($routing, $container->hasDefinition(self::SENDERS_LOCATOR), $transports, $receivesForeignMessages);
     }
 
     /**
-     * A transport that no routing entry and no #[AsMessage] of a handled message targets is read by a worker for messages
-     * another service produces, so the handled messages this app does not route may arrive there.
-     *
-     * @param list<string> $messages every message type handled in this app
-     */
-    public function handling(array $messages): self
-    {
-        $targets = array_merge([], ...array_values($this->routing));
-        foreach ($messages as $message) {
-            $targets = [...$targets, ...$this->attributeTransports($this->hierarchy($message))];
-        }
-        $receiveOnly = [];
-        foreach ($this->transports as $name => $consumable) {
-            if ($consumable && !\in_array($name, $this->failureTransports, true) && !\in_array($name, $targets, true)) {
-                $receiveOnly[] = $name;
-            }
-        }
-
-        return new self($this->routing, $this->enabled, $this->transports, $this->failureTransports, $receiveOnly);
-    }
-
-    /**
-     * Worker-consumed, i.e. measured by metrics-bundle: bound by `from_transport` to a worker transport; else routed
-     * (SendersLocator order: the configured map with parents, interfaces, namespace wildcards and "*", then only when
-     * nothing matched #[AsMessage(transport: ...)]) to at least one non-`sync://` sender; else, when the message is not
-     * routed here, the app has a receive-only transport. Framework messages (`Symfony\*`) are produced by the app itself,
-     * so an unrouted one stays synchronous.
+     * Worker-consumed, i.e. measured by metrics-bundle: bound by `from_transport` to a worker transport (not `sync://`,
+     * not a failure transport); else routed (SendersLocator order: the configured map with parents, interfaces,
+     * namespace wildcards and "*", then only when nothing matched #[AsMessage(transport: ...)]) to at least one
+     * non-`sync://` sender; else, when the message is not routed here, the app has a receive-only transport. Framework
+     * messages (`Symfony\*`) are produced by the app itself, so an unrouted one stays synchronous.
      *
      * @param non-empty-string|null $fromTransport
      */
@@ -117,10 +109,10 @@ final readonly class MessengerRouting
             return $this->transports[self::transportName($fromTransport)] ?? true;
         }
 
-        $classes = $this->hierarchy($message);
+        $classes = self::hierarchy($message);
         $senders = $this->mapSenders($message, $classes);
         if ($senders === []) {
-            $senders = $this->attributeTransports($classes);
+            $senders = self::attributeTransports($classes);
         }
         if ($senders !== []) {
             foreach ($senders as $sender) {
@@ -132,7 +124,7 @@ final readonly class MessengerRouting
             return false;
         }
 
-        return $this->receiveOnly !== [] && !str_starts_with($message, self::FRAMEWORK_NAMESPACE);
+        return $this->receivesForeignMessages && !str_starts_with($message, self::FRAMEWORK_NAMESPACE);
     }
 
     /**
@@ -166,7 +158,7 @@ final readonly class MessengerRouting
     /**
      * @return non-empty-list<string> the type itself, then its parents and interfaces when it can be loaded
      */
-    private function hierarchy(string $message): array
+    private static function hierarchy(string $message): array
     {
         if (!class_exists($message) && !interface_exists($message)) {
             return [$message];
@@ -205,7 +197,7 @@ final readonly class MessengerRouting
      *
      * @return list<non-empty-string>
      */
-    private function attributeTransports(array $classes): array
+    private static function attributeTransports(array $classes): array
     {
         if (!class_exists(AsMessage::class)) {
             return [];

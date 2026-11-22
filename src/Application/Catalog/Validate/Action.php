@@ -103,7 +103,7 @@ final readonly class Action
     }
 
     /**
-     * metrics-bundle measures worker deliveries only, so an SLO on a message that is never routed to a transport is dead.
+     * metrics-bundle measures worker deliveries only, so an SLO on a message no worker consumes is dead.
      *
      * @return list<non-empty-string>
      */
@@ -120,7 +120,7 @@ final readonly class Action
             }
             foreach ($definition->points() as $point) {
                 if (($async[$point->id] ?? true) === false) {
-                    $warnings[] = \sprintf('SLO %s: %s is handled synchronously only (not routed to a transport); sync handling is not measured, the SLO never records events', $definition->name()->value, $point->toString());
+                    $warnings[] = \sprintf('SLO %s: %s is not consumed by a worker (routed nowhere or only to sync://); sync handling is not measured, the SLO never records events', $definition->name()->value, $point->toString());
                 }
             }
         }

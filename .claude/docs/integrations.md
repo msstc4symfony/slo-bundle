@@ -18,14 +18,22 @@
   sender'ов; ключи — класс, родители, интерфейсы, `Ns\*`, `*` как в `SendersLocator`, sender'ы объединяются); если ни один
   не совпал — как `SendersLocator`, смотрим `#[AsMessage(transport: ...)]` (IS_INSTANCEOF) на классе, родителях и
   интерфейсах. Транспорты — теги `messenger.receiver` (`alias`, `is_failure_transport`, `is_consumable: false` у
-  `sync://`; DSN из env FrameworkExtension не видит → считается worker-транспортом). Префикс `messenger.transport.`
-  срезается и у sender'ов. Без определения `messenger.senders_locator` — всегда false.
-- Handler async (rc.4, `MessengerRouting::isAsync`): (1) `from_transport` → async, если этот транспорт не `sync://`
-  (неизвестное имя → async); (2) сообщение маршрутизировано → async, если хоть один sender не `sync://` (чужой
+  `sync://`; DSN из env FrameworkExtension не видит → считается worker-транспортом). Ресиверы без `alias` пропускаются
+  (консервативно: не дают receive-only). Префикс `messenger.transport.` срезается и у sender'ов. Без определения
+  `messenger.senders_locator` — всегда false.
+- Scheduler: `AddScheduleMessengerPass` (FrameworkBundle, BEFORE_OPTIMIZATION 0 — раньше нашего -10) регистрирует
+  `messenger.transport.scheduler_<name>` с тегом `messenger.receiver` только с `alias` (без `is_consumable`) и DSN
+  `schedule://<name>` в аргументе 0 (проверено по symfony/symfony 7.4, `gh api`). Такие транспорты в receive-only не
+  входят, иначе любой монолит со Scheduler делал бы все незамаршрутизированные handlers async.
+- Handler async (rc.4, `MessengerRouting::isAsync`): (1) `from_transport` → async, если этот транспорт не `sync://` и не
+  failure (неизвестное имя → async); (2) сообщение маршрутизировано → async, если хоть один sender не `sync://` (чужой
   sender-сервис → async); (3) не маршрутизировано → async, если в приложении есть receive-only транспорт (не `sync://`, не
   failure, не цель ни одной записи routing и ни одного `#[AsMessage]` обрабатываемых сообщений) и сообщение не из
   `Symfony\` (RunCommand/Redispatch/RunProcess приложение шлёт само, иначе в consumer-приложении они стали бы
-  unmonitored). Receive-only считается в `handling($messages)` после сбора всех handlers (`HandlerReader` двухфазный).
+  unmonitored). Receive-only — не `sync://`, не failure, не `schedule://`. Считается в `fromContainer($container,
+  $failureTransports, $messages)`: `HandlerReader::read($container, $failureTransports)` сначала собирает все handlers,
+  потом строит `MessengerRouting` (одна фаза у объекта, временной связности нет). Sender, который является failure
+  транспортом, тоже не worker.
   Failure-транспорты = флаг тега ∪ результат `failureTransports()` (с учётом `defaults.messenger.failure_transports`).
 - Failure-транспорты: явный `defaults.messenger.failure_transports` (не null) побеждает; иначе определение
   `messenger.failure.send_failed_message_to_failure_transport_listener`: аргумент 2 (транспорт → имя failure-транспорта)

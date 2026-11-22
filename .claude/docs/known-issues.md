@@ -315,8 +315,15 @@
   Runtime-путь async не проверяет — баг был только в discovery. Правило теперь в `integrations.md`.
 - **Receive-only транспорт, а не «есть хоть один транспорт»**: в монолите с `async` + query bus правило «не
   маршрутизировано и есть транспорт» сделало бы все sync-handlers unmonitored. Ложное срабатывание осталось только когда
-  приложение одновременно и consumer, и имеет sync-handlers незамаршрутизированных сообщений — тогда они требуют
-  `#[Slo]`/`#[IgnoreMonitoring]` (гейт строже, а не слепой).
+  приложение одновременно и consumer, и имеет sync-handlers незамаршрутизированных сообщений: coverage строже (они требуют
+  `#[Slo]`/`#[IgnoreMonitoring]`), а `slo:validate` в этих ложно-async случаях молчит про реально sync-only SLO.
+- **Не видно на компиляции (обход — `#[AsMessageHandler(fromTransport: '<transport>')]` или явный `routing`)**:
+  (a) общий транспорт: сервис шлёт свои сообщения в `async` и читает оттуда же чужие — `async` цель routing, значит не
+  receive-only, чужое незамаршрутизированное сообщение остаётся sync (ложный WARNING остаётся; закреплено кейсом
+  `shared transport` в `MessengerRoutingTest`); (b) продюсер, чей транспорт — цель только `#[AsMessage]` на сообщениях,
+  которые он сам не обрабатывает, или `TransportNamesStamp` — транспорт выглядит receive-only, незамаршрутизированные
+  handlers становятся async.
+- **Scheduler-транспорты** (`schedule://`, тег без `is_consumable`) исключены из receive-only — см. `integrations.md`.
 - **`MessengerTestKernel`**: транспорт `priority` (нужен для per-transport `failure_transport`) стал бы receive-only и
   сделал `SendReceipt` async — поэтому `ProcessPayment` маршрутизирован в `['async', 'priority']`.
 - **Сообщения на `sync://`** раньше считались async (непустой список sender'ов); теперь sync. Ревизии и сгенерированные

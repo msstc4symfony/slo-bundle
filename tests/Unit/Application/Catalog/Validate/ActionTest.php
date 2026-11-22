@@ -156,7 +156,7 @@ final class ActionTest extends TestCase
         $output = (new Action($catalog, $catalog, new InMemoryRouteCatalog(), new MetricBindingResolver(new InMemoryRouteCatalog(), $catalog, new MetricsBundleSeriesCatalog())))();
 
         self::assertTrue($output->isValid());
-        self::assertSame(['SLO sync.handle: messenger_message:App\Message\Sync is handled synchronously only (not routed to a transport); sync handling is not measured, the SLO never records events'], $output->warnings);
+        self::assertSame(['SLO sync.handle: messenger_message:App\Message\Sync is not consumed by a worker (routed nowhere or only to sync://); sync handling is not measured, the SLO never records events'], $output->warnings);
     }
 
     public function testAlertsWithoutRecordingRulesAreAWarning(): void

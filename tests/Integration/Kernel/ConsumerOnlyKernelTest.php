@@ -62,10 +62,10 @@ final class ConsumerOnlyKernelTest extends KernelTestCase
 
         self::assertSame('monitored', $statuses[SettleInvoiceHandler::class . '::__invoke'] ?? null);
         self::assertSame('unmonitored', $statuses[ArchiveInvoiceHandler::class . '::__invoke'] ?? null);
-        foreach ($statuses as $handler => $status) {
-            if (str_starts_with($handler, 'Symfony\\')) {
-                self::assertSame('unsupported', $status, $handler);
-            }
+        $framework = array_filter($statuses, static fn (string $handler): bool => str_starts_with($handler, 'Symfony\\'), ARRAY_FILTER_USE_KEY);
+        self::assertNotEmpty($framework, 'FrameworkBundle registers its own handlers (RunCommandMessage, RedispatchMessage, ...)');
+        foreach ($framework as $handler => $status) {
+            self::assertSame('unsupported', $status, $handler);
         }
     }
 

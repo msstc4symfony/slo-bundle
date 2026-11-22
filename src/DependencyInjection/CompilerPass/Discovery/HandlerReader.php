@@ -30,9 +30,11 @@ final readonly class HandlerReader
     }
 
     /**
+     * @param list<non-empty-string> $failureTransports
+     *
      * @return ReadResult<HandlerInfo> handlers sorted by handler and message
      */
-    public function read(ContainerBuilder $container, MessengerRouting $routing): ReadResult
+    public function read(ContainerBuilder $container, array $failureTransports): ReadResult
     {
         $found = [];
         /** @var array<non-empty-string, array<non-empty-string, bool>> $byMessage message => handler "Class::method" => declares #[Slo] */
@@ -64,15 +66,15 @@ final readonly class HandlerReader
                     if ($onMethod || $onClass) {
                         $this->checkConcrete($message, $handlerKey);
                     }
-                    $found[] = [$class->getName(), $message, $this->nonEmptyString($tag['from_transport'] ?? null), $method];
+                    $found[] = ['handler' => $class->getName(), 'message' => $message, 'fromTransport' => $this->nonEmptyString($tag['from_transport'] ?? null), 'method' => $method];
                 }
             }
         }
-        $routing = $routing->handling(array_keys($byMessage));
-        $handlers = array_map(
-            static fn (array $handler): HandlerInfo => new HandlerInfo($handler[0], $handler[1], $routing->isAsync($handler[1], $handler[2]), $handler[2], $handler[3]),
-            $found,
-        );
+        $routing = MessengerRouting::fromContainer($container, $failureTransports, array_keys($byMessage));
+        $handlers = [];
+        foreach ($found as ['handler' => $handler, 'message' => $message, 'fromTransport' => $fromTransport, 'method' => $method]) {
+            $handlers[] = new HandlerInfo($handler, $message, $routing->isAsync($message, $fromTransport), $fromTransport, $method);
+        }
         usort($handlers, static fn (HandlerInfo $a, HandlerInfo $b): int => [$a->handlerClass, $a->messageClass] <=> [$b->handlerClass, $b->messageClass]);
         ksort($byMessage, SORT_STRING);
 
