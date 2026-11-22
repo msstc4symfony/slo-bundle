@@ -6,11 +6,11 @@
   приоритет >= 10 в `TYPE_BEFORE_OPTIMIZATION`. Discovery — приоритет -10 (с rc.2): `RegisterLogicMetricsPass`
   metrics-bridge-logic добавляет гистограмму `logic_action_duration_histogram_seconds` в `metric_enums` на приоритете 0, и при
   discovery на 0 бандл, зарегистрированный после slo-bundle, отрабатывал позже — logic-SLO молча уходили в dedicated
-  (`BridgeExtensionPointsTest::testDiscoverySeesMetricEnumsAddedByLaterBundles`).
+  (`BridgeExtensionPointsTest::testDiscoverySeesMetricEnumsAddedByLaterBundles`). `metric_label`, общий для нескольких
+  точек одного типа, сбрасывается (их SLO — dedicated, warning); у одной точки — одно значение метки, иначе ошибка компиляции.
 - `ExpectedFailureClassifierInterface` — публичный API с rc.2 (приватный алиас на выбранный адаптер, автовайринг работает):
   декоратор `OperationMonitorInterface` в slo-bridge-profiling классифицирует исключения как `measure()`, не завися от
-  logic-bundle. Декорирование публичного алиаса `OperationMonitorInterface` (`.inner` = `OperationMonitor`) закреплено тестом. `metric_label`, общий для нескольких точек одного типа, сбрасывается (их SLO — dedicated,
-  warning); у одной точки — одно значение метки, иначе ошибка компиляции.
+  logic-bundle. Декорирование публичного алиаса `OperationMonitorInterface` (`.inner` = `OperationMonitor`) закреплено тестом.
 
 ## Что discovery читает из чужих бандлов (Task 5)
 

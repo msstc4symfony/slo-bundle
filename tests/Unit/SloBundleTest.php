@@ -6,7 +6,7 @@ namespace Msstc4Symfony\SloBundle\Test\Unit;
 
 use Msstc4Symfony\SloBundle\DependencyInjection\CompilerPass\CollectSloDefinitionsPass;
 use Msstc4Symfony\SloBundle\SloBundle;
-use Msstc4Symfony\SloBundle\Test\Integration\CallbackPass;
+use Override;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\Compiler\PassConfig;
@@ -23,8 +23,12 @@ final class SloBundleTest extends TestCase
     {
         $container = new ContainerBuilder();
         (new SloBundle())->build($container);
-        $later = new CallbackPass(static function (ContainerBuilder $container): void {
-        });
+        $later = new class implements CompilerPassInterface {
+            #[Override]
+            public function process(ContainerBuilder $container): void
+            {
+            }
+        };
         $container->addCompilerPass($later, PassConfig::TYPE_BEFORE_OPTIMIZATION, 0);
 
         $passes = $container->getCompilerPassConfig()->getBeforeOptimizationPasses();

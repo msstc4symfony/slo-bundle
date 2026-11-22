@@ -7,6 +7,7 @@ namespace Msstc4Symfony\SloBundle\Test\Integration\DependencyInjection;
 use Msstc4Symfony\SloBundle\Application\Binding\MetricBindingResolver;
 use Msstc4Symfony\SloBundle\Application\Discovery\PointTag;
 use Msstc4Symfony\SloBundle\Application\Operation\OperationMonitor;
+use Msstc4Symfony\SloBundle\Application\Port\ExpectedFailureClassifierInterface;
 use Msstc4Symfony\SloBundle\Application\Port\OperationMonitorInterface;
 use Msstc4Symfony\SloBundle\DependencyInjection\ExpectedFailureClassifierSelector;
 use Msstc4Symfony\SloBundle\Domain\Entity\SloDefinition;
@@ -73,11 +74,15 @@ final class BridgeExtensionPointsTest extends TestCase
     {
         $container = TestContainer::compile([], static function (ContainerBuilder $container): void {
             $container->register(ClassifierConsumer::class, ClassifierConsumer::class)->setAutowired(true)->setPublic(true);
+            $container->setAlias('test.classifier', ExpectedFailureClassifierInterface::class)->setPublic(true);
         });
+        $selected = ExpectedFailureClassifierSelector::select(new ContainerBuilder());
 
         $consumer = $container->get(ClassifierConsumer::class);
         self::assertInstanceOf(ClassifierConsumer::class, $consumer);
-        self::assertInstanceOf(ExpectedFailureClassifierSelector::select(new ContainerBuilder()), $consumer->classifier);
+        self::assertInstanceOf($selected, $consumer->classifier);
+        self::assertSame($container->get($selected), $container->get('test.classifier'));
+        self::assertSame($container->get($selected), $consumer->classifier);
     }
 
     /**

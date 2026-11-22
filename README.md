@@ -346,8 +346,8 @@ records their events through `Application\Port\EventRecorderInterface` (inject i
 `Input` inside its own `try` to stay fail-open.
 
 **A bridge that adds the tag from its own compiler pass must register that pass with `PassConfig::TYPE_BEFORE_OPTIMIZATION`
-and a priority of 10 or higher**: discovery runs at priority -10; a bridge pass that adds the tag uses priority 10 or
-higher (after autoconfiguration at 100). The tag has to exist by then. Discovery also reads the metric enums of
+and a priority of 10 or higher**: discovery runs at priority -10 (after autoconfiguration at 100). The tag has to exist
+by then. Discovery also reads the metric enums of
 metrics-bundle, so an enum appended at priority 0 by a bundle registered after slo-bundle (such as the logic-action
 histogram of metrics-bridge-logic) is seen in any bundle order. `PointTag::TAG` is the constant for the tag name.
 
