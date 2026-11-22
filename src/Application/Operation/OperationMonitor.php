@@ -70,7 +70,7 @@ final readonly class OperationMonitor implements OperationMonitorInterface, Rese
         try {
             $result = $operation();
         } catch (Throwable $e) {
-            $this->recordFailure($handle, $e);
+            $this->recordFailure($handle, $name, $e);
 
             throw $e;
         }
@@ -89,13 +89,13 @@ final readonly class OperationMonitor implements OperationMonitorInterface, Rese
     /**
      * Never replaces the exception of the measured operation: a failing classification counts it as an error.
      */
-    private function recordFailure(OperationHandleInterface $handle, Throwable $e): void
+    private function recordFailure(OperationHandleInterface $handle, string $name, Throwable $e): void
     {
         try {
             $expected = $this->classifier->isExpectedFailure($e);
         } catch (Throwable $classificationFailure) {
             $expected = false;
-            $this->logger->warning('SLO operation exception could not be classified, it counts as an error.', ['exception' => $classificationFailure]);
+            $this->logger->warning('SLO operation exception could not be classified, it counts as an error.', ['operation' => $name, 'exception' => $classificationFailure]);
         }
 
         if ($expected) {

@@ -323,6 +323,7 @@ final class OperationMonitorTest extends TestCase
 
         self::assertSame([['payment.validation', 'availability', 'bad']], $this->availabilityWrites());
         self::assertSame('SLO operation exception could not be classified, it counts as an error.', $this->logger->records[0][1]);
+        self::assertSame('payment.validation', $this->logger->contexts[0]['operation']);
         self::assertInstanceOf(LogicException::class, $this->logger->contexts[0]['exception']);
     }
 

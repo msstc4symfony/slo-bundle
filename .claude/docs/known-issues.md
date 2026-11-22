@@ -328,6 +328,12 @@
   (до 10 уровней). Не распознаётся: DSN из env/параметра (`%env(...)%`, `%param%` — строка не начинается с
   `schedule://`), транспорт из фабрики-сервиса без DSN в аргументах, кастомный ресивер расписания под своим DSN — такой
   транспорт считается receive-only (обход: `fromTransport` или явный routing).
+- **Сообщения Scheduler не определяются как async (1.0.1, решение — документировать, не угадывать).** Расписание
+  собирается в рантайме (`RecurringMessage` в `ScheduleProviderInterface::getSchedule()`), на компиляции класса
+  сообщения нет; теги `scheduler.task` от `#[AsCronTask]`/`#[AsPeriodicTask]` вешаются на вызываемый сервис/метод
+  (вызов идёт через `ServiceCallMessage`), а не на класс сообщения. Handler сообщения расписания без `fromTransport`
+  остаётся sync; обход — `#[AsMessageHandler(fromTransport: 'scheduler_<name>')]` (транспорт `schedule://` в
+  `transports` считается worker-consumed). Не проверено по исходникам: `symfony/scheduler` не установлен в vendor.
 - **`MessengerTestKernel`**: транспорт `priority` (нужен для per-transport `failure_transport`) стал бы receive-only и
   сделал `SendReceipt` async — поэтому `ProcessPayment` маршрутизирован в `['async', 'priority']`.
 - **Сообщения на `sync://`** раньше считались async (непустой список sender'ов); теперь sync. Ревизии и сгенерированные

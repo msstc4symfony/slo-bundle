@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-11-22
+
+### Fixed
+
+- The warning "SLO operation exception could not be classified" on channel `slo_bundle` now carries the `operation` name.
+
+### Documented
+
+- Handlers of Symfony Scheduler messages are not detected as worker-consumed (schedules are built at runtime); bind them
+  with `fromTransport`.
+
 ## [1.0.0] - 2026-11-22
 
 ### Changed
@@ -166,7 +177,8 @@
 - README: cleaning the series of retired revisions from the Redis storage; Messenger latency uses dedicated counters
   when the message short name is shared.
 
-[Unreleased]: https://github.com/msstc4symfony/slo-bundle/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/msstc4symfony/slo-bundle/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/msstc4symfony/slo-bundle/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/msstc4symfony/slo-bundle/compare/v1.0.0-rc.4...v1.0.0
 [1.0.0-rc.4]: https://github.com/msstc4symfony/slo-bundle/compare/v1.0.0-rc.3...v1.0.0-rc.4
 [1.0.0-rc.3]: https://github.com/msstc4symfony/slo-bundle/compare/v1.0.0-rc.2...v1.0.0-rc.3
