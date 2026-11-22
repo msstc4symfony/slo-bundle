@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.0.0-rc.2] - 2026-11-22
+
 ### Changed
 
 - Discovery (`CollectSloDefinitionsPass`) runs at `TYPE_BEFORE_OPTIMIZATION` priority -10 instead of 0, so metric enums
@@ -129,5 +131,6 @@
 - README: cleaning the series of retired revisions from the Redis storage; Messenger latency uses dedicated counters
   when the message short name is shared.
 
-[Unreleased]: https://github.com/msstc4symfony/slo-bundle/compare/v1.0.0-rc.1...HEAD
+[Unreleased]: https://github.com/msstc4symfony/slo-bundle/compare/v1.0.0-rc.2...HEAD
+[1.0.0-rc.2]: https://github.com/msstc4symfony/slo-bundle/compare/v1.0.0-rc.1...v1.0.0-rc.2
 [1.0.0-rc.1]: https://github.com/msstc4symfony/slo-bundle/releases/tag/v1.0.0-rc.1
