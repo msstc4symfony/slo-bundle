@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.0.0-rc.3] - 2026-11-22
+
 ### Fixed
 
 - Dashboards of several applications sharing one `application` label no longer collide: uid and title include
@@ -137,6 +139,7 @@
 - README: cleaning the series of retired revisions from the Redis storage; Messenger latency uses dedicated counters
   when the message short name is shared.
 
-[Unreleased]: https://github.com/msstc4symfony/slo-bundle/compare/v1.0.0-rc.2...HEAD
+[Unreleased]: https://github.com/msstc4symfony/slo-bundle/compare/v1.0.0-rc.3...HEAD
+[1.0.0-rc.3]: https://github.com/msstc4symfony/slo-bundle/compare/v1.0.0-rc.2...v1.0.0-rc.3
 [1.0.0-rc.2]: https://github.com/msstc4symfony/slo-bundle/compare/v1.0.0-rc.1...v1.0.0-rc.2
 [1.0.0-rc.1]: https://github.com/msstc4symfony/slo-bundle/releases/tag/v1.0.0-rc.1
