@@ -10,13 +10,13 @@ Library code only.
 
 ## Common commands
 
-metrics-bundle 2.3.0 is unreleased: develop against the git-ignored local profile
-`COMPOSER=composer-local.json composer install` (path repos `../metrics-bundle`, `../sql-labeller`).
+Install the CI profile: `COMPOSER=composer-ci.json composer install`. To develop against sibling checkouts use the
+git-ignored local profile `COMPOSER=composer-local.json composer install` (path repos `../metrics-bundle`, `../sql-labeller`).
 `--ignore-platform-req=php` is needed only on the author's machine (local PHP older than the
 `roave/security-advisories` floor); it is not a standing instruction.
 
 - `make check` — `php -l`, PHPStan level 10, PHP-CS-Fixer, `composer validate --strict`,
-  `composer audit`, Rector dry-run, deptrac. Run as `COMPOSER=composer-local.json make check`.
+  `composer audit`, Rector dry-run, deptrac. Run as `COMPOSER=composer-ci.json make check` (or with the local profile).
 - `make test` — unit + integration suites; `make infection`, `make fix`, `make regenerate-baseline`.
 - `make test-promtool` — rule tests with promtool and sloth in Docker (`tests/Promtool`, never skipped);
   `make benchmark` — per-event overhead (`tests/Benchmark`). Both targets live in `GNUmakefile` because

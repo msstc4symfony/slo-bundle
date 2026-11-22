@@ -413,12 +413,12 @@ revisions live until they are removed.
 
 ## Local development
 
-metrics-bundle 2.3.0 is unreleased: develop against the git-ignored `composer-local.json` profile (path repositories
-for `../metrics-bundle` and `../sql-labeller`).
+Development uses the CI profile `composer-ci.json` (CI-only tools and optional libraries). A git-ignored
+`composer-local.json` with path repositories for `../metrics-bundle` and `../sql-labeller` works the same way.
 
 ```sh
-COMPOSER=composer-local.json composer install
-COMPOSER=composer-local.json make check   # lint, PHPStan, CS, composer validate/audit, Rector, deptrac
+COMPOSER=composer-ci.json composer install
+COMPOSER=composer-ci.json make check      # lint, PHPStan, CS, composer validate/audit, Rector, deptrac
 make test                                 # unit + integration
 make infection                            # mutation testing of src/ with the unit suite
 make benchmark                            # per-event overhead, see "Overhead"

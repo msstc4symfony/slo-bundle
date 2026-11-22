@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.0.0-rc.1] - 2026-11-22
+
 ### Added
 
 - Package scaffold from `skeleton-bundle`: `SloBundle`, canonical layers, quality gate of bundle-standard v4.1.0; dependency on `msstc4symfony/metrics-bundle` `^2.3`.
@@ -110,3 +112,6 @@
   PHP-FPM request benchmark (500 SLOs) and the stored runtime route index.
 - README: cleaning the series of retired revisions from the Redis storage; Messenger latency uses dedicated counters
   when the message short name is shared.
+
+[Unreleased]: https://github.com/msstc4symfony/slo-bundle/compare/v1.0.0-rc.1...HEAD
+[1.0.0-rc.1]: https://github.com/msstc4symfony/slo-bundle/releases/tag/v1.0.0-rc.1

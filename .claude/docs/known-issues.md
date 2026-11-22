@@ -28,9 +28,11 @@
   `composer update --lock` падает и init откатывать нужно вручную (`git reset --hard && git clean -fd`).
   `roave/security-advisories: dev-latest` конфликтует с PHP старше нижней границы патч-версии (8.4.17 на этой
   машине < 8.4.28): для локальной установки `--ignore-platform-req=php`.
-- **metrics-bundle 2.3.0 не выпущен**: разработка идёт через git-ignored `composer-local.json` (path-репозитории
-  `../metrics-bundle` как `2.3.0` и `../sql-labeller` как `1.0.0`, плюс vcs). `composer-ci.lock` остался от
-  скелета и не пересобран; владелец пересобирает его после тега 2.3.0.
+- **metrics-bundle 2.3.0 выпущен 2026-11-22 UTC** (тег `v2.3.0`), `composer-ci.lock` пересобран на него.
+  Git-ignored `composer-local.json` (path-репозитории `../metrics-bundle` как `2.3.0`, `../sql-labeller` как `1.0.0`)
+  остаётся для работы с соседними чекаутами. Пакеты семейства не на Packagist: ставятся через vcs-репозитории.
+- **`composer-ci.lock` у metrics-bundle держит Elastica 7** (`--with ruflin/elastica:^7.3` при `composer update`):
+  на Elastica 9 PHPStan падает на `Elastica\Transport\AbstractTransport` в `TimingTransport`.
 
 ## Ревизия: любое изменение канонической формы меняет все ревизии
 
