@@ -70,15 +70,26 @@ final readonly class HandlerReader
                 }
             }
         }
-        $routing = MessengerRouting::fromContainer($container, $failureTransports, array_keys($byMessage));
-        $handlers = [];
-        foreach ($found as ['handler' => $handler, 'message' => $message, 'fromTransport' => $fromTransport, 'method' => $method]) {
-            $handlers[] = new HandlerInfo($handler, $message, $routing->isAsync($message, $fromTransport), $fromTransport, $method);
-        }
+        $handlers = $this->classify($found, MessengerRouting::fromContainer($container, $failureTransports, array_keys($byMessage)));
         usort($handlers, static fn (HandlerInfo $a, HandlerInfo $b): int => [$a->handlerClass, $a->messageClass] <=> [$b->handlerClass, $b->messageClass]);
         ksort($byMessage, SORT_STRING);
 
         return new ReadResult($handlers, $this->check($byMessage));
+    }
+
+    /**
+     * @param list<array{handler: class-string, message: non-empty-string, fromTransport: non-empty-string|null, method: non-empty-string}> $found
+     *
+     * @return list<HandlerInfo>
+     */
+    private function classify(array $found, MessengerRouting $routing): array
+    {
+        $handlers = [];
+        foreach ($found as $entry) {
+            $handlers[] = new HandlerInfo($entry['handler'], $entry['message'], $routing->isAsync($entry['message'], $entry['fromTransport']), $entry['fromTransport'], $entry['method']);
+        }
+
+        return $handlers;
     }
 
     /**

@@ -7,6 +7,7 @@ namespace Msstc4Symfony\SloBundle\DependencyInjection\CompilerPass\Discovery;
 use ReflectionAttribute;
 use ReflectionClass;
 use Symfony\Component\DependencyInjection\Argument\ServiceClosureArgument;
+use Symfony\Component\DependencyInjection\ChildDefinition;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Reference;
 use Symfony\Component\Messenger\Attribute\AsMessage;
@@ -50,7 +51,7 @@ final readonly class MessengerRouting
      * messages this app does not route may arrive there.
      *
      * @param list<non-empty-string> $failureTransports
-     * @param list<string> $messages every message type handled in this app
+     * @param list<non-empty-string> $messages every message type handled in this app
      */
     public static function fromContainer(ContainerBuilder $container, array $failureTransports, array $messages): self
     {
@@ -64,10 +65,7 @@ final readonly class MessengerRouting
             }
         }
 
-        $targets = array_merge([], ...array_values($routing));
-        foreach ($messages as $message) {
-            $targets = [...$targets, ...self::attributeTransports(self::hierarchy($message))];
-        }
+        $targets = self::routingTargets($routing, $messages);
 
         $transports = [];
         $receivesForeignMessages = false;
@@ -80,9 +78,7 @@ final readonly class MessengerRouting
                 $failure = ($tag['is_failure_transport'] ?? false) === true || \in_array($alias, $failureTransports, true);
                 $consumable = ($tag['is_consumable'] ?? true) !== false;
                 $transports[$alias] = $consumable && !$failure;
-                $dsn = $container->getDefinition($id)->getArguments()[0] ?? null;
-                $scheduled = \is_string($dsn) && str_starts_with($dsn, self::SCHEDULE_DSN);
-                if ($consumable && !$failure && !$scheduled && !\in_array($alias, $targets, true)) {
+                if ($consumable && !$failure && !self::isScheduled($container, $id) && !\in_array($alias, $targets, true)) {
                     $receivesForeignMessages = true;
                 }
             }
@@ -153,6 +149,41 @@ final readonly class MessengerRouting
         }
 
         return self::names($names);
+    }
+
+    /**
+     * @param array<string, list<non-empty-string>> $routing
+     * @param list<non-empty-string> $messages
+     *
+     * @return list<non-empty-string> transports a routing entry or an #[AsMessage] of a handled message sends to
+     */
+    private static function routingTargets(array $routing, array $messages): array
+    {
+        $targets = array_merge([], ...array_values($routing));
+        foreach ($messages as $message) {
+            $targets = [...$targets, ...self::attributeTransports(self::hierarchy($message))];
+        }
+
+        return $targets;
+    }
+
+    /**
+     * Scheduler transports (`schedule://<name>`, registered by AddScheduleMessengerPass) carry the app's own recurring
+     * messages, not messages of another service. The DSN is read positionally, by name or from a ChildDefinition parent.
+     */
+    private static function isScheduled(ContainerBuilder $container, string $id): bool
+    {
+        for ($depth = 0; $depth < 10 && $container->hasDefinition($id); $depth++) {
+            $definition = $container->getDefinition($id);
+            $arguments = $definition->getArguments();
+            $dsn = $arguments[0] ?? $arguments['index_0'] ?? $arguments['$dsn'] ?? null;
+            if ($dsn !== null || !$definition instanceof ChildDefinition) {
+                return \is_string($dsn) && str_starts_with($dsn, self::SCHEDULE_DSN);
+            }
+            $id = $definition->getParent();
+        }
+
+        return false;
     }
 
     /**

@@ -12,6 +12,7 @@ use Msstc4Symfony\SloBundle\Test\Fixtures\Message\SendReceipt;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\RequiresMethod;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\DependencyInjection\ChildDefinition;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\Messenger\Attribute\AsMessage;
 use Symfony\Component\Messenger\Message\RedispatchMessage;
@@ -19,7 +20,7 @@ use Symfony\Component\Messenger\Message\RedispatchMessage;
 final class MessengerRoutingTest extends TestCase
 {
     /**
-     * @return iterable<string, array{array<string, list<string>>, array<string, array{dsn: string, failure?: bool, scheduler?: bool}>, string, non-empty-string|null, bool}>
+     * @return iterable<string, array{array<string, list<string>>, array<string, array{dsn: string, failure?: bool, scheduler?: bool}>, non-empty-string, non-empty-string|null, bool}>
      */
     public static function provideClassification(): iterable
     {
@@ -44,6 +45,7 @@ final class MessengerRoutingTest extends TestCase
         yield 'unrouted framework message in a consumer-only app' => [[], $async, RedispatchMessage::class, null, false];
         yield 'empty sender list is not routing' => [[ProcessPayment::class => []], $sync, ProcessPayment::class, null, false];
         yield 'bound to an unknown transport' => [[], $sync, SendReceipt::class, 'elsewhere', true];
+        yield 'routed to a failure transport only' => [[ProcessPayment::class => ['failed']], $async + $failed, ProcessPayment::class, null, false];
         yield 'bound to a failure transport' => [[], $async + $failed, SendReceipt::class, 'failed', false];
         yield 'routed to an env-placeholder transport' => [[ProcessPayment::class => ['env']], ['env' => ['dsn' => '%env(MESSENGER_DSN)%']], ProcessPayment::class, null, true];
         yield 'unrouted next to a receive-only env-placeholder transport' => [[], ['env' => ['dsn' => '%env(MESSENGER_DSN)%']], ProcessPayment::class, null, true];
@@ -59,6 +61,7 @@ final class MessengerRoutingTest extends TestCase
     /**
      * @param array<string, list<string>> $routing
      * @param array<string, array{dsn: string, failure?: bool, scheduler?: bool}> $transports
+     * @param non-empty-string $message
      * @param non-empty-string|null $fromTransport
      */
     #[DataProvider('provideClassification')]
@@ -93,6 +96,20 @@ final class MessengerRoutingTest extends TestCase
 
         self::assertTrue($routing->isAsync(RefundPayment::class));
         self::assertFalse($routing->isAsync(ProcessPayment::class), 'the only worker transport is the #[AsMessage] target of a handled message');
+    }
+
+    public function testSchedulerDsnIsFoundByNameAndThroughAChildDefinitionParent(): void
+    {
+        $container = $this->container([SendReceipt::class => ['async']], ['async' => ['dsn' => 'amqp://localhost']]);
+        $container->register('messenger.transport.scheduler_named', 'stdClass')->setArguments(['$dsn' => 'schedule://named'])->addTag('messenger.receiver', ['alias' => 'scheduler_named']);
+        $container->register('app.schedule_transport', 'stdClass')->setArguments(['schedule://parent', [], null]);
+        $container->setDefinition('messenger.transport.scheduler_child', new ChildDefinition('app.schedule_transport'))->addTag('messenger.receiver', ['alias' => 'scheduler_child']);
+
+        self::assertFalse(MessengerRouting::fromContainer($container, [], [ProcessPayment::class])->isAsync(ProcessPayment::class));
+
+        $container->setDefinition('messenger.transport.inbox', (new ChildDefinition('app.schedule_transport'))->replaceArgument(0, 'amqp://inbox'))->addTag('messenger.receiver', ['alias' => 'inbox']);
+
+        self::assertTrue(MessengerRouting::fromContainer($container, [], [ProcessPayment::class])->isAsync(ProcessPayment::class), 'a replaced DSN of a child definition wins over the parent');
     }
 
     #[RequiresMethod(AsMessage::class, '__construct')]

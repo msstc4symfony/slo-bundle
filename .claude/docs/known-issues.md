@@ -324,6 +324,10 @@
   которые он сам не обрабатывает, или `TransportNamesStamp` — транспорт выглядит receive-only, незамаршрутизированные
   handlers становятся async.
 - **Scheduler-транспорты** (`schedule://`, тег без `is_consumable`) исключены из receive-only — см. `integrations.md`.
+  DSN ищется в аргументе `0`, `index_0` (replaced у ChildDefinition) или `$dsn`, иначе — у родителя ChildDefinition
+  (до 10 уровней). Не распознаётся: DSN из env/параметра (`%env(...)%`, `%param%` — строка не начинается с
+  `schedule://`), транспорт из фабрики-сервиса без DSN в аргументах, кастомный ресивер расписания под своим DSN — такой
+  транспорт считается receive-only (обход: `fromTransport` или явный routing).
 - **`MessengerTestKernel`**: транспорт `priority` (нужен для per-transport `failure_transport`) стал бы receive-only и
   сделал `SendReceipt` async — поэтому `ProcessPayment` маршрутизирован в `['async', 'priority']`.
 - **Сообщения на `sync://`** раньше считались async (непустой список sender'ов); теперь sync. Ревизии и сгенерированные
