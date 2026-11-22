@@ -8,10 +8,10 @@
 
 - The warning "SLO operation exception could not be classified" on channel `slo_bundle` now carries the `operation` name.
 
-### Documented
+### Documentation
 
-- Handlers of Symfony Scheduler messages are not detected as worker-consumed (schedules are built at runtime); bind them
-  with `fromTransport`.
+- Handlers of Symfony Scheduler messages are not reliably detected as worker-consumed (schedules are built at runtime);
+  bind them with `fromTransport`.
 
 ## [1.0.0] - 2026-11-22
 

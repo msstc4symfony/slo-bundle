@@ -330,10 +330,11 @@
   транспорт считается receive-only (обход: `fromTransport` или явный routing).
 - **Сообщения Scheduler не определяются как async (1.0.1, решение — документировать, не угадывать).** Расписание
   собирается в рантайме (`RecurringMessage` в `ScheduleProviderInterface::getSchedule()`), на компиляции класса
-  сообщения нет; теги `scheduler.task` от `#[AsCronTask]`/`#[AsPeriodicTask]` вешаются на вызываемый сервис/метод
-  (вызов идёт через `ServiceCallMessage`), а не на класс сообщения. Handler сообщения расписания без `fromTransport`
-  остаётся sync; обход — `#[AsMessageHandler(fromTransport: 'scheduler_<name>')]` (транспорт `schedule://` в
-  `transports` считается worker-consumed). Не проверено по исходникам: `symfony/scheduler` не установлен в vendor.
+  сообщения нет; `AddScheduleMessengerPass` превращает теги `scheduler.task` (`#[AsCronTask]`/`#[AsPeriodicTask]`) в
+  `ServiceCallMessage`/`RunCommandMessage` из `Symfony\` (проверено по symfony/symfony 7.4, `gh api`). Handler
+  сообщения расписания без `fromTransport` классифицируется общими правилами (routing, receive-only транспорты), то
+  есть через транспорт расписания не распознаётся; обход — `#[AsMessageHandler(fromTransport: 'scheduler_<name>')]`
+  (транспорт `schedule://` в `transports` считается worker-consumed).
 - **`MessengerTestKernel`**: транспорт `priority` (нужен для per-transport `failure_transport`) стал бы receive-only и
   сделал `SendReceipt` async — поэтому `ProcessPayment` маршрутизирован в `['async', 'priority']`.
 - **Сообщения на `sync://`** раньше считались async (непустой список sender'ов); теперь sync. Ревизии и сгенерированные

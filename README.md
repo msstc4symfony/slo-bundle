@@ -140,11 +140,13 @@ Events come from the metrics-bundle measurement observers, with the duration met
   messages it does not handle or a `TransportNamesStamp` (the transport looks receive-only, so the app's unrouted
   handlers look worker-consumed). For both, bind the handler with `#[AsMessageHandler(fromTransport: '<transport>')]`
   or add an explicit `routing` entry. Messages dispatched by Symfony Scheduler are not detected either: schedules are
-  built at runtime (`RecurringMessage` in a schedule provider), so a handler of a scheduled message without
-  `fromTransport` counts as synchronous; bind it with `#[AsMessageHandler(fromTransport: 'scheduler_<name>')]`.
-  `#[Slo]` on a handler is an SLO on the envelope of its message; a message with
-  several handlers gets a validation warning. The handler must take a concrete message class: events are matched by
-  the dispatched message's class, so `#[Slo]` on a handler of an interface or abstract class is a compilation error.
+  built at runtime (`RecurringMessage` in a schedule provider), so a scheduled message is not recognised as
+  worker-consumed through its `scheduler_<name>` transport, which a separate `messenger:consume scheduler_<name>`
+  worker reads; its classification falls back to the routing and receive-only rules above. Bind its handler with
+  `#[AsMessageHandler(fromTransport: 'scheduler_<name>')]`. `#[Slo]` on a handler is an SLO on the envelope of its
+  message; a message with several handlers gets a validation warning. The handler must take a concrete message class:
+  events are matched by the dispatched message's class, so `#[Slo]` on a handler of an interface or abstract class is a
+  compilation error.
 - Operations: one event per finished handle, see [Operations API](#operations-api).
 - Logic actions: through the [`slo-bridge-logic`](https://github.com/msstc4symfony/slo-bridge-logic) package, see [Bridges](#bridges-and-measurement-points).
 
