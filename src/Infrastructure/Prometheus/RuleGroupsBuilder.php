@@ -25,6 +25,10 @@ use Override;
  */
 final readonly class RuleGroupsBuilder implements RuleFileBuilderInterface
 {
+    public const BURN_ALERT = 'SloErrorBudgetBurn';
+
+    public const NO_EVENTS_ALERT = 'SloNoEvents';
+
     private const FAST_RATE_WINDOWS = ['5m', '30m', '1h', '6h'];
 
     /**
@@ -85,17 +89,17 @@ final readonly class RuleGroupsBuilder implements RuleFileBuilderInterface
 
             $page = array_map(fn (BurnRateWindow $pair): string => $this->burning($objective, $pair, $selector->application), array_values(array_filter($windows, static fn (BurnRateWindow $pair): bool => $pair->severity === BurnRateSeverity::Page)));
             if ($page !== []) {
-                $rules[] = $this->alert('SloErrorBudgetBurn', implode(' or ', $page), $objective, $selector->application, BurnRateSeverity::Page, 'burns its error budget fast');
+                $rules[] = $this->alert(self::BURN_ALERT, implode(' or ', $page), $objective, $selector->application, BurnRateSeverity::Page, 'burns its error budget fast');
             }
             foreach ($windows as $pair) {
                 if ($pair->severity === BurnRateSeverity::Ticket) {
                     // Fast-burn pages need at most 6h of history; the 3d pair waits for a fully covered window.
                     $expr = \sprintf('%s and on() (%s >= 1)', $this->burning($objective, $pair, $selector->application), $this->promQl->latest('slo:window:coverage_ratio', $objective, $selector->application));
-                    $rules[] = $this->alert('SloErrorBudgetBurn', $expr, $objective, $selector->application, BurnRateSeverity::Ticket, 'burns its error budget');
+                    $rules[] = $this->alert(self::BURN_ALERT, $expr, $objective, $selector->application, BurnRateSeverity::Ticket, 'burns its error budget');
                 }
             }
             if ($noEventsAlertHours !== null) {
-                $rules[] = $this->alert('SloNoEvents', $this->promQl->noEvents($selector, $objective, $noEventsAlertHours), $objective, $selector->application, BurnRateSeverity::Ticket, \sprintf('recorded no events in %dh', $noEventsAlertHours));
+                $rules[] = $this->alert(self::NO_EVENTS_ALERT, $this->promQl->noEvents($selector, $objective, $noEventsAlertHours), $objective, $selector->application, BurnRateSeverity::Ticket, \sprintf('recorded no events in %dh', $noEventsAlertHours));
             }
 
             return [self::FAST => $rules];

@@ -48,4 +48,52 @@ final class GenerateCommandTest extends TestCase
             $kernel->shutdown();
         }
     }
+
+    public function testAlertmanagerFilesAreWrittenWhenEnabledAndOnlyTheyAreDeletedWhenDisabledAgain(): void
+    {
+        $output = RoutedTestKernel::cacheRoot() . '/generated';
+        $generation = ['selector' => ['application' => 'shop'], 'output_dir' => $output, 'prometheus' => ['alerts' => true]];
+
+        self::assertSame(Command::SUCCESS, $this->generate([...$generation, 'alertmanager' => ['enabled' => true, 'receivers' => ['page' => 'oncall', 'ticket' => 'oncall']]], []));
+        self::assertFileExists($output . '/alertmanager/slo-alertmanager-routes.yml');
+        self::assertStringContainsString("  - name: slo-unrouted\n  - name: oncall\nroute:\n", (string) file_get_contents($output . '/alertmanager/slo-alertmanager.yml'));
+        self::assertSame(Command::SUCCESS, $this->generate([...$generation, 'alertmanager' => ['enabled' => true, 'receivers' => ['page' => 'oncall', 'ticket' => 'oncall']]], ['--check' => true]));
+
+        file_put_contents($output . '/alertmanager/alertmanager.yml', "route: {receiver: mine}\n");
+        $display = '';
+        self::assertSame(Command::FAILURE, $this->generate($generation, ['--check' => true], $display));
+        self::assertStringContainsString('extra   alertmanager/slo-alertmanager.yml', $display);
+        self::assertStringNotContainsString('alertmanager/alertmanager.yml', $display);
+
+        self::assertSame(Command::SUCCESS, $this->generate($generation, []));
+        self::assertFileDoesNotExist($output . '/alertmanager/slo-alertmanager.yml');
+        self::assertFileDoesNotExist($output . '/alertmanager/slo-alertmanager-routes.yml');
+        self::assertSame("route: {receiver: mine}\n", file_get_contents($output . '/alertmanager/alertmanager.yml'));
+    }
+
+    /**
+     * @param array<string, mixed> $generation
+     * @param array<string, mixed> $options
+     */
+    private function generate(array $generation, array $options, string &$display = ''): int
+    {
+        $kernel = new RoutedTestKernel(
+            [PaymentController::class],
+            [['name' => 'payment_create', 'path' => '/payments', 'controller' => PaymentController::class, 'method' => 'create', 'methods' => ['POST']]],
+            sloConfig: ['generation' => $generation],
+        );
+        $kernel->boot();
+
+        try {
+            $command = $kernel->getContainer()->get(GenerateCommand::class);
+            self::assertInstanceOf(GenerateCommand::class, $command);
+            $tester = new CommandTester($command);
+            $status = $tester->execute($options);
+            $display = $tester->getDisplay();
+
+            return $status;
+        } finally {
+            $kernel->shutdown();
+        }
+    }
 }

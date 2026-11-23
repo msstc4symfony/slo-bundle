@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Msstc4Symfony\SloBundle\Application\Generation\Generate;
 
 use Msstc4Symfony\SloBundle\Application\Generation\Generate\Exception\InvalidGenerationSettings;
+use Msstc4Symfony\SloBundle\Application\Generation\GenerateAlertmanager\Action as GenerateAlertmanager;
+use Msstc4Symfony\SloBundle\Application\Generation\GenerateAlertmanager\Input as AlertmanagerInput;
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateDashboards\Action as GenerateDashboards;
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateDashboards\Input as DashboardsInput;
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateRules\Action as GenerateRules;
@@ -15,7 +17,7 @@ use Msstc4Symfony\SloBundle\Application\Generation\SyncFiles\Action as SyncFiles
 use Msstc4Symfony\SloBundle\Application\Generation\SyncFiles\Input as SyncInput;
 
 /**
- * Generates rules, dashboards and optional Sloth specs and syncs them with the output directory.
+ * Generates rules, dashboards, optional Sloth specs and Alertmanager routing and syncs them with the output directory.
  *
  * @internal
  */
@@ -25,6 +27,7 @@ final readonly class Action
         private GenerateRules $rules,
         private GenerateDashboards $dashboards,
         private GenerateSloth $sloth,
+        private GenerateAlertmanager $alertmanager,
         private SyncFiles $sync,
         private GenerationConfig $config,
     ) {
@@ -35,11 +38,11 @@ final readonly class Action
      */
     public function __invoke(Input $input): Output
     {
-        if (!$this->config->alertmanager && ($input->pageReceiver !== null || $input->ticketReceiver !== null)) {
-            throw InvalidGenerationSettings::receiverOverrideWithoutAlertmanager();
-        }
+        $receivers = null;
         if ($this->config->alertmanager) {
-            $this->config->alertmanagerReceivers($input->pageReceiver, $input->ticketReceiver);
+            $receivers = $this->config->alertmanagerReceivers($input->pageReceiver, $input->ticketReceiver);
+        } elseif ($input->pageReceiver !== null || $input->ticketReceiver !== null) {
+            throw InvalidGenerationSettings::receiverOverrideWithoutAlertmanager();
         }
 
         $selector = $this->config->selector();
@@ -51,8 +54,10 @@ final readonly class Action
         $rules = ($this->rules)(new RulesInput($selector, $this->config->prometheusRules, $this->config->prometheusAlerts, $this->config->noEventsAlertHours));
         $dashboards = ($this->dashboards)(new DashboardsInput($selector));
         $sloth = ($this->sloth)(new SlothInput($selector, $this->config->sloth));
+        $alertmanager = ($this->alertmanager)(new AlertmanagerInput($selector, $this->config->alertmanager, $receivers));
 
-        $files = ($this->sync)(new SyncInput($rules->files->merge($dashboards->files)->merge($sloth->files), $root, $input->check));
+        $generated = $rules->files->merge($dashboards->files)->merge($sloth->files)->merge($alertmanager->files);
+        $files = ($this->sync)(new SyncInput($generated, $root, $input->check));
 
         return new Output($root, $files, [...$rules->warnings, ...$sloth->warnings]);
     }

@@ -12,11 +12,13 @@ use Msstc4Symfony\SloBundle\Application\Generation\BoundObjectiveCollector;
 use Msstc4Symfony\SloBundle\Application\Generation\BurnRatePolicy;
 use Msstc4Symfony\SloBundle\Application\Generation\Generate\Action as GenerateAction;
 use Msstc4Symfony\SloBundle\Application\Generation\Generate\GenerationConfig;
+use Msstc4Symfony\SloBundle\Application\Generation\GenerateAlertmanager\Action as GenerateAlertmanagerAction;
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateDashboards\Action as GenerateDashboardsAction;
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateRules\Action as GenerateRulesAction;
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateSloth\Action as GenerateSlothAction;
 use Msstc4Symfony\SloBundle\Application\Generation\SyncFiles\Action as SyncFilesAction;
 use Msstc4Symfony\SloBundle\Application\Operation\OperationMonitor;
+use Msstc4Symfony\SloBundle\Application\Port\AlertmanagerFileBuilderInterface;
 use Msstc4Symfony\SloBundle\Application\Port\CatalogDiagnosticsInterface;
 use Msstc4Symfony\SloBundle\Application\Port\EventRecorderInterface;
 use Msstc4Symfony\SloBundle\Application\Port\EventWriterInterface;
@@ -33,6 +35,7 @@ use Msstc4Symfony\SloBundle\Application\Port\SlothSpecBuilderInterface;
 use Msstc4Symfony\SloBundle\Domain\Repository\SloCatalogInterface;
 use Msstc4Symfony\SloBundle\Domain\Service\EventClassifier;
 use Msstc4Symfony\SloBundle\Domain\Service\RevisionCalculator;
+use Msstc4Symfony\SloBundle\Infrastructure\Alertmanager\AlertmanagerFileBuilder;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\Clock\HrtimeClock;
 use Msstc4Symfony\SloBundle\Infrastructure\Filesystem\FileWriter;
@@ -159,6 +162,9 @@ return static function (ContainerConfigurator $container): void {
     $services->alias(SlothSpecBuilderInterface::class, SlothSpecBuilder::class);
     $services->set(GenerateRulesAction::class);
     $services->set(GenerateSlothAction::class);
+    $services->set(AlertmanagerFileBuilder::class);
+    $services->alias(AlertmanagerFileBuilderInterface::class, AlertmanagerFileBuilder::class);
+    $services->set(GenerateAlertmanagerAction::class);
     $services->set(GenerateDashboardsAction::class)
         ->arg('$ignoredRoutes', param('msstc4symfony_slo.coverage.http_routes.ignored_routes'))
     ;

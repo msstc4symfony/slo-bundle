@@ -19,7 +19,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 /**
  * @internal the command name, options, output and exit codes are the public contract, not this class
  */
-#[AsCommand(name: 'slo:generate', description: 'Generate Prometheus rules, Grafana dashboards and optional Sloth specs from the SLO catalog; --check exits 1 when the files on disk are out of date')]
+#[AsCommand(name: 'slo:generate', description: 'Generate Prometheus rules, Grafana dashboards, optional Sloth specs and Alertmanager routing from the SLO catalog; --check exits 1 when the files on disk are out of date')]
 final class GenerateCommand extends Command
 {
     public function __construct(

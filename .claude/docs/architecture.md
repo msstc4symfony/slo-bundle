@@ -274,6 +274,23 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
 - Sloth: у Sloth нет окна на уровне SLO; при разных окнах среди выданных SLO `slo:generate` печатает один WARNING (окна по возрастанию):
   один `--default-slo-period` не может подойти нескольким окнам, SLO с окном, отличным от выбранного периода, получат неверные пороги burn-rate. Spec проверяется `sloth validate -i` из образа `ghcr.io/slok/sloth:v0.16.0` в группе promtool.
 
+## Alertmanager (1.1.0)
+
+- `GenerateAlertmanager\{Action,Input,Output}` + порт `AlertmanagerFileBuilderInterface{full, routes}` (адаптер
+  `Infrastructure/Alertmanager/AlertmanagerFileBuilder`, `DeterministicYaml`). Файлы: `alertmanager/slo-alertmanager.yml` (полный конфиг) и
+  `alertmanager/slo-alertmanager-routes.yml` (фрагмент: ровно `inhibit_rules` и `routes`); `OWNED_FILES['alertmanager'] = 'slo-alertmanager*.yml'`.
+- `Generate\Action` проверяет получателей один раз (`GenerationConfig::alertmanagerReceivers()`) и передаёт VO в слайс; при
+  `enabled: false` получателей нет (`null`), каталог остаётся управляемым — файлы прошлого включённого запуска удаляются, чужой
+  `alertmanager/alertmanager.yml` не трогается. `Input(enabled: true, receivers: null)` — `InvalidArgumentException`.
+- Маршрут: `alertname=~"SloErrorBudgetBurn|SloNoEvents"` + `application="<app>"` (компоненты не участвуют — у алертов нет метки
+  компонента), `group_by: [application, slo, objective]`, дочерние `severity="page"`/`"ticket"`. Inhibit: page-burn гасит ticket-burn того же
+  `application,slo,objective`; `SloNoEvents` не гасится. Имена алертов — константы `RuleGroupsBuilder::BURN_ALERT`/`NO_EVENTS_ALERT`.
+- Полный файл: корень `receiver: slo-unrouted` (`AlertmanagerFileBuilder::UNROUTED_RECEIVER`), `receivers` = `slo-unrouted`, затем
+  `AlertmanagerReceivers::names()`, без дублей (page == ticket или получатель по имени `slo-unrouted` выводятся один раз), без интеграций.
+- Ключи отсортированы `DeterministicYaml`: в обоих файлах `inhibit_rules` идёт первым. Golden-файлы — `tests/Fixtures/Generated/alertmanager/`.
+- Шаблон имени получателя — `AlertmanagerReceivers::NAME_PATTERN` (+ `isValidName()` с `@phpstan-assert-if-true non-empty-string`);
+  пустое и невалидное имя дают одно сообщение `InvalidGenerationSettings::invalidReceiver()`.
+
 ## Закалка и релиз-кандидат (Task 15)
 
 - Публичный API (README «Public API»): `Application\Attribute\*`, `Application\Port\{OperationMonitorInterface,OperationHandleInterface}`,

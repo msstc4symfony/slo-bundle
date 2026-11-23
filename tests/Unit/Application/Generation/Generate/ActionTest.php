@@ -30,7 +30,22 @@ final class ActionTest extends TestCase
         foreach (['prometheus/slo-alerts.rules.yml', 'grafana/dashboards/slo-slo-overview.json', 'grafana/provisioning/dashboards/slo.yaml'] as $file) {
             self::assertContains($file, $output->files->missing);
         }
-        self::assertSame([], array_filter($output->files->missing, static fn (string $file): bool => str_starts_with($file, 'sloth/')));
+        self::assertSame([], array_filter($output->files->missing, static fn (string $file): bool => str_starts_with($file, 'sloth/') || str_starts_with($file, 'alertmanager/')));
+    }
+
+    public function testAlertmanagerFilesUseTheConfiguredReceiversAndTheOverrides(): void
+    {
+        $writer = new InMemoryFileWriter();
+
+        $output = ($this->action($writer, alertmanager: true, receivers: ['pageReceiver' => 'oncall', 'ticketReceiver' => 'tickets']))(new Input(ticketReceiver: 'oncall'));
+
+        self::assertContains('alertmanager/slo-alertmanager.yml', $output->files->missing);
+        self::assertContains('alertmanager/slo-alertmanager-routes.yml', $output->files->missing);
+        $full = $writer->files['/project/observability/alertmanager/slo-alertmanager.yml'] ?? '';
+        self::assertStringContainsString("receivers:\n  - name: slo-unrouted\n  - name: oncall\nroute:\n", $full);
+        self::assertStringNotContainsString('tickets', $full);
+        self::assertStringContainsString('application="shop"', $full);
+        self::assertSame(2, substr_count($writer->files['/project/observability/alertmanager/slo-alertmanager-routes.yml'] ?? '', 'receiver: oncall'));
     }
 
     #[TestWith(['page', null])]
@@ -163,8 +178,9 @@ final class ActionTest extends TestCase
     /**
      * @param positive-int|null $noEventsAlertHours
      * @param list<string> $components
+     * @param array{pageReceiver?: string, ticketReceiver?: string} $receivers
      */
-    private function action(InMemoryFileWriter $writer, ?string $application = 'shop', bool $sloth = false, float $availabilityTarget = 99.9, bool $rules = true, bool $alerts = true, ?int $noEventsAlertHours = null, array $components = ['web'], bool $alertmanager = false): Action
+    private function action(InMemoryFileWriter $writer, ?string $application = 'shop', bool $sloth = false, float $availabilityTarget = 99.9, bool $rules = true, bool $alerts = true, ?int $noEventsAlertHours = null, array $components = ['web'], bool $alertmanager = false, array $receivers = []): Action
     {
         $catalog = GenerationFixture::catalog(checkoutAvailabilityTarget: $availabilityTarget);
 
@@ -172,8 +188,9 @@ final class ActionTest extends TestCase
             GenerationFixture::action($catalog),
             GenerationFixture::dashboardsAction($catalog),
             GenerationFixture::slothAction($catalog),
+            GenerationFixture::alertmanagerAction(),
             new SyncAction($writer),
-            new GenerationConfig($application, $components, '/project/observability', $rules, $alerts, $noEventsAlertHours, $sloth, $alertmanager),
+            new GenerationConfig($application, $components, '/project/observability', $rules, $alerts, $noEventsAlertHours, $sloth, $alertmanager, ...$receivers),
         );
     }
 }

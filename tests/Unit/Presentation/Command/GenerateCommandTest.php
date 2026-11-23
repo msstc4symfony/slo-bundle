@@ -6,6 +6,7 @@ namespace Msstc4Symfony\SloBundle\Test\Unit\Presentation\Command;
 
 use Msstc4Symfony\SloBundle\Application\Generation\Generate\Action as GenerateAction;
 use Msstc4Symfony\SloBundle\Application\Generation\Generate\GenerationConfig;
+use Msstc4Symfony\SloBundle\Application\Generation\GenerateAlertmanager\Action as GenerateAlertmanagerAction;
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateDashboards\Action as GenerateDashboardsAction;
 use Msstc4Symfony\SloBundle\Application\Generation\SyncFiles\Action as SyncAction;
 use Msstc4Symfony\SloBundle\Infrastructure\Grafana\GrafanaFileBuilder;
@@ -134,6 +135,24 @@ final class GenerateCommandTest extends TestCase
         self::assertSame(Command::SUCCESS, (new CommandTester($this->command($on, sloth: true)))->execute(['--check' => true]));
     }
 
+    public function testAlertmanagerFilesAreRemovedWhenDisabledAndTheUsersOwnConfigSurvives(): void
+    {
+        $writer = new InMemoryFileWriter(['/project/observability/alertmanager/alertmanager.yml' => "hand-written\n"]);
+        self::assertSame(Command::SUCCESS, (new CommandTester($this->command($writer, alertmanager: true)))->execute([]));
+        self::assertArrayHasKey('/project/observability/alertmanager/slo-alertmanager.yml', $writer->files);
+        self::assertArrayHasKey('/project/observability/alertmanager/slo-alertmanager-routes.yml', $writer->files);
+        self::assertSame(Command::SUCCESS, (new CommandTester($this->command($writer, alertmanager: true)))->execute(['--check' => true]));
+
+        $check = new CommandTester($this->command($writer));
+        self::assertSame(Command::FAILURE, $check->execute(['--check' => true]));
+        self::assertStringContainsString('extra   alertmanager/slo-alertmanager.yml', $check->getDisplay());
+        self::assertStringContainsString('extra   alertmanager/slo-alertmanager-routes.yml', $check->getDisplay());
+        self::assertStringNotContainsString('alertmanager/alertmanager.yml', $check->getDisplay());
+
+        self::assertSame(Command::SUCCESS, (new CommandTester($this->command($writer)))->execute([]));
+        self::assertSame(["hand-written\n"], array_values(array_filter($writer->files, static fn (string $path): bool => str_contains($path, '/alertmanager/'), ARRAY_FILTER_USE_KEY)));
+    }
+
     public function testMixedSlothWindowsWarnOnStandardError(): void
     {
         $tester = new CommandTester($this->command(new InMemoryFileWriter(), sloth: true));
@@ -169,6 +188,8 @@ final class GenerateCommandTest extends TestCase
         self::assertSame('Shop SLO', DefinitionArgument::of($grafana, $standard, 'folder'));
         self::assertSame(['health'], $container->getParameterBag()->resolveValue(DefinitionArgument::of($container->getDefinition(GenerateDashboardsAction::class), new ReflectionMethod(GenerateDashboardsAction::class, '__construct'), 'ignoredRoutes')));
         self::assertSame('slo:generate', $this->command(new InMemoryFileWriter())->getName());
+        self::assertStringContainsString('Alertmanager', $this->command(new InMemoryFileWriter())->getDescription());
+        self::assertInstanceOf(GenerateAlertmanagerAction::class, $container->get(GenerateAlertmanagerAction::class));
     }
 
     /**
@@ -182,6 +203,7 @@ final class GenerateCommandTest extends TestCase
             GenerationFixture::action($catalog),
             GenerationFixture::dashboardsAction($catalog),
             GenerationFixture::slothAction($catalog),
+            GenerationFixture::alertmanagerAction(),
             new SyncAction($writer),
             new GenerationConfig($application, ['web', 'worker'], '/project/observability', sloth: $sloth, alertmanager: $alertmanager),
         ));

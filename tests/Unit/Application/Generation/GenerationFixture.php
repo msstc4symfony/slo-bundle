@@ -15,6 +15,7 @@ use Msstc4Symfony\SloBundle\Application\Discovery\CatalogExtras;
 use Msstc4Symfony\SloBundle\Application\Discovery\HandlerInfo;
 use Msstc4Symfony\SloBundle\Application\Generation\BoundObjectiveCollector;
 use Msstc4Symfony\SloBundle\Application\Generation\BurnRatePolicy;
+use Msstc4Symfony\SloBundle\Application\Generation\GenerateAlertmanager\Action as AlertmanagerAction;
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateDashboards\Action as DashboardsAction;
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateDashboards\Input as DashboardsInput;
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateRules\Action;
@@ -26,6 +27,7 @@ use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
 use Msstc4Symfony\SloBundle\Domain\Enum\StrategyPreference;
 use Msstc4Symfony\SloBundle\Domain\Service\RevisionCalculator;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
+use Msstc4Symfony\SloBundle\Infrastructure\Alertmanager\AlertmanagerFileBuilder;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\Grafana\GrafanaFileBuilder;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MetricsBundleSeriesCatalog;
@@ -90,6 +92,11 @@ final class GenerationFixture
     public static function slothAction(CompiledSloCatalog $catalog): SlothAction
     {
         return new SlothAction(self::collector($catalog), new SlothSpecBuilder(new PromQlBuilder(), new DeterministicYaml()));
+    }
+
+    public static function alertmanagerAction(): AlertmanagerAction
+    {
+        return new AlertmanagerAction(new AlertmanagerFileBuilder(new DeterministicYaml()));
     }
 
     /**

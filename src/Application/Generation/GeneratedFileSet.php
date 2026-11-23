@@ -22,6 +22,7 @@ final readonly class GeneratedFileSet
         'grafana/dashboards' => 'slo-*.json',
         'grafana/provisioning/dashboards' => 'slo.yaml',
         'sloth' => 'slo-*.yml',
+        'alertmanager' => 'slo-alertmanager*.yml',
     ];
 
     /**
