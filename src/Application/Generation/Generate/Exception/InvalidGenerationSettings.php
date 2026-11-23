@@ -13,6 +13,8 @@ use Msstc4Symfony\SloBundle\Application\Generation\Generate\GenerationConfig;
  */
 final class InvalidGenerationSettings extends InvalidArgumentException
 {
+    public const ALERTMANAGER_REQUIRES_ALERTS = 'generation.alertmanager.enabled requires generation.prometheus.alerts: the routes target the generated alerts.';
+
     public static function missingApplication(): self
     {
         return new self('Set msstc4symfony_slo.generation.selector.application to the "application" label of your metrics: slo:generate never reads it from the runtime environment.');
@@ -28,9 +30,18 @@ final class InvalidGenerationSettings extends InvalidArgumentException
         return new self('The output directory must be a non-empty path other than "/".');
     }
 
-    public static function invalidReceiver(string $severity, string $name): self
+    public static function invalidReceiver(string $severity, string $name, bool $fromOption = false): self
     {
+        if ($fromOption) {
+            return new self(\sprintf('The --%s-receiver value "%s" must match %s.', $severity, $name, AlertmanagerReceivers::NAME_PATTERN));
+        }
+
         return new self(\sprintf('The %s receiver name "%s" must match %s (an env placeholder resolved to an empty or invalid value?).', $severity, $name, AlertmanagerReceivers::NAME_PATTERN));
+    }
+
+    public static function alertmanagerWithoutAlerts(): self
+    {
+        return new self(self::ALERTMANAGER_REQUIRES_ALERTS);
     }
 
     public static function receiverOverrideWithoutAlertmanager(): self

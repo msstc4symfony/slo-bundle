@@ -40,6 +40,9 @@ final readonly class Action
     {
         $receivers = null;
         if ($this->config->alertmanager) {
+            if (!$this->config->prometheusAlerts) {
+                throw InvalidGenerationSettings::alertmanagerWithoutAlerts();
+            }
             $receivers = $this->config->alertmanagerReceivers($input->pageReceiver, $input->ticketReceiver);
         } elseif ($input->pageReceiver !== null || $input->ticketReceiver !== null) {
             throw InvalidGenerationSettings::receiverOverrideWithoutAlertmanager();

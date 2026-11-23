@@ -66,17 +66,17 @@ final class GenerationConfigTest extends TestCase
         self::assertEquals(new AlertmanagerReceivers('a', 'y'), $config->alertmanagerReceivers(null, 'y'));
     }
 
-    #[TestWith(['', null, 'page', ''])]
-    #[TestWith([null, '', 'ticket', ''])]
-    #[TestWith(['bad name', null, 'page', 'bad name'])]
-    #[TestWith([null, 'x/y', 'ticket', 'x/y'])]
-    public function testEmptyOrInvalidReceiverIsRejected(?string $page, ?string $ticket, string $severity, string $name): void
+    #[TestWith(['', 'slo-ticket', 'page', ''])]
+    #[TestWith(['slo-page', '', 'ticket', ''])]
+    #[TestWith(['bad name', 'slo-ticket', 'page', 'bad name'])]
+    #[TestWith(['slo-page', 'x/y', 'ticket', 'x/y'])]
+    public function testEmptyOrInvalidConfiguredReceiverIsRejectedWithTheEnvHint(string $page, string $ticket, string $severity, string $name): void
     {
-        $config = new GenerationConfig('shop', [], '/out', alertmanager: true);
+        $config = new GenerationConfig('shop', [], '/out', alertmanager: true, pageReceiver: $page, ticketReceiver: $ticket);
 
         $this->expectException(InvalidGenerationSettings::class);
         $this->expectExceptionMessage(\sprintf('The %s receiver name "%s" must match %s (an env placeholder resolved to an empty or invalid value?).', $severity, $name, AlertmanagerReceivers::NAME_PATTERN));
-        $config->alertmanagerReceivers($page, $ticket);
+        $config->alertmanagerReceivers(null, null);
     }
 
     public function testEnvResolvedEmptyConfiguredReceiverIsRejected(): void
@@ -85,5 +85,29 @@ final class GenerationConfigTest extends TestCase
 
         $this->expectException(InvalidGenerationSettings::class);
         $config->alertmanagerReceivers(null, null);
+    }
+
+    #[TestWith(['page', '', null])]
+    #[TestWith(['ticket', null, 'bad name'])]
+    public function testInvalidOverrideNamesTheOptionWithoutTheEnvHint(string $severity, ?string $page, ?string $ticket): void
+    {
+        $config = new GenerationConfig('shop', [], '/out', alertmanager: true);
+
+        try {
+            $config->alertmanagerReceivers($page, $ticket);
+            self::fail('The invalid override was accepted.');
+        } catch (InvalidGenerationSettings $e) {
+            self::assertStringStartsWith(\sprintf('The --%s-receiver value "', $severity), $e->getMessage());
+            self::assertStringNotContainsString('env placeholder', $e->getMessage());
+        }
+    }
+
+    public function testInvalidConfiguredReceiverKeepsTheEnvHintWhenTheOtherSeverityIsOverridden(): void
+    {
+        $config = new GenerationConfig('shop', [], '/out', alertmanager: true, ticketReceiver: '');
+
+        $this->expectException(InvalidGenerationSettings::class);
+        $this->expectExceptionMessage('env placeholder');
+        $config->alertmanagerReceivers('ok', null);
     }
 }

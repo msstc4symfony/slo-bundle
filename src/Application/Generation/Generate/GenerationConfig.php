@@ -90,10 +90,10 @@ final readonly class GenerationConfig
         $page = $pageOverride ?? $this->pageReceiver;
         $ticket = $ticketOverride ?? $this->ticketReceiver;
         if (!AlertmanagerReceivers::isValidName($page)) {
-            throw InvalidGenerationSettings::invalidReceiver('page', $page);
+            throw InvalidGenerationSettings::invalidReceiver('page', $page, $pageOverride !== null);
         }
         if (!AlertmanagerReceivers::isValidName($ticket)) {
-            throw InvalidGenerationSettings::invalidReceiver('ticket', $ticket);
+            throw InvalidGenerationSettings::invalidReceiver('ticket', $ticket, $ticketOverride !== null);
         }
 
         return new AlertmanagerReceivers($page, $ticket);

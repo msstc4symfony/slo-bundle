@@ -290,7 +290,7 @@ msstc4symfony_slo:
 | `slo:list [--format=text\|json]` | declared SLOs with points, routes, strategy and revisions; shared and `DUPLICATE` names are marked | 0 ok, 1 the JSON cannot be encoded, 2 bad option |
 | `slo:validate` | validates the catalog against the routes; prints `ERROR`, `WARNING` and `NOTICE` lines | 0 no errors (warnings allowed), 1 errors |
 | `slo:coverage [--format=text\|json] [--min=<0-100>]` | which routes, handlers, actions and operations have an SLO and which are already measured by a universal series; statuses `monitored`, `unmonitored`, `ignored`, `invalid`, `unsupported` | 0 passed, 1 any `invalid` point, a kind below its required percent (compared on the exact fraction in basis points, the requirement taken to 0.01: 2 of 3 is below 66.67, 7 of 10000 meets 0.07; `--min` overrides all kinds) or the JSON cannot be encoded, 2 bad option |
-| `slo:generate [--output=<dir>] [--check] [--page-receiver=<name>] [--ticket-receiver=<name>]` | writes Prometheus rules, Grafana dashboards, optional Sloth specs and optional Alertmanager files (`generation.alertmanager.enabled`); the receiver options override `generation.alertmanager.receivers` and are an error (exit 2) while Alertmanager generation is off; `--check` compares with the disk without writing and prints `stale`, `missing`, `extra` paths | 0 ok / up to date, 1 `--check` found differences, 2 missing `generation.selector.application` or output directory |
+| `slo:generate [--output=<dir>] [--check] [--page-receiver=<name>] [--ticket-receiver=<name>]` | writes Prometheus rules, Grafana dashboards, optional Sloth specs and optional Alertmanager files (`generation.alertmanager.enabled`); the receiver options override `generation.alertmanager.receivers` and are an error (exit 2) while Alertmanager generation is off; `--check` compares with the disk without writing and prints `stale`, `missing`, `extra` paths | 0 ok / up to date, 1 `--check` found differences, 2 missing `generation.selector.application` or output directory, a receiver option without `generation.alertmanager.enabled`, an invalid or empty receiver name, `generation.alertmanager.enabled` with `generation.prometheus.alerts: false` |
 
 `slo:coverage --format=json` is stable and described by the JSON Schema [`doc/coverage-schema.json`](doc/coverage-schema.json).
 A CI gate is `bin/console slo:validate && bin/console slo:coverage --min=95 && bin/console slo:generate --check`.
@@ -499,12 +499,12 @@ all through `docker run` (`prom/prometheus:v3.15.0`, `ghcr.io/slok/sloth:v0.16.0
 make test-promtool   # needs Docker; about a minute
 ```
 
-The generated Alertmanager files are checked the same way by `make test-amtool` (`amtool check-config` of the full file
+The generated Alertmanager files are checked by `make test-amtool` (`amtool check-config` of the full file
 and of the fragment merged into a user config, `amtool config routes test` for page, ticket and no-events alerts;
 `prom/alertmanager:v0.34.0`), CI job `amtool`.
 
 Without Docker the tests fail instead of being skipped. They are not part of `make test` only because the reusable
-bundle-standard job runs without Docker; CI runs them in the dedicated `promtool` job of
+bundle-standard job runs without Docker; CI runs them in the dedicated `promtool` and `amtool` jobs of
 `.github/workflows/checks.yml`.
 
 ## Overhead

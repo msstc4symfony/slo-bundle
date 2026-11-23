@@ -52,6 +52,35 @@ final class AmtoolTest extends TestCase
         self::assertSame(0, $exit, $output);
     }
 
+    public function testFullConfigWithOneReceiverForBothSeveritiesPassesCheckConfig(): void
+    {
+        $this->writeFull('ops', 'ops', 'alertmanager/ops.yml');
+
+        [$exit, $output] = $this->amtool(['check-config', 'alertmanager/ops.yml']);
+
+        self::assertSame(0, $exit, $output);
+    }
+
+    #[DataProvider('severityProvider')]
+    public function testOneReceiverForBothSeveritiesRoutesBothToIt(string $severity): void
+    {
+        $this->writeFull('ops', 'ops', 'alertmanager/ops.yml');
+
+        [$exit, $output] = $this->amtool(['config', 'routes', 'test', '--config.file=alertmanager/ops.yml', 'alertname=SloErrorBudgetBurn', 'severity=' . $severity, 'application=showcase']);
+
+        self::assertSame(0, $exit, $output);
+        self::assertSame('ops', trim($output));
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function severityProvider(): iterable
+    {
+        yield 'page' => ['page'];
+        yield 'ticket' => ['ticket'];
+    }
+
     public function testFragmentMergedIntoAUserConfigPassesCheckConfig(): void
     {
         $this->writeMergedConfig();
@@ -91,6 +120,21 @@ final class AmtoolTest extends TestCase
 
         self::assertSame(0, $exit, $output);
         self::assertSame($receiver, trim($output));
+    }
+
+    /**
+     * @param non-empty-string $page
+     * @param non-empty-string $ticket
+     * @param non-empty-string $relativePath
+     */
+    private function writeFull(string $page, string $ticket, string $relativePath): void
+    {
+        $output = GenerationFixture::alertmanagerAction()(new Input(new Selector('showcase', ['web']), true, new AlertmanagerReceivers($page, $ticket)));
+        foreach ($output->files->files as $file) {
+            if ($file->relativePath === 'alertmanager/slo-alertmanager.yml') {
+                $this->write(new GeneratedFile($relativePath, $file->contents));
+            }
+        }
     }
 
     private function writeMergedConfig(): void

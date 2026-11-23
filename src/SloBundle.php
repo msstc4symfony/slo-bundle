@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Msstc4Symfony\SloBundle;
 
+use Msstc4Symfony\SloBundle\Application\Generation\AlertmanagerReceivers;
+use Msstc4Symfony\SloBundle\Application\Generation\Generate\Exception\InvalidGenerationSettings;
 use Msstc4Symfony\SloBundle\Application\Generation\Generate\GenerationConfig;
 use Msstc4Symfony\SloBundle\Application\Port\ExpectedFailureClassifierInterface;
 use Msstc4Symfony\SloBundle\DependencyInjection\CompilerPass\CollectSloDefinitionsPass;
@@ -12,6 +14,7 @@ use Msstc4Symfony\SloBundle\DependencyInjection\ExpectedFailureClassifierSelecto
 use Override;
 use Symfony\Component\Config\Definition\Builder\ArrayNodeDefinition;
 use Symfony\Component\Config\Definition\Builder\IntegerNodeDefinition;
+use Symfony\Component\Config\Definition\Builder\StringNodeDefinition;
 use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
 use Symfony\Component\DependencyInjection\Compiler\PassConfig;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -232,6 +235,25 @@ final class SloBundle extends AbstractBundle
         ;
     }
 
+    /**
+     * @param non-empty-string $name
+     * @param non-empty-string $default
+     */
+    private function receiverNode(string $name, string $default): StringNodeDefinition
+    {
+        $node = new StringNodeDefinition($name);
+        $node
+            ->cannotBeEmpty()
+            ->defaultValue($default)
+            ->validate()
+                ->ifTrue(static fn (mixed $v): bool => !\is_string($v) || !AlertmanagerReceivers::isValidName($v))
+                ->thenInvalid('the receiver name must match ' . AlertmanagerReceivers::NAME_PATTERN . ', %s given.')
+            ->end()
+        ;
+
+        return $node;
+    }
+
     private function generationNode(): ArrayNodeDefinition
     {
         return $this->node('generation')
@@ -283,8 +305,8 @@ final class SloBundle extends AbstractBundle
                         ->arrayNode('receivers')
                             ->addDefaultsIfNotSet()
                             ->children()
-                                ->scalarNode('page')->cannotBeEmpty()->defaultValue('slo-page')->end()
-                                ->scalarNode('ticket')->cannotBeEmpty()->defaultValue('slo-ticket')->end()
+                                ->append($this->receiverNode('page', 'slo-page'))
+                                ->append($this->receiverNode('ticket', 'slo-ticket'))
                             ->end()
                         ->end()
                     ->end()
@@ -292,7 +314,7 @@ final class SloBundle extends AbstractBundle
             ->end()
             ->validate()
                 ->ifTrue($this->alertmanagerWithoutAlerts(...))
-                ->thenInvalid('generation.alertmanager.enabled requires generation.prometheus.alerts: the routes target the generated alerts.')
+                ->thenInvalid(InvalidGenerationSettings::ALERTMANAGER_REQUIRES_ALERTS)
             ->end()
         ;
     }

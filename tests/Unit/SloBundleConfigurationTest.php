@@ -10,6 +10,7 @@ use PHPUnit\Framework\TestCase;
 use Symfony\Component\Config\Definition\Exception\InvalidConfigurationException;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Extension\ExtensionInterface;
+use Symfony\Component\DependencyInjection\ParameterBag\EnvPlaceholderParameterBag;
 
 final class SloBundleConfigurationTest extends TestCase
 {
@@ -235,11 +236,39 @@ final class SloBundleConfigurationTest extends TestCase
 
     public function testAlertmanagerReceiversAreConfigurable(): void
     {
-        $container = $this->load(['generation' => ['alertmanager' => ['enabled' => true, 'receivers' => ['page' => 'pager', 'ticket' => '%env(SLO_TICKET)%']]]]);
+        $placeholder = (new EnvPlaceholderParameterBag())->get('env(SLO_TICKET)');
+        self::assertIsString($placeholder);
+
+        $container = $this->load(['generation' => ['alertmanager' => ['enabled' => true, 'receivers' => ['page' => 'pager', 'ticket' => $placeholder]]]]);
 
         self::assertTrue($container->getParameter('msstc4symfony_slo.generation.alertmanager.enabled'));
         self::assertSame('pager', $container->getParameter('msstc4symfony_slo.generation.alertmanager.receivers.page'));
-        self::assertSame('%env(SLO_TICKET)%', $container->getParameter('msstc4symfony_slo.generation.alertmanager.receivers.ticket'));
+        self::assertSame($placeholder, $container->getParameter('msstc4symfony_slo.generation.alertmanager.receivers.ticket'));
+    }
+
+    /**
+     * @return iterable<string, array{mixed}>
+     */
+    public static function invalidReceiverProvider(): iterable
+    {
+        yield 'boolean' => [true];
+        yield 'integer' => [123];
+        yield 'space' => ['bad name'];
+        yield 'empty' => [''];
+        yield 'too long' => [str_repeat('a', 129)];
+    }
+
+    #[DataProvider('invalidReceiverProvider')]
+    public function testInvalidReceiverIsRejectedAtConfigLoad(mixed $value): void
+    {
+        foreach (['page', 'ticket'] as $severity) {
+            try {
+                $this->load(['generation' => ['alertmanager' => ['receivers' => [$severity => $value]]]]);
+                self::fail(\sprintf('The %s receiver %s was accepted.', $severity, json_encode($value)));
+            } catch (InvalidConfigurationException) {
+                $this->addToAssertionCount(1);
+            }
+        }
     }
 
     public function testUnknownKeyIsRejected(): void

@@ -75,6 +75,19 @@ final class ActionTest extends TestCase
         }
     }
 
+    public function testAlertmanagerWithoutAlertsIsRejectedBeforeAnythingIsWritten(): void
+    {
+        $writer = new InMemoryFileWriter();
+
+        try {
+            ($this->action($writer, alerts: false, alertmanager: true))(new Input());
+            self::fail('Expected InvalidGenerationSettings.');
+        } catch (InvalidGenerationSettings $e) {
+            self::assertSame(InvalidGenerationSettings::ALERTMANAGER_REQUIRES_ALERTS, $e->getMessage());
+            self::assertSame([], $writer->files);
+        }
+    }
+
     public function testInputDirectoryOverridesTheConfigAndCheckModeWritesNothing(): void
     {
         $writer = new InMemoryFileWriter();
