@@ -47,18 +47,18 @@ final class AmtoolTest extends TestCase
 
     public function testFullConfigPassesCheckConfig(): void
     {
-        [$exit, $output] = $this->amtool(['check-config', 'alertmanager/slo-alertmanager.yml']);
+        [$exit, $output, $error] = $this->amtool(['check-config', 'alertmanager/slo-alertmanager.yml']);
 
-        self::assertSame(0, $exit, $output);
+        self::assertSame(0, $exit, $output . $error);
     }
 
     public function testFullConfigWithOneReceiverForBothSeveritiesPassesCheckConfig(): void
     {
         $this->writeFull('ops', 'ops', 'alertmanager/ops.yml');
 
-        [$exit, $output] = $this->amtool(['check-config', 'alertmanager/ops.yml']);
+        [$exit, $output, $error] = $this->amtool(['check-config', 'alertmanager/ops.yml']);
 
-        self::assertSame(0, $exit, $output);
+        self::assertSame(0, $exit, $output . $error);
     }
 
     #[DataProvider('severityProvider')]
@@ -66,9 +66,9 @@ final class AmtoolTest extends TestCase
     {
         $this->writeFull('ops', 'ops', 'alertmanager/ops.yml');
 
-        [$exit, $output] = $this->amtool(['config', 'routes', 'test', '--config.file=alertmanager/ops.yml', 'alertname=SloErrorBudgetBurn', 'severity=' . $severity, 'application=showcase']);
+        [$exit, $output, $error] = $this->amtool(['config', 'routes', 'test', '--config.file=alertmanager/ops.yml', 'alertname=SloErrorBudgetBurn', 'severity=' . $severity, 'application=showcase']);
 
-        self::assertSame(0, $exit, $output);
+        self::assertSame(0, $exit, $output . $error);
         self::assertSame('ops', trim($output));
     }
 
@@ -85,9 +85,9 @@ final class AmtoolTest extends TestCase
     {
         $this->writeMergedConfig();
 
-        [$exit, $output] = $this->amtool(['check-config', 'alertmanager/merged.yml']);
+        [$exit, $output, $error] = $this->amtool(['check-config', 'alertmanager/merged.yml']);
 
-        self::assertSame(0, $exit, $output);
+        self::assertSame(0, $exit, $output . $error);
     }
 
     /**
@@ -116,9 +116,9 @@ final class AmtoolTest extends TestCase
     {
         $this->writeMergedConfig();
 
-        [$exit, $output] = $this->amtool(['config', 'routes', 'test', '--config.file=' . $config, ...$labels]);
+        [$exit, $output, $error] = $this->amtool(['config', 'routes', 'test', '--config.file=' . $config, ...$labels]);
 
-        self::assertSame(0, $exit, $output);
+        self::assertSame(0, $exit, $output . $error);
         self::assertSame($receiver, trim($output));
     }
 
@@ -160,7 +160,7 @@ final class AmtoolTest extends TestCase
 
     private function assertDockerIsAvailable(): void
     {
-        [$exit, $output] = $this->execute(['docker', 'version', '--format', '{{.Server.Version}}']);
+        [$exit, , $output] = $this->execute(['docker', 'version', '--format', '{{.Server.Version}}']);
         if ($exit !== 0) {
             self::fail(\sprintf("Docker is required for the amtool tests (they are never skipped); `docker version` exited with %d:\n%s", $exit, $output));
         }
@@ -169,17 +169,17 @@ final class AmtoolTest extends TestCase
     /**
      * @param non-empty-list<string> $arguments
      *
-     * @return array{int, string}
+     * @return array{int, string, string}
      */
     private function amtool(array $arguments): array
     {
-        return $this->execute(['docker', 'run', '--rm', '-v', $this->scratch . ':/work:ro', '-w', '/work', '--entrypoint', 'amtool', self::IMAGE, ...$arguments]);
+        return $this->execute(['docker', 'run', '--quiet', '--rm', '-v', $this->scratch . ':/work:ro', '-w', '/work', '--entrypoint', 'amtool', self::IMAGE, ...$arguments]);
     }
 
     /**
      * @param non-empty-list<string> $command
      *
-     * @return array{int, string}
+     * @return array{int, string, string}
      */
     private function execute(array $command): array
     {
@@ -188,12 +188,12 @@ final class AmtoolTest extends TestCase
         $stderr = $this->scratch . '/stderr.log';
         $process = @proc_open($command, [1 => ['pipe', 'w'], 2 => ['file', $stderr, 'w']], $pipes);
         if ($process === false) {
-            return [127, \sprintf('cannot start %s', $command[0])];
+            return [127, '', \sprintf('cannot start %s', $command[0])];
         }
         $output = stream_get_contents($pipes[1]);
         fclose($pipes[1]);
         $exit = proc_close($process);
 
-        return [$exit, ($output === false ? '' : $output) . @file_get_contents($stderr)];
+        return [$exit, $output === false ? '' : $output, (string) @file_get_contents($stderr)];
     }
 }
