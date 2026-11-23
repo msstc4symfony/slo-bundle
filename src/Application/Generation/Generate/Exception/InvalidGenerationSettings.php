@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Msstc4Symfony\SloBundle\Application\Generation\Generate\Exception;
 
 use InvalidArgumentException;
+use Msstc4Symfony\SloBundle\Application\Generation\AlertmanagerReceivers;
 use Msstc4Symfony\SloBundle\Application\Generation\Generate\GenerationConfig;
 
 /**
@@ -29,7 +30,7 @@ final class InvalidGenerationSettings extends InvalidArgumentException
 
     public static function invalidReceiver(string $severity, string $name): self
     {
-        return new self(\sprintf('The %s receiver name "%s" must match %s (an env placeholder resolved to an empty or invalid value?).', $severity, $name, GenerationConfig::LABEL_VALUE));
+        return new self(\sprintf('The %s receiver name "%s" must match %s (an env placeholder resolved to an empty or invalid value?).', $severity, $name, AlertmanagerReceivers::NAME_PATTERN));
     }
 
     public static function receiverOverrideWithoutAlertmanager(): self

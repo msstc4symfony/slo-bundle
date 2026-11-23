@@ -5,13 +5,14 @@ declare(strict_types=1);
 namespace Msstc4Symfony\SloBundle\Application\Generation;
 
 use InvalidArgumentException;
-use Msstc4Symfony\SloBundle\Application\Generation\Generate\GenerationConfig;
 
 /**
  * @internal
  */
 final readonly class AlertmanagerReceivers
 {
+    public const NAME_PATTERN = '/^[A-Za-z0-9_.:-]{1,128}$/D';
+
     /**
      * @param non-empty-string $page
      * @param non-empty-string $ticket
@@ -23,10 +24,18 @@ final readonly class AlertmanagerReceivers
         public string $ticket,
     ) {
         foreach (['page' => $page, 'ticket' => $ticket] as $severity => $name) {
-            if (preg_match(GenerationConfig::LABEL_VALUE, $name) !== 1) {
-                throw new InvalidArgumentException(\sprintf('The %s receiver name "%s" must match %s.', $severity, $name, GenerationConfig::LABEL_VALUE));
+            if (!self::isValidName($name)) {
+                throw new InvalidArgumentException(\sprintf('The %s receiver name "%s" must match %s.', $severity, $name, self::NAME_PATTERN));
             }
         }
+    }
+
+    /**
+     * @phpstan-assert-if-true non-empty-string $name
+     */
+    public static function isValidName(string $name): bool
+    {
+        return preg_match(self::NAME_PATTERN, $name) === 1;
     }
 
     /**

@@ -66,14 +66,16 @@ final class GenerationConfigTest extends TestCase
         self::assertEquals(new AlertmanagerReceivers('a', 'y'), $config->alertmanagerReceivers(null, 'y'));
     }
 
-    #[TestWith(['', null])]
-    #[TestWith([null, ''])]
-    #[TestWith(['bad name', null])]
-    public function testEmptyOrInvalidReceiverIsRejected(?string $page, ?string $ticket): void
+    #[TestWith(['', null, 'page', ''])]
+    #[TestWith([null, '', 'ticket', ''])]
+    #[TestWith(['bad name', null, 'page', 'bad name'])]
+    #[TestWith([null, 'x/y', 'ticket', 'x/y'])]
+    public function testEmptyOrInvalidReceiverIsRejected(?string $page, ?string $ticket, string $severity, string $name): void
     {
         $config = new GenerationConfig('shop', [], '/out', alertmanager: true);
 
         $this->expectException(InvalidGenerationSettings::class);
+        $this->expectExceptionMessage(\sprintf('The %s receiver name "%s" must match %s (an env placeholder resolved to an empty or invalid value?).', $severity, $name, AlertmanagerReceivers::NAME_PATTERN));
         $config->alertmanagerReceivers($page, $ticket);
     }
 

@@ -32,4 +32,20 @@ final class AlertmanagerReceiversTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         new AlertmanagerReceivers($page, $ticket);
     }
+
+    public function testNameLongerThan128CharactersIsRejected(): void
+    {
+        self::assertInstanceOf(AlertmanagerReceivers::class, new AlertmanagerReceivers(str_repeat('a', 128), 't'));
+
+        $this->expectException(InvalidArgumentException::class);
+        new AlertmanagerReceivers('p', str_repeat('a', 129));
+    }
+
+    #[TestWith(['slo-page.v1:x_y', true])]
+    #[TestWith(['', false])]
+    #[TestWith(["a\n", false])]
+    public function testIsValidNameAppliesTheNamePattern(string $name, bool $valid): void
+    {
+        self::assertSame($valid, AlertmanagerReceivers::isValidName($name));
+    }
 }
