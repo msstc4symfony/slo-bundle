@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace Msstc4Symfony\SloBundle\Test\Unit\Application\Generation\Generate;
 
 use InvalidArgumentException;
+use Msstc4Symfony\SloBundle\Application\Generation\AlertmanagerReceivers;
+use Msstc4Symfony\SloBundle\Application\Generation\Generate\Exception\InvalidGenerationSettings;
 use Msstc4Symfony\SloBundle\Application\Generation\Generate\GenerationConfig;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\TestWith;
 use PHPUnit\Framework\TestCase;
 
 final class GenerationConfigTest extends TestCase
@@ -44,5 +47,41 @@ final class GenerationConfigTest extends TestCase
         // Reason: the values are outside the declared types on purpose, the constructor guards what the config tree rejects.
         // @phpstan-ignore argument.type, argument.type
         new GenerationConfig($application, $components, $outputDir, noEventsAlertHours: $hours);
+    }
+
+    public function testAlertmanagerIsOffByDefaultWithDefaultReceivers(): void
+    {
+        $config = new GenerationConfig('shop', [], '/out');
+
+        self::assertFalse($config->alertmanager);
+        self::assertEquals(new AlertmanagerReceivers('slo-page', 'slo-ticket'), $config->alertmanagerReceivers(null, null));
+    }
+
+    public function testReceiverOverridesWin(): void
+    {
+        $config = new GenerationConfig('shop', [], '/out', alertmanager: true, pageReceiver: 'a', ticketReceiver: 'b');
+
+        self::assertEquals(new AlertmanagerReceivers('a', 'b'), $config->alertmanagerReceivers(null, null));
+        self::assertEquals(new AlertmanagerReceivers('x', 'b'), $config->alertmanagerReceivers('x', null));
+        self::assertEquals(new AlertmanagerReceivers('a', 'y'), $config->alertmanagerReceivers(null, 'y'));
+    }
+
+    #[TestWith(['', null])]
+    #[TestWith([null, ''])]
+    #[TestWith(['bad name', null])]
+    public function testEmptyOrInvalidReceiverIsRejected(?string $page, ?string $ticket): void
+    {
+        $config = new GenerationConfig('shop', [], '/out', alertmanager: true);
+
+        $this->expectException(InvalidGenerationSettings::class);
+        $config->alertmanagerReceivers($page, $ticket);
+    }
+
+    public function testEnvResolvedEmptyConfiguredReceiverIsRejected(): void
+    {
+        $config = new GenerationConfig('shop', [], '/out', alertmanager: true, pageReceiver: '');
+
+        $this->expectException(InvalidGenerationSettings::class);
+        $config->alertmanagerReceivers(null, null);
     }
 }

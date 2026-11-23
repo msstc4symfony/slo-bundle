@@ -33,6 +33,8 @@ final class GenerateCommand extends Command
     {
         $this
             ->addOption('output', null, InputOption::VALUE_REQUIRED, 'Output directory, overrides generation.output_dir')
+            ->addOption('page-receiver', null, InputOption::VALUE_REQUIRED, 'Alertmanager receiver for severity=page, overrides generation.alertmanager.receivers.page')
+            ->addOption('ticket-receiver', null, InputOption::VALUE_REQUIRED, 'Alertmanager receiver for severity=ticket, overrides generation.alertmanager.receivers.ticket')
             ->addOption('check', null, InputOption::VALUE_NONE, 'Compare with the files on disk without writing')
         ;
     }
@@ -43,9 +45,11 @@ final class GenerateCommand extends Command
         $errors = $output instanceof ConsoleOutputInterface ? $output->getErrorOutput() : $output;
         $check = $input->getOption('check') === true;
         $directory = $input->getOption('output');
+        $page = $input->getOption('page-receiver');
+        $ticket = $input->getOption('ticket-receiver');
 
         try {
-            $generated = ($this->generate)(new GenerateInput(\is_string($directory) ? $directory : null, $check));
+            $generated = ($this->generate)(new GenerateInput(\is_string($directory) ? $directory : null, $check, \is_string($page) ? $page : null, \is_string($ticket) ? $ticket : null));
         } catch (InvalidGenerationSettings $e) {
             $errors->writeln('<error>' . OutputFormatter::escape($e->getMessage()) . '</error>');
 

@@ -26,4 +26,14 @@ final class InvalidGenerationSettings extends InvalidArgumentException
     {
         return new self('The output directory must be a non-empty path other than "/".');
     }
+
+    public static function invalidReceiver(string $severity, string $name): self
+    {
+        return new self(\sprintf('The %s receiver name "%s" must match %s (an env placeholder resolved to an empty or invalid value?).', $severity, $name, GenerationConfig::LABEL_VALUE));
+    }
+
+    public static function receiverOverrideWithoutAlertmanager(): self
+    {
+        return new self('--page-receiver and --ticket-receiver need msstc4symfony_slo.generation.alertmanager.enabled set to true.');
+    }
 }

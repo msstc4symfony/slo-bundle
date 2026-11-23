@@ -45,6 +45,7 @@ use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
  *         grafana: array{datasource_uid: non-empty-string, folder: non-empty-string},
  *         prometheus: array{rules: bool, alerts: bool, no_events_alert_hours: positive-int|null},
  *         sloth: bool,
+ *         alertmanager: array{enabled: bool, receivers: array{page: non-empty-string, ticket: non-empty-string}},
  *     },
  * }
  */
@@ -275,6 +276,23 @@ final class SloBundle extends AbstractBundle
                     ->end()
                 ->end()
                 ->booleanNode('sloth')->defaultFalse()->end()
+                ->arrayNode('alertmanager')
+                    ->addDefaultsIfNotSet()
+                    ->children()
+                        ->booleanNode('enabled')->defaultFalse()->end()
+                        ->arrayNode('receivers')
+                            ->addDefaultsIfNotSet()
+                            ->children()
+                                ->scalarNode('page')->cannotBeEmpty()->defaultValue('slo-page')->end()
+                                ->scalarNode('ticket')->cannotBeEmpty()->defaultValue('slo-ticket')->end()
+                            ->end()
+                        ->end()
+                    ->end()
+                ->end()
+            ->end()
+            ->validate()
+                ->ifTrue($this->alertmanagerWithoutAlerts(...))
+                ->thenInvalid('generation.alertmanager.enabled requires generation.prometheus.alerts: the routes target the generated alerts.')
             ->end()
         ;
     }
@@ -315,6 +333,19 @@ final class SloBundle extends AbstractBundle
             ->end()
             ->defaultValue($default)
         ;
+    }
+
+    /**
+     * @param array<array-key, mixed> $generation
+     */
+    private function alertmanagerWithoutAlerts(array $generation): bool
+    {
+        $alertmanager = $generation['alertmanager'] ?? null;
+        $prometheus = $generation['prometheus'] ?? null;
+
+        return \is_array($alertmanager) && \is_array($prometheus)
+            && ($alertmanager['enabled'] ?? false) === true
+            && ($prometheus['alerts'] ?? true) === false;
     }
 
     private static function isLabelValue(mixed $value): bool

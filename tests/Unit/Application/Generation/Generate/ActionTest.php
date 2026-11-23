@@ -33,6 +33,33 @@ final class ActionTest extends TestCase
         self::assertSame([], array_filter($output->files->missing, static fn (string $file): bool => str_starts_with($file, 'sloth/')));
     }
 
+    #[TestWith(['page', null])]
+    #[TestWith([null, 'ticket'])]
+    public function testReceiverOverrideWithoutAlertmanagerIsRejectedBeforeAnythingIsWritten(?string $page, ?string $ticket): void
+    {
+        $writer = new InMemoryFileWriter();
+
+        try {
+            ($this->action($writer, application: null))(new Input(pageReceiver: $page, ticketReceiver: $ticket));
+            self::fail('Expected InvalidGenerationSettings.');
+        } catch (InvalidGenerationSettings $e) {
+            self::assertStringContainsString('generation.alertmanager.enabled', $e->getMessage());
+        }
+        self::assertSame([], $writer->files);
+    }
+
+    public function testEmptyReceiverIsRejectedWhenAlertmanagerIsEnabled(): void
+    {
+        $writer = new InMemoryFileWriter();
+
+        $this->expectException(InvalidGenerationSettings::class);
+        try {
+            ($this->action($writer, alertmanager: true))(new Input(pageReceiver: ''));
+        } finally {
+            self::assertSame([], $writer->files);
+        }
+    }
+
     public function testInputDirectoryOverridesTheConfigAndCheckModeWritesNothing(): void
     {
         $writer = new InMemoryFileWriter();
@@ -137,7 +164,7 @@ final class ActionTest extends TestCase
      * @param positive-int|null $noEventsAlertHours
      * @param list<string> $components
      */
-    private function action(InMemoryFileWriter $writer, ?string $application = 'shop', bool $sloth = false, float $availabilityTarget = 99.9, bool $rules = true, bool $alerts = true, ?int $noEventsAlertHours = null, array $components = ['web']): Action
+    private function action(InMemoryFileWriter $writer, ?string $application = 'shop', bool $sloth = false, float $availabilityTarget = 99.9, bool $rules = true, bool $alerts = true, ?int $noEventsAlertHours = null, array $components = ['web'], bool $alertmanager = false): Action
     {
         $catalog = GenerationFixture::catalog(checkoutAvailabilityTarget: $availabilityTarget);
 
@@ -146,7 +173,7 @@ final class ActionTest extends TestCase
             GenerationFixture::dashboardsAction($catalog),
             GenerationFixture::slothAction($catalog),
             new SyncAction($writer),
-            new GenerationConfig($application, $components, '/project/observability', $rules, $alerts, $noEventsAlertHours, $sloth),
+            new GenerationConfig($application, $components, '/project/observability', $rules, $alerts, $noEventsAlertHours, $sloth, $alertmanager),
         );
     }
 }

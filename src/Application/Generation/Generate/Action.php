@@ -35,6 +35,13 @@ final readonly class Action
      */
     public function __invoke(Input $input): Output
     {
+        if (!$this->config->alertmanager && ($input->pageReceiver !== null || $input->ticketReceiver !== null)) {
+            throw InvalidGenerationSettings::receiverOverrideWithoutAlertmanager();
+        }
+        if ($this->config->alertmanager) {
+            $this->config->alertmanagerReceivers($input->pageReceiver, $input->ticketReceiver);
+        }
+
         $selector = $this->config->selector();
         $root = rtrim($input->outputDir ?? $this->config->outputDir, '/');
         if ($root === '') {

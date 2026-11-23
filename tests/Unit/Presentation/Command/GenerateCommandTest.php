@@ -45,6 +45,18 @@ final class GenerateCommandTest extends TestCase
         self::assertSame([], $writer->files);
     }
 
+    #[TestWith(['--page-receiver'])]
+    #[TestWith(['--ticket-receiver'])]
+    public function testReceiverOptionWithoutAlertmanagerIsRejected(string $option): void
+    {
+        $writer = new InMemoryFileWriter();
+        $tester = new CommandTester($this->command($writer));
+
+        self::assertSame(Command::INVALID, $tester->execute([$option => 'x']));
+        self::assertStringContainsString('generation.alertmanager.enabled', $tester->getDisplay());
+        self::assertSame([], $writer->files);
+    }
+
     public function testWritesTheFilesIntoTheConfiguredDirectoryAndThenChecksClean(): void
     {
         $writer = new InMemoryFileWriter([
@@ -162,7 +174,7 @@ final class GenerateCommandTest extends TestCase
     /**
      * @param non-empty-string|null $application
      */
-    private function command(InMemoryFileWriter $writer, ?string $application = 'shop', float $availabilityTarget = 99.9, bool $sloth = false): GenerateCommand
+    private function command(InMemoryFileWriter $writer, ?string $application = 'shop', float $availabilityTarget = 99.9, bool $sloth = false, bool $alertmanager = false): GenerateCommand
     {
         $catalog = GenerationFixture::catalog(checkoutAvailabilityTarget: $availabilityTarget);
 
@@ -171,7 +183,7 @@ final class GenerateCommandTest extends TestCase
             GenerationFixture::dashboardsAction($catalog),
             GenerationFixture::slothAction($catalog),
             new SyncAction($writer),
-            new GenerationConfig($application, ['web', 'worker'], '/project/observability', sloth: $sloth),
+            new GenerationConfig($application, ['web', 'worker'], '/project/observability', sloth: $sloth, alertmanager: $alertmanager),
         ));
     }
 }

@@ -38,6 +38,9 @@ final class SloBundleConfigurationTest extends TestCase
             'generation.prometheus.alerts' => true,
             'generation.prometheus.no_events_alert_hours' => null,
             'generation.sloth' => false,
+            'generation.alertmanager.enabled' => false,
+            'generation.alertmanager.receivers.page' => 'slo-page',
+            'generation.alertmanager.receivers.ticket' => 'slo-ticket',
         ];
 
         foreach ($expected as $path => $value) {
@@ -221,6 +224,22 @@ final class SloBundleConfigurationTest extends TestCase
     public function testNonPositiveNoEventsHoursIsRejected(): void
     {
         $this->assertRejected(['generation' => ['prometheus' => ['no_events_alert_hours' => 0]]]);
+    }
+
+    public function testAlertmanagerWithoutAlertsIsRejectedNamingBothKeys(): void
+    {
+        $this->expectException(InvalidConfigurationException::class);
+        $this->expectExceptionMessageMatches('/alertmanager\.enabled.*prometheus\.alerts/');
+        $this->load(['generation' => ['alertmanager' => ['enabled' => true], 'prometheus' => ['alerts' => false]]]);
+    }
+
+    public function testAlertmanagerReceiversAreConfigurable(): void
+    {
+        $container = $this->load(['generation' => ['alertmanager' => ['enabled' => true, 'receivers' => ['page' => 'pager', 'ticket' => '%env(SLO_TICKET)%']]]]);
+
+        self::assertTrue($container->getParameter('msstc4symfony_slo.generation.alertmanager.enabled'));
+        self::assertSame('pager', $container->getParameter('msstc4symfony_slo.generation.alertmanager.receivers.page'));
+        self::assertSame('%env(SLO_TICKET)%', $container->getParameter('msstc4symfony_slo.generation.alertmanager.receivers.ticket'));
     }
 
     public function testUnknownKeyIsRejected(): void

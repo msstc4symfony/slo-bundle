@@ -171,6 +171,9 @@ return static function (ContainerConfigurator $container): void {
         ->arg('$prometheusAlerts', param('msstc4symfony_slo.generation.prometheus.alerts'))
         ->arg('$noEventsAlertHours', param('msstc4symfony_slo.generation.prometheus.no_events_alert_hours'))
         ->arg('$sloth', param('msstc4symfony_slo.generation.sloth'))
+        ->arg('$alertmanager', param('msstc4symfony_slo.generation.alertmanager.enabled'))
+        ->arg('$pageReceiver', param('msstc4symfony_slo.generation.alertmanager.receivers.page'))
+        ->arg('$ticketReceiver', param('msstc4symfony_slo.generation.alertmanager.receivers.ticket'))
     ;
     $services->set(GenerateAction::class);
     $services->set(GenerateCommand::class);

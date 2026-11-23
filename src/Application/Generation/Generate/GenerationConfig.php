@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Msstc4Symfony\SloBundle\Application\Generation\Generate;
 
 use InvalidArgumentException;
+use Msstc4Symfony\SloBundle\Application\Generation\AlertmanagerReceivers;
 use Msstc4Symfony\SloBundle\Application\Generation\Generate\Exception\InvalidGenerationSettings;
 use Msstc4Symfony\SloBundle\Application\Generation\Selector;
 
@@ -39,6 +40,9 @@ final readonly class GenerationConfig
         public bool $prometheusAlerts = true,
         public ?int $noEventsAlertHours = null,
         public bool $sloth = false,
+        public bool $alertmanager = false,
+        private string $pageReceiver = 'slo-page',
+        private string $ticketReceiver = 'slo-ticket',
     ) {
         $this->application = $application === '' ? null : $application;
         $valid = array_values(array_filter($components, static fn (mixed $component): bool => \is_string($component) && $component !== ''));
@@ -74,5 +78,28 @@ final readonly class GenerationConfig
         }
 
         return new Selector($this->application, $this->components);
+    }
+
+    /**
+     * Env placeholders pass the configuration tree unresolved, so the resolved names are checked here.
+     *
+     * @throws InvalidGenerationSettings
+     */
+    public function alertmanagerReceivers(?string $pageOverride, ?string $ticketOverride): AlertmanagerReceivers
+    {
+        $page = $pageOverride ?? $this->pageReceiver;
+        $ticket = $ticketOverride ?? $this->ticketReceiver;
+        if ($page === '') {
+            throw InvalidGenerationSettings::invalidReceiver('page', $page);
+        }
+        if ($ticket === '') {
+            throw InvalidGenerationSettings::invalidReceiver('ticket', $ticket);
+        }
+
+        try {
+            return new AlertmanagerReceivers($page, $ticket);
+        } catch (InvalidArgumentException $e) {
+            throw new InvalidGenerationSettings($e->getMessage(), $e->getCode(), previous: $e);
+        }
     }
 }
