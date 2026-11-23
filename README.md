@@ -36,7 +36,7 @@ are counted as `symfony_slo_events_total` through its storage and exported on it
 | Symfony      | `^7.4 \| ^8.0`; Symfony 8.x needs PHP 8.4, on 8.2 and 8.3 Composer installs 7.4               |
 | metrics-bundle | `^2.3` (2.3.0 is the minimum: HTTP 5xx are invisible to the universal series before it)     |
 | Prometheus   | 3.x, rule files tested with `promtool` of 3.15; the rule format has not changed since 2.x      |
-| Alertmanager | any version that accepts Prometheus 3 alerting rules; only rules are generated, no Alertmanager config |
+| Alertmanager | any version that accepts Prometheus 3 alerting rules; optional routing and a full config are generated since 1.1 (`generation.alertmanager`), checked with `amtool` v0.34.0 |
 | Grafana      | 12.x - 13.x, classic dashboard JSON (`schemaVersion` 41) with file provisioning                |
 | RoadRunner   | through `baldinof/roadrunner-bundle ^3.4`; services are reset on `kernel.reset`, see [state isolation](#failure-semantics-fail-open-and-redis-outages) |
 | Sloth        | optional generator, spec `prometheus/v1`, validated with Sloth 0.16                            |
@@ -278,6 +278,9 @@ msstc4symfony_slo:
             alerts: true
             no_events_alert_hours: ~         # opt-in "no events for N hours" alert
         sloth: false
+        alertmanager:
+            enabled: false                   # opt-in routing + full config, see "Alertmanager"
+            receivers: { page: slo-page, ticket: slo-ticket }   # [A-Za-z0-9_.:-]{1,128}
 ```
 
 ## Commands
@@ -287,7 +290,7 @@ msstc4symfony_slo:
 | `slo:list [--format=text\|json]` | declared SLOs with points, routes, strategy and revisions; shared and `DUPLICATE` names are marked | 0 ok, 1 the JSON cannot be encoded, 2 bad option |
 | `slo:validate` | validates the catalog against the routes; prints `ERROR`, `WARNING` and `NOTICE` lines | 0 no errors (warnings allowed), 1 errors |
 | `slo:coverage [--format=text\|json] [--min=<0-100>]` | which routes, handlers, actions and operations have an SLO and which are already measured by a universal series; statuses `monitored`, `unmonitored`, `ignored`, `invalid`, `unsupported` | 0 passed, 1 any `invalid` point, a kind below its required percent (compared on the exact fraction in basis points, the requirement taken to 0.01: 2 of 3 is below 66.67, 7 of 10000 meets 0.07; `--min` overrides all kinds) or the JSON cannot be encoded, 2 bad option |
-| `slo:generate [--output=<dir>] [--check]` | writes Prometheus rules, Grafana dashboards and optional Sloth specs; `--check` compares with the disk without writing and prints `stale`, `missing`, `extra` paths | 0 ok / up to date, 1 `--check` found differences, 2 missing `generation.selector.application` or output directory |
+| `slo:generate [--output=<dir>] [--check] [--page-receiver=<name>] [--ticket-receiver=<name>]` | writes Prometheus rules, Grafana dashboards, optional Sloth specs and optional Alertmanager files (`generation.alertmanager.enabled`); the receiver options override `generation.alertmanager.receivers` and are an error (exit 2) while Alertmanager generation is off; `--check` compares with the disk without writing and prints `stale`, `missing`, `extra` paths | 0 ok / up to date, 1 `--check` found differences, 2 missing `generation.selector.application` or output directory |
 
 `slo:coverage --format=json` is stable and described by the JSON Schema [`doc/coverage-schema.json`](doc/coverage-schema.json).
 A CI gate is `bin/console slo:validate && bin/console slo:coverage --min=95 && bin/console slo:generate --check`.
@@ -306,6 +309,8 @@ reads the runtime environment (only the explicit `generation.selector`). It mana
                                                    # operations, SLO overview, monitoring coverage
     grafana/provisioning/dashboards/slo.yaml       # file provider; options.path is /var/lib/grafana/dashboards
     sloth/slo-<name>.yml                           # only with generation.sloth: true
+    alertmanager/slo-alertmanager.yml              # only with generation.alertmanager.enabled: true
+    alertmanager/slo-alertmanager-routes.yml       # same: routes + inhibit_rules fragment
 ```
 
 Commit the directory, run `slo:generate --check` in CI ("rules are stale" fails the build), mount
@@ -442,6 +447,48 @@ make infection                            # mutation testing of src/ with the un
 make benchmark                            # per-event overhead, see "Overhead"
 ```
 
+## Alertmanager
+
+Off by default; with `generation.alertmanager.enabled: false` the output is byte-identical to 1.0.1.
+
+```yaml
+msstc4symfony_slo:
+    generation:
+        alertmanager:
+            enabled: true
+            receivers: { page: slo-page, ticket: slo-ticket }   # these are the defaults
+```
+
+`slo:generate` then writes two files (files named `slo-alertmanager*.yml` in `alertmanager/` belong to the bundle; your
+own `alertmanager/alertmanager.yml` is never touched, and disabling the setting deletes only the owned files):
+
+- `alertmanager/slo-alertmanager.yml` - a complete config for trying things out or a dedicated Alertmanager: root
+  receiver `slo-unrouted`, the receivers `slo-page` / `slo-ticket`, the routes and the inhibit rule. Receivers have no
+  integrations: Slack, Jira, Telegram and the rest are your choice.
+- `alertmanager/slo-alertmanager-routes.yml` - a fragment with the top-level keys `inhibit_rules` and `routes`. Paste it
+  into your own config: `routes` under `route.routes`, `inhibit_rules` at the top level, and declare the receivers it names.
+  Paste it once per `application`: the route matches `application="<application>"` of `generation.selector`.
+
+```yaml
+inhibit_rules:
+  - equal: [application, slo, objective]
+    source_matchers: ['alertname="SloErrorBudgetBurn"', 'severity="page"']
+    target_matchers: ['alertname="SloErrorBudgetBurn"', 'severity="ticket"']
+routes:
+  - group_by: [application, slo, objective]
+    matchers: ['alertname=~"SloErrorBudgetBurn|SloNoEvents"', 'application="showcase"']
+    routes:
+      - { matchers: ['severity="page"'], receiver: slo-page }
+      - { matchers: ['severity="ticket"'], receiver: slo-ticket }
+```
+
+`severity` is the SRE Workbook urgency: `page` means act now, `ticket` means within days. A firing page burn alert
+inhibits the ticket burn alert of the same `application`, `slo` and `objective`; `SloNoEvents` is never inhibited.
+Grouping timings (`group_wait`, `group_interval`, `repeat_interval`) are not generated: Alertmanager defaults apply.
+Use one receiver name for both severities to send everything to one channel; override per run with
+`--page-receiver` / `--ticket-receiver`. A receiver name must match the pattern in the configuration reference
+(an empty value, such as an unset environment variable, is rejected).
+
 ## Running the rule tests
 
 The generated Prometheus rules and Sloth specs are checked by the real tools, never skipped: `promtool check rules`,
@@ -451,6 +498,10 @@ all through `docker run` (`prom/prometheus:v3.15.0`, `ghcr.io/slok/sloth:v0.16.0
 ```sh
 make test-promtool   # needs Docker; about a minute
 ```
+
+The generated Alertmanager files are checked the same way by `make test-amtool` (`amtool check-config` of the full file
+and of the fragment merged into a user config, `amtool config routes test` for page, ticket and no-events alerts;
+`prom/alertmanager:v0.34.0`), CI job `amtool`.
 
 Without Docker the tests fail instead of being skipped. They are not part of `make test` only because the reusable
 bundle-standard job runs without Docker; CI runs them in the dedicated `promtool` job of

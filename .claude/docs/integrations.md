@@ -83,3 +83,9 @@
 - `promtool` — образ `prom/prometheus:v3.15.0`, `docker run --rm -v <dir>:/work:ro -w /work --entrypoint promtool ... check rules|test rules`.
   Golden-файлы `tests/Fixtures/Generated/prometheus/*.yml` проверяются `check rules`, сценарии `tests/Fixtures/Promtool/*.test.yml`
   ссылаются на них через `../Generated/...`.
+
+## Alertmanager и amtool (1.1.0)
+
+- Бандл генерирует конфигурацию, но не интеграции: получатели (`slo-page`, `slo-ticket`, `slo-unrouted`) пустые, Slack/Jira/Telegram добавляет пользователь.
+- Фрагмент `slo-alertmanager-routes.yml` вставляется в чужой конфиг: `routes` в `route.routes`, `inhibit_rules` на верхний уровень, по одному разу на `application`.
+- Проверка: `make test-amtool` — `amtool check-config` (полный файл и фрагмент, слитый в пользовательский конфиг) и `amtool config routes test`; Docker `prom/alertmanager:v0.34.0`, `--entrypoint amtool`, смонтированный каталог `:ro`.

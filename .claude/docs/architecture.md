@@ -284,10 +284,11 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
   `alertmanager/alertmanager.yml` не трогается. `Input(enabled: true, receivers: null)` — `InvalidArgumentException`.
 - Маршрут: `alertname=~"SloErrorBudgetBurn|SloNoEvents"` + `application="<app>"` (компоненты не участвуют — у алертов нет метки
   компонента), `group_by: [application, slo, objective]`, дочерние `severity="page"`/`"ticket"`. Inhibit: page-burn гасит ticket-burn того же
-  `application,slo,objective`; `SloNoEvents` не гасится. Имена алертов — константы `RuleGroupsBuilder::BURN_ALERT`/`NO_EVENTS_ALERT`.
+  `application,slo,objective`; `SloNoEvents` не гасится. Имена алертов — константы `Application\Generation\AlertNames::BURN`/`NO_EVENTS` (общие для адаптеров Prometheus и Alertmanager; адаптеры не импортируют друг друга).
 - Полный файл: корень `receiver: slo-unrouted` (`AlertmanagerFileBuilder::UNROUTED_RECEIVER`), `receivers` = `slo-unrouted`, затем
   `AlertmanagerReceivers::names()`, без дублей (page == ticket или получатель по имени `slo-unrouted` выводятся один раз), без интеграций.
 - Ключи отсортированы `DeterministicYaml`: в обоих файлах `inhibit_rules` идёт первым. Golden-файлы — `tests/Fixtures/Generated/alertmanager/`.
+- amtool-гейт: `tests/Amtool/AmtoolTest.php` (группа `amtool`, вне testsuite, `make test-amtool`, CI-job `amtool`), образ `prom/alertmanager:v0.34.0`, `--entrypoint amtool`.
 - Шаблон имени получателя — `AlertmanagerReceivers::NAME_PATTERN` (+ `isValidName()` с `@phpstan-assert-if-true non-empty-string`);
   пустое и невалидное имя дают одно сообщение `InvalidGenerationSettings::invalidReceiver()`.
 

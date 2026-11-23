@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Msstc4Symfony\SloBundle\Infrastructure\Alertmanager;
 
 use Msstc4Symfony\SloBundle\Application\Generation\AlertmanagerReceivers;
+use Msstc4Symfony\SloBundle\Application\Generation\AlertNames;
 use Msstc4Symfony\SloBundle\Application\Generation\BurnRateSeverity;
 use Msstc4Symfony\SloBundle\Application\Generation\Selector;
 use Msstc4Symfony\SloBundle\Application\Port\AlertmanagerFileBuilderInterface;
-use Msstc4Symfony\SloBundle\Infrastructure\Prometheus\RuleGroupsBuilder;
 use Msstc4Symfony\SloBundle\Infrastructure\Yaml\DeterministicYaml;
 use Override;
 
@@ -68,7 +68,7 @@ final readonly class AlertmanagerFileBuilder implements AlertmanagerFileBuilderI
         return [
             'group_by' => self::ALERT_LABELS,
             'matchers' => [
-                \sprintf('alertname=~"%s|%s"', RuleGroupsBuilder::BURN_ALERT, RuleGroupsBuilder::NO_EVENTS_ALERT),
+                \sprintf('alertname=~"%s|%s"', AlertNames::BURN, AlertNames::NO_EVENTS),
                 \sprintf('application="%s"', $selector->application),
             ],
             'routes' => [
@@ -85,7 +85,7 @@ final readonly class AlertmanagerFileBuilder implements AlertmanagerFileBuilderI
      */
     private function inhibitRule(): array
     {
-        $burn = \sprintf('alertname="%s"', RuleGroupsBuilder::BURN_ALERT);
+        $burn = \sprintf('alertname="%s"', AlertNames::BURN);
 
         return [
             'equal' => self::ALERT_LABELS,

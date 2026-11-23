@@ -49,3 +49,25 @@ jobs:
 
       - name: Run the promtool tests
         run: make test-promtool
+
+  # Generated Alertmanager files are checked by the real amtool; the reusable job may run without Docker.
+  amtool:
+    name: Validate generated Alertmanager files with amtool
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, xml, ctype, iconv, intl
+          coverage: none
+          tools: composer:v2
+
+      - name: Install dependencies
+        env:
+          COMPOSER: composer-ci.json
+        run: composer install --prefer-dist --no-progress --no-interaction
+
+      - name: Run the amtool tests
+        run: make test-amtool

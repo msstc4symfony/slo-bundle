@@ -341,3 +341,9 @@
   файлы флаг async не затрагивает (`RevisionCalculator` его не читает) — golden-файлы не менялись.
 - Тест consumer-приложения: `tests/Integration/Kernel/ConsumerOnlyKernelTest` (сообщение кладётся прямо в транспорт —
   имитация продюсера — и `messenger:consume` даёт одно событие).
+
+## Alertmanager (1.1.0)
+
+- `DeterministicYaml` сортирует ключи: в сгенерированных файлах `inhibit_rules` идёт перед `routes`/`receivers`, порядок не как в спецификации. Доки и сниппеты копируют порядок golden-файлов.
+- `amtool config routes test` печатает только имя получателя; для лейблов вне фрагмента (другой `application`, `alertname=Other`) в слитом конфиге это корневой получатель пользователя.
+- Каталог для amtool-контейнера и файлы внутри должны быть читаемы (`chmod 0755/0644`): `sys_get_temp_dir()` создаёт их с umask хоста, контейнер работает от другого uid.

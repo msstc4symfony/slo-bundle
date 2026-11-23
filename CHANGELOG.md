@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-23
+
+### Added
+
+- Opt-in Alertmanager output of `slo:generate` (`generation.alertmanager.enabled`, default `false`): a full
+  `alertmanager/slo-alertmanager.yml` and a `alertmanager/slo-alertmanager-routes.yml` fragment (`routes` and
+  `inhibit_rules`) that route `SloErrorBudgetBurn` / `SloNoEvents` by `severity` and let a page alert inhibit its ticket twin.
+- `generation.alertmanager.receivers.{page,ticket}` (defaults `slo-page`, `slo-ticket`) and the
+  `slo:generate --page-receiver` / `--ticket-receiver` options.
+- `make test-amtool` and a CI job validate the generated files with `amtool` (`prom/alertmanager:v0.34.0`).
+
 ## [1.0.1] - 2026-11-22
 
 ### Fixed

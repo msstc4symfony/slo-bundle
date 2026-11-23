@@ -63,6 +63,7 @@ final class GenerateCommandTest extends TestCase
         $display = '';
         self::assertSame(Command::FAILURE, $this->generate($generation, ['--check' => true], $display));
         self::assertStringContainsString('extra   alertmanager/slo-alertmanager.yml', $display);
+        self::assertStringContainsString('extra   alertmanager/slo-alertmanager-routes.yml', $display);
         self::assertStringNotContainsString('alertmanager/alertmanager.yml', $display);
 
         self::assertSame(Command::SUCCESS, $this->generate($generation, []));
