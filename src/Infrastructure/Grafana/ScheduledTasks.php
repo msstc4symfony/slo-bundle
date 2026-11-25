@@ -44,14 +44,15 @@ final readonly class ScheduledTasks implements DashboardInterface
             return [$this->panels->markdown('Scheduled tasks', 'No scheduled task has an SLO.', height: 4)];
         }
 
-        $started = BaseSeries::of(SloMetric::SCHEDULED_TASK_STARTED->value);
-        $finished = BaseSeries::of(SloMetric::SCHEDULED_TASK_FINISHED->value);
+        // Over the dashboard range, not since the storage was created: raw counters jump on resets and new series.
+        $started = \sprintf('sum by (task) (increase(%s[$__range]))', BaseSeries::of(SloMetric::SCHEDULED_TASK_STARTED->value));
+        $finished = \sprintf('sum by (task) (increase(%s[$__range]))', BaseSeries::of(SloMetric::SCHEDULED_TASK_FINISHED->value));
 
         return [
             $this->panels->timeseries('Runs started by task', [new Query(\sprintf('sum by (task) (%s)', BaseSeries::rate(SloMetric::SCHEDULED_TASK_STARTED->value)), '{{task}}')], 'ops'),
             $this->panels->timeseries('Runs finished by task and outcome', [new Query(\sprintf('sum by (task, outcome) (%s)', BaseSeries::rate(SloMetric::SCHEDULED_TASK_FINISHED->value)), '{{task}} {{outcome}}')], 'ops'),
             $this->panels->timeseries('p95 run duration by task', [new Query(BaseSeries::quantile(0.95, SloMetric::SCHEDULED_TASK_DURATION->value, 'le, task'), '{{task}}')], 's'),
-            $this->panels->timeseries('Runs started minus finished', [new Query(\sprintf('sum by (task) (%s) - sum by (task) (%s)', $started, $finished), '{{task}}')], 'none'),
+            $this->panels->timeseries('Runs started minus finished over the time range', [new Query($started . ' - ' . $finished, '{{task}}')], 'none'),
             ...$this->sloRows->panels($objectives),
         ];
     }

@@ -185,7 +185,7 @@ final class ActionTest extends TestCase
 
         self::assertSame('SLO: Scheduled Tasks (shop: web, worker)', $dashboard->get('title'));
         $titles = $dashboard->column('panels', 'title');
-        self::assertSame(['Runs started by task', 'Runs finished by task and outcome', 'p95 run duration by task', 'Runs started minus finished'], \array_slice($titles, 0, 4));
+        self::assertSame(['Runs started by task', 'Runs finished by task and outcome', 'p95 run duration by task', 'Runs started minus finished over the time range'], \array_slice($titles, 0, 4));
         self::assertContains('cleanup.run / availability', $titles);
         self::assertContains('cleanup.run / latency', $titles);
         self::assertContains('partners.sync / availability', $titles);

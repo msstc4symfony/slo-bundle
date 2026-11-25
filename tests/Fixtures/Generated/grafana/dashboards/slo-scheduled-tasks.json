@@ -179,12 +179,12 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "sum by (task) (symfony_slo_scheduled_task_started_total{application=\"$application\",component=~\"$component\"}) - sum by (task) (symfony_slo_scheduled_task_finished_total{application=\"$application\",component=~\"$component\"})",
+                    "expr": "sum by (task) (increase(symfony_slo_scheduled_task_started_total{application=\"$application\",component=~\"$component\"}[$__range])) - sum by (task) (increase(symfony_slo_scheduled_task_finished_total{application=\"$application\",component=~\"$component\"}[$__range]))",
                     "legendFormat": "{{task}}",
                     "refId": "A"
                 }
             ],
-            "title": "Runs started minus finished",
+            "title": "Runs started minus finished over the time range",
             "type": "timeseries"
         },
         {
