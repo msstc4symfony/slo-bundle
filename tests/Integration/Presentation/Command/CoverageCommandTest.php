@@ -12,12 +12,15 @@ use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\ConflictingSloController;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\CoverageController;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\PaymentController;
 use Msstc4Symfony\SloBundle\Test\Integration\Kernel\RoutedTestKernel;
+use Msstc4Symfony\SloBundle\Test\Integration\Kernel\SchedulerTestKernel;
 use Override;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\RequiresMethod;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\Filesystem\Filesystem;
+use Symfony\Component\Scheduler\Schedule;
 
 final class CoverageCommandTest extends TestCase
 {
@@ -25,6 +28,7 @@ final class CoverageCommandTest extends TestCase
     protected function tearDown(): void
     {
         (new Filesystem())->remove(RoutedTestKernel::cacheRoot());
+        (new Filesystem())->remove(SchedulerTestKernel::cacheRoot());
     }
 
     public function testDefaultThresholdFailsAtFiftyPercentAndListsEveryNonMonitoredPoint(): void
@@ -149,6 +153,38 @@ final class CoverageCommandTest extends TestCase
             self::assertFalse($decoded['passed']);
             self::assertIsArray($decoded['required_percent']);
             self::assertEquals(95.0, $decoded['required_percent']['http_route']);
+            self::assertEquals(0.0, $decoded['required_percent']['scheduled_task']);
+            self::assertArrayNotHasKey('operation', $decoded['required_percent']);
+        });
+    }
+
+    #[RequiresMethod(Schedule::class, 'add')]
+    public function testScheduledTasksAreReportedAndGatedByTheirOwnRequiredPercent(): void
+    {
+        $this->withCommand(new SchedulerTestKernel(), function (CoverageCommand $command): void {
+            $tester = new CommandTester($command);
+
+            self::assertSame(Command::SUCCESS, $tester->execute(['--format' => 'json']));
+            $document = json_decode($tester->getDisplay(), false, flags: JSON_THROW_ON_ERROR);
+            $validator = new Validator();
+            $validator->validate($document, (object) ['$ref' => 'file://' . \dirname(__DIR__, 4) . '/doc/coverage-schema.json'], Constraint::CHECK_MODE_NORMAL);
+            self::assertTrue($validator->isValid(), (string) json_encode($validator->getErrors()));
+
+            $decoded = json_decode($tester->getDisplay(), true, flags: JSON_THROW_ON_ERROR);
+            self::assertIsArray($decoded);
+            self::assertIsArray($decoded['required_percent']);
+            self::assertSame(0, $decoded['required_percent']['scheduled_task']);
+            self::assertIsArray($decoded['points']);
+            $kinds = array_map(static fn (mixed $point): mixed => \is_array($point) ? $point['kind'] : null, $decoded['points']);
+            self::assertContains('scheduled_task', $kinds);
+        });
+
+        $this->withCommand(new SchedulerTestKernel(['coverage' => ['scheduled_tasks' => ['required_percent' => 100]]]), function (CoverageCommand $command): void {
+            $tester = new CommandTester($command);
+
+            self::assertSame(Command::FAILURE, $tester->execute([]));
+            self::assertMatchesRegularExpression('/^unmonitored +scheduled_task +.+UnmonitoredTask::__invoke - no SLO is declared$/m', $tester->getDisplay());
+            self::assertMatchesRegularExpression('/^scheduled_task +SLO 60\.00%, measured by universal metrics 0\.00%, required 100% BELOW \(3 of 5 eligible points have an SLO\)$/m', $tester->getDisplay());
         });
     }
 
@@ -210,7 +246,7 @@ final class CoverageCommandTest extends TestCase
     /**
      * @param Closure(CoverageCommand): void $test
      */
-    private function withCommand(RoutedTestKernel $kernel, Closure $test): void
+    private function withCommand(RoutedTestKernel|SchedulerTestKernel $kernel, Closure $test): void
     {
         $kernel->boot();
 

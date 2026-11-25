@@ -27,7 +27,7 @@
       "type": "boolean"
     },
     "points": {
-      "description": "Every point, sorted by kind (http_route, messenger_handler, logic_action, operation) then point",
+      "description": "Every point, sorted by kind (http_route, messenger_handler, logic_action, operation, scheduled_task) then point",
       "type": "array",
       "items": {
         "type": "object",
@@ -46,14 +46,15 @@
               "http_route",
               "messenger_handler",
               "logic_action",
-              "operation"
+              "operation",
+              "scheduled_task"
             ]
           },
           "measured_by_universal_metric": {
             "type": "boolean"
           },
           "point": {
-            "description": "Route name, handler Class::method, logic action id or operation name",
+            "description": "Route name, handler Class::method, logic action id, operation name or scheduled task (service id::method or command:name)",
             "type": "string",
             "minLength": 1
           },
@@ -141,6 +142,9 @@
           "$ref": "#/$defs/percent"
         },
         "operation": {
+          "$ref": "#/$defs/percent"
+        },
+        "scheduled_task": {
           "$ref": "#/$defs/percent"
         }
       }

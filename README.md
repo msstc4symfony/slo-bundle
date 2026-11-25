@@ -266,6 +266,7 @@ msstc4symfony_slo:
         http_routes: { required_percent: 95, ignored_routes: [] }
         messenger_handlers: { required_percent: 95 }
         logic_actions: { required_percent: 0 }
+        scheduled_tasks: { required_percent: 0 }
     operations: {}                           # see "Operations API"
     generation:
         selector:

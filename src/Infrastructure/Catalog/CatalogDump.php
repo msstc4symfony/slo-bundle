@@ -57,6 +57,7 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\Window;
  *     warnings: list<non-empty-string>,
  *     controller_services: array<non-empty-string, class-string>,
  *     has_http_points: bool,
+ *     scheduled_tasks: list<non-empty-string>,
  * }
  * @phpstan-type CatalogShape array{
  *     format: positive-int,
@@ -129,6 +130,7 @@ final class CatalogDump
                 'warnings' => $extras->warnings,
                 'controller_services' => $extras->controllerServices,
                 'has_http_points' => $extras->hasHttpPoints,
+                'scheduled_tasks' => $extras->scheduledTasks,
             ],
             'point_index' => $pointIndex,
             'conflicted_points' => array_map(array_values(...), $conflictedPoints),
@@ -177,6 +179,7 @@ final class CatalogDump
             $extras['warnings'],
             $extras['controller_services'],
             $extras['has_http_points'],
+            $extras['scheduled_tasks'],
         );
     }
 

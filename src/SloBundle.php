@@ -40,6 +40,7 @@ use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
  *         http_routes: array{required_percent: int<0, 100>, ignored_routes: list<string>},
  *         messenger_handlers: array{required_percent: int<0, 100>},
  *         logic_actions: array{required_percent: int<0, 100>},
+ *         scheduled_tasks: array{required_percent: int<0, 100>},
  *     },
  *     operations: array<string, OperationConfig>,
  *     generation: array{
@@ -182,6 +183,12 @@ final class SloBundle extends AbstractBundle
                     ->end()
                 ->end()
                 ->arrayNode('logic_actions')
+                    ->addDefaultsIfNotSet()
+                    ->children()
+                        ->append($this->requiredPercentNode(0))
+                    ->end()
+                ->end()
+                ->arrayNode('scheduled_tasks')
                     ->addDefaultsIfNotSet()
                     ->children()
                         ->append($this->requiredPercentNode(0))

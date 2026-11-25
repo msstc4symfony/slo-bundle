@@ -89,3 +89,17 @@
 - Бандл генерирует конфигурацию, но не интеграции: получатели (`slo-page`, `slo-ticket`, `slo-unrouted`) пустые, Slack/Jira/Telegram добавляет пользователь.
 - Фрагмент `slo-alertmanager-routes.yml` вставляется в чужой конфиг: `routes` в `route.routes`, `inhibit_rules` на верхний уровень, по одному разу на `application`.
 - Проверка: `make test-amtool` — `amtool check-config` (полный файл и фрагмент, слитый в пользовательский конфиг) и `amtool config routes test`; Docker `prom/alertmanager:v0.34.0`, `--entrypoint amtool`, смонтированный каталог `:ro`.
+
+## Задачи Symfony Scheduler (1.2, Task 3)
+
+- `ScheduledTaskReader` читает теги `scheduler.task`, которые FrameworkBundle ставит по `#[AsCronTask]`/`#[AsPeriodicTask]`
+  (`get_object_vars($attribute) + ['trigger' => 'every'|'cron']`; у атрибута на методе добавляется `method`, у атрибута на классе
+  `method` = **null**, `arguments` = null/строка/массив). Одинаково в 7.4 и 8.1 (FrameworkExtension 7.4.23 в vendor).
+- Какая задача — команда, повторяет `AddScheduleMessengerPass` (`CommandName`): 7.4 — любой тег `console.command` → `RunCommandMessage`,
+  имя = `tags[0]['command'] ?? #[AsCommand]->name ?? getDefaultName()`; 8.1 — тег `console.command` с тем же `method` (без `method` =
+  `__invoke`), иначе первый тег, если ни один тег не называет метод; `getDefaultName()` в 8.x нет. Имя режется по `|`, первая непустая
+  часть (скрытая команда `|app:x` → `app:x`). Версии проверены по `vendor/symfony/scheduler` 8.1.10 и GitHub `symfony/scheduler@7.4`.
+- Точки: сервисная задача `scheduled_task:<service id>::<method>` (id — как в `ServiceCallMessage`; при автоконфигурации id = FQCN),
+  командная — `scheduled_task:command:<name>`. `#[Slo]` класса применяется ко всем задачам класса, `#[Slo]` метода — только к своей;
+  у команд — только класс (R9). Повторяемые атрибуты (несколько расписаний одного метода) = одна точка, `apply()` один раз.
+- Без `symfony/scheduler` тегов нет → `scheduledTasks === []`. `symfony/scheduler` только в `require-dev` `composer-ci.json`.

@@ -49,6 +49,7 @@ final class CatalogDumpTest extends TestCase
             ['request_duration_histogram_seconds' => [0.1, 1.0]],
             ['health'],
             ['a warning'],
+            scheduledTasks: ['App\Task\Cleanup::__invoke', 'command:app:sync'],
         );
         $errors = new DiscoveryErrors();
         $contents = $assembler->assemble(new DefinitionFactory('30d', ['5xx'], [], true, false), $errors, $extras);
@@ -67,6 +68,7 @@ final class CatalogDumpTest extends TestCase
         self::assertSame($update->toString(), $restored->conflicts['payment.conflict'][1]->point->toString());
         self::assertSame(['http_route:App\Controller::health' => 'probe'], $restored->ignored);
         self::assertTrue($restored->extras->hasHttpPoints);
+        self::assertSame(['App\Task\Cleanup::__invoke', 'command:app:sync'], $restored->extras->scheduledTasks);
     }
 
     /**

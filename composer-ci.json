@@ -55,8 +55,8 @@
   "require-dev": {
     "deptrac/deptrac": "^4.6",
     "friendsofphp/php-cs-fixer": "^3.76",
-    "justinrainbow/json-schema": "^6.6",
     "infection/infection": "^0.32",
+    "justinrainbow/json-schema": "^6.6",
     "msstc4symfony/logic-bundle": "^2.1",
     "phpstan/extension-installer": "^1.4",
     "phpstan/phpstan": "^2.1",
@@ -67,7 +67,8 @@
     "roave/backward-compatibility-check": "^8.20",
     "roave/security-advisories": "dev-latest",
     "symfony/framework-bundle": "^7.4|^8.0",
-    "symfony/messenger": "^7.4|^8.0"
+    "symfony/messenger": "^7.4|^8.0",
+    "symfony/scheduler": "^7.4|^8.0"
   },
   "config": {
     "allow-plugins": {

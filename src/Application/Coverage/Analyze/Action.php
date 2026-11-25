@@ -48,6 +48,7 @@ final readonly class Action
             ...$this->messengerPoints($extras),
             ...$this->logicPoints($extras),
             ...$this->operationPoints($extras),
+            ...$this->scheduledTaskPoints($extras),
         ];
         usort($points, PointCoverage::compare(...));
 
@@ -181,6 +182,29 @@ final readonly class Action
         foreach ($extras->operations as $operation) {
             $definitions = $this->catalog->forPoint(PointId::of(PointType::Operation, $operation));
             $points[] = PointCoverage::judged($operation, CoverageKind::Operation, CoverageVerdict::decide(covered: true), $this->names($definitions), false);
+        }
+
+        return $points;
+    }
+
+    /**
+     * No universal metric records Scheduler runs, so a task is never measured without an SLO.
+     *
+     * @return list<PointCoverage>
+     */
+    private function scheduledTaskPoints(CatalogExtras $extras): array
+    {
+        $points = [];
+        foreach ($extras->scheduledTasks as $task) {
+            $point = PointId::of(PointType::ScheduledTask, $task);
+            $definitions = $this->catalog->forPoint($point);
+
+            $verdict = CoverageVerdict::decide(
+                covered: $definitions !== [],
+                invalid: $this->conflictReason($point),
+                ignored: $this->ignoreReason($point),
+            );
+            $points[] = PointCoverage::judged($task, CoverageKind::ScheduledTask, $verdict, $this->names($definitions), false);
         }
 
         return $points;

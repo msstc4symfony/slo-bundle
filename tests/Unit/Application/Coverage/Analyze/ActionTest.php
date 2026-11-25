@@ -233,13 +233,59 @@ final class ActionTest extends TestCase
         self::assertSame(0.0, $output->of(CoverageKind::Operation)->measuredPercent);
     }
 
+    public function testScheduledTasksAreJudgedLikeTaggedPointsAndNeverUniversallyMeasured(): void
+    {
+        $output = $this->analyse(
+            static function (CatalogAssembler $assembler): void {
+                $assembler->declare(PointId::of(PointType::ScheduledTask, 'app.reports::daily'), new Slo('report.daily', [new Availability(99)], deadline: '10m'));
+                $assembler->ignore(PointId::of(PointType::ScheduledTask, 'app.reports::monthly'), 'manual job');
+            },
+            [],
+            new CatalogExtras(operations: ['export'], scheduledTasks: ['app.reports::daily', 'app.reports::monthly', 'app.reports::weekly']),
+        );
+
+        $byPoint = $this->byPoint($output, CoverageKind::ScheduledTask);
+        self::assertSame(CoverageStatus::Monitored, $byPoint['app.reports::daily']->status);
+        self::assertSame(['report.daily'], $byPoint['app.reports::daily']->slos);
+        self::assertSame(CoverageStatus::Ignored, $byPoint['app.reports::monthly']->status);
+        self::assertSame('manual job', $byPoint['app.reports::monthly']->reason);
+        self::assertSame(CoverageStatus::Unmonitored, $byPoint['app.reports::weekly']->status);
+        self::assertSame('no SLO is declared', $byPoint['app.reports::weekly']->reason);
+        foreach ($byPoint as $point) {
+            self::assertFalse($point->measuredByUniversalMetric);
+        }
+        self::assertSame(50.0, $output->of(CoverageKind::ScheduledTask)->sloPercent);
+        self::assertSame(0.0, $output->of(CoverageKind::ScheduledTask)->measuredPercent);
+        self::assertSame(
+            ['export', 'app.reports::daily', 'app.reports::monthly', 'app.reports::weekly'],
+            array_map(static fn (PointCoverage $p): string => $p->point, $output->points),
+        );
+        self::assertSame(4, CoverageKind::ScheduledTask->position());
+    }
+
+    public function testScheduledTaskConflictIsInvalid(): void
+    {
+        $point = PointId::of(PointType::ScheduledTask, 'command:app:sync');
+        $output = $this->analyse(
+            static function (CatalogAssembler $assembler) use ($point): void {
+                $assembler->declare($point, new Slo('sync', [new Availability(99)], deadline: '1m'));
+                $assembler->declare(PointId::of(PointType::ScheduledTask, 'command:app:other'), new Slo('sync', [new Availability(98)], deadline: '1m'));
+            },
+            [],
+            new CatalogExtras(scheduledTasks: ['command:app:other', 'command:app:sync']),
+        );
+
+        self::assertSame(CoverageStatus::Invalid, $this->byPoint($output, CoverageKind::ScheduledTask)['command:app:sync']->status);
+        self::assertSame(2, $output->invalid);
+    }
+
     public function testEmptyDenominatorIsOneHundredPercent(): void
     {
         $output = $this->analyse(static function (CatalogAssembler $assembler): void {
         }, []);
 
         self::assertSame([], $output->points);
-        foreach ([CoverageKind::HttpRoute, CoverageKind::MessengerHandler, CoverageKind::LogicAction, CoverageKind::Operation] as $kind) {
+        foreach (CoverageKind::cases() as $kind) {
             self::assertSame(100.0, $output->of($kind)->sloPercent);
             self::assertSame(100.0, $output->of($kind)->measuredPercent);
         }

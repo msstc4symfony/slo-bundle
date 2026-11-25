@@ -29,6 +29,7 @@ final class SloBundleConfigurationTest extends TestCase
             'coverage.http_routes.ignored_routes' => [],
             'coverage.messenger_handlers.required_percent' => 95,
             'coverage.logic_actions.required_percent' => 0,
+            'coverage.scheduled_tasks.required_percent' => 0,
             'operations' => [],
             'generation.selector.application' => null,
             'generation.selector.components' => [],

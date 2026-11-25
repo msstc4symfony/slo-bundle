@@ -13,10 +13,18 @@
   threshold is the deadline. `Deadline` value object and `SloDefinition::deadline()` / `runDeadline()`.
 - `generation.prometheus.scrape_interval_seconds` (default 60): `slo:validate` reports a scheduled-task deadline below it
   as an error. `slo:list` shows the deadline of task SLOs (`deadline` key in JSON).
+- Discovery of Symfony Scheduler attribute tasks (`#[AsCronTask]` / `#[AsPeriodicTask]`, the `scheduler.task` tag) as
+  `scheduled_task` points: `<service id>::<method>` (method from the attribute, default `__invoke`) or
+  `command:<command name>` for console commands; `#[Slo]` is read from the class and, for service tasks, from the task
+  method. Repeated task attributes on one class or method share one point. A command task whose name cannot be resolved
+  is a compile error only when its class declares `#[Slo]` or `#[IgnoreMonitoring]`. `symfony/scheduler` is suggested.
+- Coverage kind `scheduled_task` in `slo:coverage` (an additive value of the JSON `kind` enum and of the per-kind
+  percent maps) with `coverage.scheduled_tasks.required_percent` (default 0, existing gates unchanged).
 
 ### Changed
 
-- Compiled catalog dump format 4 (`deadline_ms` per definition): clear the cache on upgrade, as any deploy does.
+- Compiled catalog dump format 4 (`deadline_ms` per definition, `scheduled_tasks` in the extras): clear the cache on
+  upgrade, as any deploy does.
 
 ## [1.1.0] - 2026-11-23
 

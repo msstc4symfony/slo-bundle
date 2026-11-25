@@ -15,7 +15,9 @@ use Msstc4Symfony\SloBundle\DependencyInjection\CompilerPass\Discovery\HandlerRe
 use Msstc4Symfony\SloBundle\DependencyInjection\CompilerPass\Discovery\MessengerRouting;
 use Msstc4Symfony\SloBundle\DependencyInjection\CompilerPass\Discovery\MetricsParameters;
 use Msstc4Symfony\SloBundle\DependencyInjection\CompilerPass\Discovery\OperationReader;
+use Msstc4Symfony\SloBundle\DependencyInjection\CompilerPass\Discovery\ScheduledTaskReader;
 use Msstc4Symfony\SloBundle\DependencyInjection\CompilerPass\Discovery\TaggedPointReader;
+use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CatalogDump;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MetricsBundleSeriesCatalog;
@@ -26,7 +28,8 @@ use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 
 /**
- * Builds the SLO catalog from controllers, Messenger handlers, tagged points and configured operations (spec 5.2).
+ * Builds the SLO catalog from controllers, Messenger handlers, tagged points, configured operations and Scheduler tasks
+ * (spec 5.2).
  * Runs TYPE_BEFORE_OPTIMIZATION, priority -10: after attribute autoconfiguration has added the tags and after metric
  * enums appended at priority 0 by any bundle.
  *
@@ -55,6 +58,7 @@ final class CollectSloDefinitionsPass implements CompilerPassInterface
         $handlers = (new HandlerReader($attributes, $errors))->read($container, $failureTransports);
         $taggedPoints = (new TaggedPointReader($attributes, $errors))->read($container);
         $operations = (new OperationReader($assembler))->read($this->parameter($container, 'operations'));
+        $scheduledTasks = (new ScheduledTaskReader($attributes, $errors))->read($container);
 
         $extras = new CatalogExtras(
             $controllers,
@@ -66,6 +70,7 @@ final class CollectSloDefinitionsPass implements CompilerPassInterface
             MetricsParameters::httpIgnoredRoutes($container),
             [...$handlers->warnings, ...$taggedPoints->warnings],
             $controllerReader->serviceIds($container),
+            scheduledTasks: array_map(static fn (PointId $point): string => $point->id, $scheduledTasks->items),
         );
         $contents = $assembler->assemble(DefaultsReader::factory($container), $errors, $extras);
 

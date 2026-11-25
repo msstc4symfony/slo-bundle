@@ -347,3 +347,18 @@
 - `DeterministicYaml` сортирует ключи: в сгенерированных файлах `inhibit_rules` идёт перед `routes`/`receivers`, порядок не как в спецификации. Доки и сниппеты копируют порядок golden-файлов.
 - `amtool config routes test` печатает только имя получателя; для лейблов вне фрагмента (другой `application`, `alertname=Other`) в слитом конфиге это корневой получатель пользователя.
 - Каталог для amtool-контейнера и файлы внутри должны быть читаемы (`chmod 0755/0644`): `sys_get_temp_dir()` создаёт их с umask хоста, контейнер работает от другого uid.
+
+## Scheduler discovery (1.2, Task 3)
+
+- **`SchedulerTestKernel` регистрирует `clock` сам**: FrameworkExtension удаляет `clock`, если `symfony/clock` установлен только как
+  dev-зависимость корневого пакета (`willBeAvailable`), а `scheduler.messenger_transport_factory` на него ссылается. В приложении,
+  где scheduler в `require`, этого нет.
+- **Rector в фикстурах**: `RemoveEmptyClassMethodRector` удаляет пустые не-магические методы (`daily(): void {}`) — методы фикстур
+  возвращают значение; Symfony-правило превращает переопределённый `Command::getDefaultName()` в `#[AsCommand]` — фикстура
+  `LegacyNamedCommand` поэтому не наследует `Command`.
+- **Порог latency не принимает минуты** (`<int>ms|<decimal>s`), в отличие от `deadline` (`ms|s|m|h`): `new Latency('120s', 95)`.
+- **`composer-ci.lock` содержал `git@` source.url** у metrics-bundle, sql-labeller, logic-bundle (из коммита f9bd2cd); в Task 3
+  нормализованы в https. После `composer update` проверять `grep git@ composer-ci.lock`.
+- CI-lock собирается с `symfony/scheduler` 8.1.10 при framework-bundle/console 7.4.23 — смешанная пара; `getDefaultName()`
+  читает только наш `CommandName` (pass 8.1 его не вызывает), расхождение возможно лишь у команды без `#[AsCommand]` с
+  переопределённым `getDefaultName()` на console 7.4.

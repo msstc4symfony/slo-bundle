@@ -171,7 +171,10 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
   (`monitored|unmonitored|ignored|invalid|unsupported`). Читает только скомпилированный каталог и `RouteCatalogInterface::all()`,
   никогда временные ряды (plan §15, последняя строка).
 - Виды точек (`CoverageKind`, порядок case = порядок отчёта): `http_route` (point = имя маршрута), `messenger_handler` (point = `HandlerClass::method`,
-  метод хранится в `HandlerInfo::$method`), `logic_action` (id точки), `operation` (имя операции из конфига).
+  метод хранится в `HandlerInfo::$method`), `logic_action` (id точки), `operation` (имя операции из конфига),
+  `scheduled_task` (1.2: id точки из `CatalogExtras::$scheduledTasks` — `<service id>::<method>` или `command:<name>`;
+  measured всегда false, порог `coverage.scheduled_tasks.required_percent`, по умолчанию 0; строка добавилась и в
+  таблицу дашборда `slo-monitoring-coverage`).
 - Приоритет статуса: invalid → ignored → unsupported → monitored/unmonitored. Invalid: конфликт имён SLO на точке
   (`conflictedNamesFor`) или SLO на маршруте из `httpIgnoredRoutes` metrics-bundle. Ignored: `_`-маршрут или `httpIgnoredRoutes`
   ("system route"), `coverage.http_routes.ignored_routes`, `#[IgnoreMonitoring]` (ищется по controller-точке / message-точке / точке логики).

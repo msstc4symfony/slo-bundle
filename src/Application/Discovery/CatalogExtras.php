@@ -22,6 +22,7 @@ final readonly class CatalogExtras
      * @param list<non-empty-string> $warnings
      * @param array<non-empty-string, class-string> $controllerServices controller service id => class, only ids that differ from the class name
      * @param bool $hasHttpPoints an http_route point carries an SLO or a conflicting SLO name; set by CatalogAssembler
+     * @param list<non-empty-string> $scheduledTasks ids of the discovered scheduled_task points, sorted
      */
     public function __construct(
         public array $controllers = [],
@@ -34,6 +35,7 @@ final readonly class CatalogExtras
         public array $warnings = [],
         public array $controllerServices = [],
         public bool $hasHttpPoints = false,
+        public array $scheduledTasks = [],
     ) {
     }
 
@@ -50,6 +52,7 @@ final readonly class CatalogExtras
             $this->warnings,
             $this->controllerServices,
             $hasHttpPoints,
+            $this->scheduledTasks,
         );
     }
 }

@@ -144,6 +144,7 @@ return static function (ContainerConfigurator $container): void {
         ->arg('$httpRequiredPercent', param('msstc4symfony_slo.coverage.http_routes.required_percent'))
         ->arg('$messengerRequiredPercent', param('msstc4symfony_slo.coverage.messenger_handlers.required_percent'))
         ->arg('$logicRequiredPercent', param('msstc4symfony_slo.coverage.logic_actions.required_percent'))
+        ->arg('$scheduledTaskRequiredPercent', param('msstc4symfony_slo.coverage.scheduled_tasks.required_percent'))
     ;
     $services->set(BurnRatePolicy::class);
     $services->set(BoundObjectiveCollector::class);

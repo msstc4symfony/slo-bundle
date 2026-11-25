@@ -24,7 +24,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 /**
  * @internal the command name, options, output and exit codes are the public contract, not this class
  */
-#[AsCommand(name: 'slo:coverage', description: 'Report which routes, handlers and actions are covered by an SLO; exits 1 below the required percent')]
+#[AsCommand(name: 'slo:coverage', description: 'Report which routes, handlers, actions and scheduled tasks are covered by an SLO; exits 1 below the required percent')]
 final class CoverageCommand extends Command
 {
     private const FORMATS = ['text', 'json'];
@@ -34,6 +34,7 @@ final class CoverageCommand extends Command
      * @param int<0, 100> $httpRequiredPercent
      * @param int<0, 100> $messengerRequiredPercent
      * @param int<0, 100> $logicRequiredPercent
+     * @param int<0, 100> $scheduledTaskRequiredPercent
      */
     public function __construct(
         private readonly Action $action,
@@ -41,6 +42,7 @@ final class CoverageCommand extends Command
         private readonly int $httpRequiredPercent,
         private readonly int $messengerRequiredPercent,
         private readonly int $logicRequiredPercent,
+        private readonly int $scheduledTaskRequiredPercent,
     ) {
         parent::__construct();
     }
@@ -101,6 +103,7 @@ final class CoverageCommand extends Command
                 CoverageKind::HttpRoute->value => (float) $this->httpRequiredPercent,
                 CoverageKind::MessengerHandler->value => (float) $this->messengerRequiredPercent,
                 CoverageKind::LogicAction->value => (float) $this->logicRequiredPercent,
+                CoverageKind::ScheduledTask->value => (float) $this->scheduledTaskRequiredPercent,
             ];
         }
         if (!\is_string($min) || !is_numeric($min)) {

@@ -15,6 +15,7 @@ enum CoverageKind: string
     case MessengerHandler = 'messenger_handler';
     case LogicAction = 'logic_action';
     case Operation = 'operation';
+    case ScheduledTask = 'scheduled_task';
 
     public function position(): int
     {
@@ -23,6 +24,7 @@ enum CoverageKind: string
             self::MessengerHandler => 1,
             self::LogicAction => 2,
             self::Operation => 3,
+            self::ScheduledTask => 4,
         };
     }
 }
