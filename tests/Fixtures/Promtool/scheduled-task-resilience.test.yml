@@ -1,0 +1,517 @@
+# Healthy cleanup.run (deadline 2m): a run every 10m from 10m, finished 1m later; the counters carry 3 runs killed
+# long ago (started 103, finished 100). Resets, outages and replica churn may lose the detection of unfinished runs
+# for up to d+r, but never report a bad event or page.
+rule_files:
+  - ../Generated/prometheus/slo-recording.rules.yml
+  - ../Generated/prometheus/slo-alerts.rules.yml
+
+evaluation_interval: 1m
+
+tests:
+  # Redis flush at 125m: within (t-d, t] at 125m-127m, within [t-d-r, t-d] at 128m-132m.
+  - name: counter reset
+    interval: 1m
+    input_series:
+      - series: 'symfony_slo_scheduled_task_started_total{application="shop",component="worker",task="App\\Task\\CleanupTask::__invoke"}'
+        values: '103 103 103 103 103 103 103 103 103 103 104 104 104 104 104 104 104 104 104 104 105 105 105 105 105 105 105 105 105 105 106 106 106 106 106 106 106 106 106 106 107 107 107 107 107 107 107 107 107 107 108 108 108 108 108 108 108 108 108 108 109 109 109 109 109 109 109 109 109 109 110 110 110 110 110 110 110 110 110 110 111 111 111 111 111 111 111 111 111 111 112 112 112 112 112 112 112 112 112 112 113 113 113 113 113 113 113 113 113 113 114 114 114 114 114 114 114 114 114 114 115 115 115 115 115 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3 3 3 3 3 3 3 3 3 4 4 4 4 4 4 4 4 4 4 5 5 5 5 5 5 5 5 5 5 6 6 6 6 6 6 6 6 6 6 7 7 7 7 7 7 7 7 7 7'
+      - series: 'symfony_slo_scheduled_task_finished_total{application="shop",component="worker",task="App\\Task\\CleanupTask::__invoke",outcome="success"}'
+        values: '100 100 100 100 100 100 100 100 100 100 100 101 101 101 101 101 101 101 101 101 101 102 102 102 102 102 102 102 102 102 102 103 103 103 103 103 103 103 103 103 103 104 104 104 104 104 104 104 104 104 104 105 105 105 105 105 105 105 105 105 105 106 106 106 106 106 106 106 106 106 106 107 107 107 107 107 107 107 107 107 107 108 108 108 108 108 108 108 108 108 108 109 109 109 109 109 109 109 109 109 109 110 110 110 110 110 110 110 110 110 110 111 111 111 111 111 111 111 111 111 111 112 112 112 112 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3 3 3 3 3 3 3 3 3 4 4 4 4 4 4 4 4 4 4 5 5 5 5 5 5 5 5 5 5 6 6 6 6 6 6 6 6 6 6 7 7 7 7 7 7 7 7 7'
+      - series: 'symfony_slo_events_total{application="shop",component="worker",slo="cleanup.run",objective="availability",revision="e16395ab",result="good"}'
+        values: '100 100 100 100 100 100 100 100 100 100 100 101 101 101 101 101 101 101 101 101 101 102 102 102 102 102 102 102 102 102 102 103 103 103 103 103 103 103 103 103 103 104 104 104 104 104 104 104 104 104 104 105 105 105 105 105 105 105 105 105 105 106 106 106 106 106 106 106 106 106 106 107 107 107 107 107 107 107 107 107 107 108 108 108 108 108 108 108 108 108 108 109 109 109 109 109 109 109 109 109 109 110 110 110 110 110 110 110 110 110 110 111 111 111 111 111 111 111 111 111 111 112 112 112 112 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3 3 3 3 3 3 3 3 3 4 4 4 4 4 4 4 4 4 4 5 5 5 5 5 5 5 5 5 5 6 6 6 6 6 6 6 6 6 6 7 7 7 7 7 7 7 7 7'
+    promql_expr_test:
+      - expr: slo:error_ratio:rate5m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 125m
+        exp_samples: []
+      - expr: slo:error_ratio:rate30m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 125m
+        exp_samples: []
+      - expr: slo:error_ratio:rate1h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 125m
+        exp_samples: []
+      - expr: slo:error_ratio:rate6h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 125m
+        exp_samples: []
+      - expr: slo:error_ratio:rate5m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 126m
+        exp_samples: []
+      - expr: slo:error_ratio:rate30m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 126m
+        exp_samples: []
+      - expr: slo:error_ratio:rate1h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 126m
+        exp_samples: []
+      - expr: slo:error_ratio:rate6h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 126m
+        exp_samples: []
+      - expr: slo:error_ratio:rate5m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 127m
+        exp_samples: []
+      - expr: slo:error_ratio:rate30m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 127m
+        exp_samples: []
+      - expr: slo:error_ratio:rate1h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 127m
+        exp_samples: []
+      - expr: slo:error_ratio:rate6h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 127m
+        exp_samples: []
+      - expr: slo:error_ratio:rate5m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 128m
+        exp_samples: []
+      - expr: slo:error_ratio:rate30m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 128m
+        exp_samples: []
+      - expr: slo:error_ratio:rate1h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 128m
+        exp_samples: []
+      - expr: slo:error_ratio:rate6h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 128m
+        exp_samples: []
+      - expr: slo:error_ratio:rate5m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 130m
+        exp_samples: []
+      - expr: slo:error_ratio:rate30m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 130m
+        exp_samples: []
+      - expr: slo:error_ratio:rate1h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 130m
+        exp_samples: []
+      - expr: slo:error_ratio:rate6h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 130m
+        exp_samples: []
+      - expr: slo:error_ratio:rate5m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 132m
+        exp_samples: []
+      - expr: slo:error_ratio:rate30m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 132m
+        exp_samples: []
+      - expr: slo:error_ratio:rate1h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 132m
+        exp_samples: []
+      - expr: slo:error_ratio:rate6h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 132m
+        exp_samples: []
+      - expr: slo:error_ratio:rate5m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 135m
+        exp_samples: []
+      - expr: slo:error_ratio:rate30m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 135m
+        exp_samples: []
+      - expr: slo:error_ratio:rate1h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 135m
+        exp_samples: []
+      - expr: slo:error_ratio:rate6h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 135m
+        exp_samples: []
+    alert_rule_test:
+      - eval_time: 125m
+        alertname: SloErrorBudgetBurn
+        exp_alerts: []
+      - eval_time: 126m
+        alertname: SloErrorBudgetBurn
+        exp_alerts: []
+      - eval_time: 127m
+        alertname: SloErrorBudgetBurn
+        exp_alerts: []
+      - eval_time: 128m
+        alertname: SloErrorBudgetBurn
+        exp_alerts: []
+      - eval_time: 130m
+        alertname: SloErrorBudgetBurn
+        exp_alerts: []
+      - eval_time: 132m
+        alertname: SloErrorBudgetBurn
+        exp_alerts: []
+      - eval_time: 135m
+        alertname: SloErrorBudgetBurn
+        exp_alerts: []
+
+  # The target is down from 120m to 190m.
+  - name: outage of 70m
+    interval: 1m
+    input_series:
+      - series: 'symfony_slo_scheduled_task_started_total{application="shop",component="worker",task="App\\Task\\CleanupTask::__invoke"}'
+        values: '103 103 103 103 103 103 103 103 103 103 104 104 104 104 104 104 104 104 104 104 105 105 105 105 105 105 105 105 105 105 106 106 106 106 106 106 106 106 106 106 107 107 107 107 107 107 107 107 107 107 108 108 108 108 108 108 108 108 108 108 109 109 109 109 109 109 109 109 109 109 110 110 110 110 110 110 110 110 110 110 111 111 111 111 111 111 111 111 111 111 112 112 112 112 112 112 112 112 112 112 113 113 113 113 113 113 113 113 113 113 114 114 114 114 114 114 114 114 114 114 stale _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 122 122 122 122 122 122 122 122 122 122 123 123 123 123 123 123 123 123 123 123 124 124 124 124 124 124 124 124 124 124 125 125 125 125 125 125 125 125 125 125 126 126 126 126 126 126 126 126 126 126 127 127 127 127 127 127 127 127 127 127 128 128 128 128 128 128 128 128 128 128'
+      - series: 'symfony_slo_scheduled_task_finished_total{application="shop",component="worker",task="App\\Task\\CleanupTask::__invoke",outcome="success"}'
+        values: '100 100 100 100 100 100 100 100 100 100 100 101 101 101 101 101 101 101 101 101 101 102 102 102 102 102 102 102 102 102 102 103 103 103 103 103 103 103 103 103 103 104 104 104 104 104 104 104 104 104 104 105 105 105 105 105 105 105 105 105 105 106 106 106 106 106 106 106 106 106 106 107 107 107 107 107 107 107 107 107 107 108 108 108 108 108 108 108 108 108 108 109 109 109 109 109 109 109 109 109 109 110 110 110 110 110 110 110 110 110 110 111 111 111 111 111 111 111 111 111 stale _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 118 119 119 119 119 119 119 119 119 119 119 120 120 120 120 120 120 120 120 120 120 121 121 121 121 121 121 121 121 121 121 122 122 122 122 122 122 122 122 122 122 123 123 123 123 123 123 123 123 123 123 124 124 124 124 124 124 124 124 124 124 125 125 125 125 125 125 125 125 125'
+      - series: 'symfony_slo_events_total{application="shop",component="worker",slo="cleanup.run",objective="availability",revision="e16395ab",result="good"}'
+        values: '100 100 100 100 100 100 100 100 100 100 100 101 101 101 101 101 101 101 101 101 101 102 102 102 102 102 102 102 102 102 102 103 103 103 103 103 103 103 103 103 103 104 104 104 104 104 104 104 104 104 104 105 105 105 105 105 105 105 105 105 105 106 106 106 106 106 106 106 106 106 106 107 107 107 107 107 107 107 107 107 107 108 108 108 108 108 108 108 108 108 108 109 109 109 109 109 109 109 109 109 109 110 110 110 110 110 110 110 110 110 110 111 111 111 111 111 111 111 111 111 stale _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 118 119 119 119 119 119 119 119 119 119 119 120 120 120 120 120 120 120 120 120 120 121 121 121 121 121 121 121 121 121 121 122 122 122 122 122 122 122 122 122 122 123 123 123 123 123 123 123 123 123 123 124 124 124 124 124 124 124 124 124 124 125 125 125 125 125 125 125 125 125'
+    promql_expr_test:
+      - expr: slo:error_ratio:rate5m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 191m
+        exp_samples: []
+      - expr: slo:error_ratio:rate30m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 191m
+        exp_samples: []
+      - expr: slo:error_ratio:rate1h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 191m
+        exp_samples: []
+      - expr: slo:error_ratio:rate6h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 191m
+        exp_samples: []
+      - expr: slo:error_ratio:rate5m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 193m
+        exp_samples: []
+      - expr: slo:error_ratio:rate30m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 193m
+        exp_samples: []
+      - expr: slo:error_ratio:rate1h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 193m
+        exp_samples: []
+      - expr: slo:error_ratio:rate6h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 193m
+        exp_samples: []
+      - expr: slo:error_ratio:rate5m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 195m
+        exp_samples: []
+      - expr: slo:error_ratio:rate30m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 195m
+        exp_samples: []
+      - expr: slo:error_ratio:rate1h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 195m
+        exp_samples: []
+      - expr: slo:error_ratio:rate6h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 195m
+        exp_samples: []
+      - expr: slo:error_ratio:rate5m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 198m
+        exp_samples: []
+      - expr: slo:error_ratio:rate30m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 198m
+        exp_samples: []
+      - expr: slo:error_ratio:rate1h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 198m
+        exp_samples: []
+      - expr: slo:error_ratio:rate6h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 198m
+        exp_samples: []
+      - expr: slo:error_ratio:rate5m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 200m
+        exp_samples: []
+      - expr: slo:error_ratio:rate30m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 200m
+        exp_samples: []
+      - expr: slo:error_ratio:rate1h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 200m
+        exp_samples: []
+      - expr: slo:error_ratio:rate6h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 200m
+        exp_samples: []
+      - expr: slo:error_ratio:rate5m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 250m
+        exp_samples: []
+      - expr: slo:error_ratio:rate30m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 250m
+        exp_samples: []
+      - expr: slo:error_ratio:rate1h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 250m
+        exp_samples: []
+      - expr: slo:error_ratio:rate6h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 250m
+        exp_samples: []
+    alert_rule_test:
+      - eval_time: 191m
+        alertname: SloErrorBudgetBurn
+        exp_alerts: []
+      - eval_time: 193m
+        alertname: SloErrorBudgetBurn
+        exp_alerts: []
+      - eval_time: 195m
+        alertname: SloErrorBudgetBurn
+        exp_alerts: []
+      - eval_time: 198m
+        alertname: SloErrorBudgetBurn
+        exp_alerts: []
+      - eval_time: 200m
+        alertname: SloErrorBudgetBurn
+        exp_alerts: []
+      - eval_time: 250m
+        alertname: SloErrorBudgetBurn
+        exp_alerts: []
+
+  # A single failed scrape (stale marker) at 120m.
+  - name: one failed scrape
+    interval: 1m
+    input_series:
+      - series: 'symfony_slo_scheduled_task_started_total{application="shop",component="worker",task="App\\Task\\CleanupTask::__invoke"}'
+        values: '103 103 103 103 103 103 103 103 103 103 104 104 104 104 104 104 104 104 104 104 105 105 105 105 105 105 105 105 105 105 106 106 106 106 106 106 106 106 106 106 107 107 107 107 107 107 107 107 107 107 108 108 108 108 108 108 108 108 108 108 109 109 109 109 109 109 109 109 109 109 110 110 110 110 110 110 110 110 110 110 111 111 111 111 111 111 111 111 111 111 112 112 112 112 112 112 112 112 112 112 113 113 113 113 113 113 113 113 113 113 114 114 114 114 114 114 114 114 114 114 stale 115 115 115 115 115 115 115 115 115 116 116 116 116 116 116 116 116 116 116 117 117 117 117 117 117 117 117 117 117 118 118 118 118 118 118 118 118 118 118 119 119 119 119 119 119 119 119 119 119 120 120 120 120 120 120 120 120 120 120 121 121 121 121 121 121 121 121 121 121 122 122 122 122 122 122 122 122 122 122 123 123 123 123 123 123 123 123 123 123 124 124 124 124 124 124 124 124 124 124 125 125 125 125 125 125 125 125 125 125 126 126 126 126 126 126 126 126 126 126 127 127 127 127 127 127 127 127 127 127 128 128 128 128 128 128 128 128 128 128'
+      - series: 'symfony_slo_scheduled_task_finished_total{application="shop",component="worker",task="App\\Task\\CleanupTask::__invoke",outcome="success"}'
+        values: '100 100 100 100 100 100 100 100 100 100 100 101 101 101 101 101 101 101 101 101 101 102 102 102 102 102 102 102 102 102 102 103 103 103 103 103 103 103 103 103 103 104 104 104 104 104 104 104 104 104 104 105 105 105 105 105 105 105 105 105 105 106 106 106 106 106 106 106 106 106 106 107 107 107 107 107 107 107 107 107 107 108 108 108 108 108 108 108 108 108 108 109 109 109 109 109 109 109 109 109 109 110 110 110 110 110 110 110 110 110 110 111 111 111 111 111 111 111 111 111 stale 112 112 112 112 112 112 112 112 112 112 113 113 113 113 113 113 113 113 113 113 114 114 114 114 114 114 114 114 114 114 115 115 115 115 115 115 115 115 115 115 116 116 116 116 116 116 116 116 116 116 117 117 117 117 117 117 117 117 117 117 118 118 118 118 118 118 118 118 118 118 119 119 119 119 119 119 119 119 119 119 120 120 120 120 120 120 120 120 120 120 121 121 121 121 121 121 121 121 121 121 122 122 122 122 122 122 122 122 122 122 123 123 123 123 123 123 123 123 123 123 124 124 124 124 124 124 124 124 124 124 125 125 125 125 125 125 125 125 125'
+      - series: 'symfony_slo_events_total{application="shop",component="worker",slo="cleanup.run",objective="availability",revision="e16395ab",result="good"}'
+        values: '100 100 100 100 100 100 100 100 100 100 100 101 101 101 101 101 101 101 101 101 101 102 102 102 102 102 102 102 102 102 102 103 103 103 103 103 103 103 103 103 103 104 104 104 104 104 104 104 104 104 104 105 105 105 105 105 105 105 105 105 105 106 106 106 106 106 106 106 106 106 106 107 107 107 107 107 107 107 107 107 107 108 108 108 108 108 108 108 108 108 108 109 109 109 109 109 109 109 109 109 109 110 110 110 110 110 110 110 110 110 110 111 111 111 111 111 111 111 111 111 stale 112 112 112 112 112 112 112 112 112 112 113 113 113 113 113 113 113 113 113 113 114 114 114 114 114 114 114 114 114 114 115 115 115 115 115 115 115 115 115 115 116 116 116 116 116 116 116 116 116 116 117 117 117 117 117 117 117 117 117 117 118 118 118 118 118 118 118 118 118 118 119 119 119 119 119 119 119 119 119 119 120 120 120 120 120 120 120 120 120 120 121 121 121 121 121 121 121 121 121 121 122 122 122 122 122 122 122 122 122 122 123 123 123 123 123 123 123 123 123 123 124 124 124 124 124 124 124 124 124 124 125 125 125 125 125 125 125 125 125'
+    promql_expr_test:
+      - expr: slo:error_ratio:rate5m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 121m
+        exp_samples: []
+      - expr: slo:error_ratio:rate30m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 121m
+        exp_samples: []
+      - expr: slo:error_ratio:rate1h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 121m
+        exp_samples: []
+      - expr: slo:error_ratio:rate6h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 121m
+        exp_samples: []
+      - expr: slo:error_ratio:rate5m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 122m
+        exp_samples: []
+      - expr: slo:error_ratio:rate30m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 122m
+        exp_samples: []
+      - expr: slo:error_ratio:rate1h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 122m
+        exp_samples: []
+      - expr: slo:error_ratio:rate6h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 122m
+        exp_samples: []
+      - expr: slo:error_ratio:rate5m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 126m
+        exp_samples: []
+      - expr: slo:error_ratio:rate30m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 126m
+        exp_samples: []
+      - expr: slo:error_ratio:rate1h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 126m
+        exp_samples: []
+      - expr: slo:error_ratio:rate6h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 126m
+        exp_samples: []
+      - expr: slo:error_ratio:rate5m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 127m
+        exp_samples: []
+      - expr: slo:error_ratio:rate30m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 127m
+        exp_samples: []
+      - expr: slo:error_ratio:rate1h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 127m
+        exp_samples: []
+      - expr: slo:error_ratio:rate6h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 127m
+        exp_samples: []
+      - expr: slo:error_ratio:rate5m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 128m
+        exp_samples: []
+      - expr: slo:error_ratio:rate30m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 128m
+        exp_samples: []
+      - expr: slo:error_ratio:rate1h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 128m
+        exp_samples: []
+      - expr: slo:error_ratio:rate6h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 128m
+        exp_samples: []
+      - expr: slo:error_ratio:rate5m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 182m
+        exp_samples: []
+      - expr: slo:error_ratio:rate30m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 182m
+        exp_samples: []
+      - expr: slo:error_ratio:rate1h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 182m
+        exp_samples: []
+      - expr: slo:error_ratio:rate6h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 182m
+        exp_samples: []
+      - expr: slo:error_ratio:rate5m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 183m
+        exp_samples: []
+      - expr: slo:error_ratio:rate30m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 183m
+        exp_samples: []
+      - expr: slo:error_ratio:rate1h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 183m
+        exp_samples: []
+      - expr: slo:error_ratio:rate6h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 183m
+        exp_samples: []
+    alert_rule_test:
+      - eval_time: 121m
+        alertname: SloErrorBudgetBurn
+        exp_alerts: []
+      - eval_time: 122m
+        alertname: SloErrorBudgetBurn
+        exp_alerts: []
+      - eval_time: 126m
+        alertname: SloErrorBudgetBurn
+        exp_alerts: []
+      - eval_time: 127m
+        alertname: SloErrorBudgetBurn
+        exp_alerts: []
+      - eval_time: 128m
+        alertname: SloErrorBudgetBurn
+        exp_alerts: []
+      - eval_time: 182m
+        alertname: SloErrorBudgetBurn
+        exp_alerts: []
+      - eval_time: 183m
+        alertname: SloErrorBudgetBurn
+        exp_alerts: []
+
+  # Two replicas expose the same shared-Redis counters: a until 122m, b from 118m.
+  - name: rolling replica overlap
+    interval: 1m
+    input_series:
+      - series: 'symfony_slo_scheduled_task_started_total{application="shop",component="worker",task="App\\Task\\CleanupTask::__invoke",instance="a"}'
+        values: '103 103 103 103 103 103 103 103 103 103 104 104 104 104 104 104 104 104 104 104 105 105 105 105 105 105 105 105 105 105 106 106 106 106 106 106 106 106 106 106 107 107 107 107 107 107 107 107 107 107 108 108 108 108 108 108 108 108 108 108 109 109 109 109 109 109 109 109 109 109 110 110 110 110 110 110 110 110 110 110 111 111 111 111 111 111 111 111 111 111 112 112 112 112 112 112 112 112 112 112 113 113 113 113 113 113 113 113 113 113 114 114 114 114 114 114 114 114 114 114 115 115 stale _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _'
+      - series: 'symfony_slo_scheduled_task_finished_total{application="shop",component="worker",task="App\\Task\\CleanupTask::__invoke",instance="a",outcome="success"}'
+        values: '100 100 100 100 100 100 100 100 100 100 100 101 101 101 101 101 101 101 101 101 101 102 102 102 102 102 102 102 102 102 102 103 103 103 103 103 103 103 103 103 103 104 104 104 104 104 104 104 104 104 104 105 105 105 105 105 105 105 105 105 105 106 106 106 106 106 106 106 106 106 106 107 107 107 107 107 107 107 107 107 107 108 108 108 108 108 108 108 108 108 108 109 109 109 109 109 109 109 109 109 109 110 110 110 110 110 110 110 110 110 110 111 111 111 111 111 111 111 111 111 111 112 stale _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _'
+      - series: 'symfony_slo_events_total{application="shop",component="worker",slo="cleanup.run",objective="availability",revision="e16395ab",result="good",instance="a"}'
+        values: '100 100 100 100 100 100 100 100 100 100 100 101 101 101 101 101 101 101 101 101 101 102 102 102 102 102 102 102 102 102 102 103 103 103 103 103 103 103 103 103 103 104 104 104 104 104 104 104 104 104 104 105 105 105 105 105 105 105 105 105 105 106 106 106 106 106 106 106 106 106 106 107 107 107 107 107 107 107 107 107 107 108 108 108 108 108 108 108 108 108 108 109 109 109 109 109 109 109 109 109 109 110 110 110 110 110 110 110 110 110 110 111 111 111 111 111 111 111 111 111 111 112 stale _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _'
+      - series: 'symfony_slo_scheduled_task_started_total{application="shop",component="worker",task="App\\Task\\CleanupTask::__invoke",instance="b"}'
+        values: '_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 114 114 115 115 115 115 115 115 115 115 115 115 116 116 116 116 116 116 116 116 116 116 117 117 117 117 117 117 117 117 117 117 118 118 118 118 118 118 118 118 118 118 119 119 119 119 119 119 119 119 119 119 120 120 120 120 120 120 120 120 120 120 121 121 121 121 121 121 121 121 121 121 122 122 122 122 122 122 122 122 122 122'
+      - series: 'symfony_slo_scheduled_task_finished_total{application="shop",component="worker",task="App\\Task\\CleanupTask::__invoke",instance="b",outcome="success"}'
+        values: '_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 111 111 111 112 112 112 112 112 112 112 112 112 112 113 113 113 113 113 113 113 113 113 113 114 114 114 114 114 114 114 114 114 114 115 115 115 115 115 115 115 115 115 115 116 116 116 116 116 116 116 116 116 116 117 117 117 117 117 117 117 117 117 117 118 118 118 118 118 118 118 118 118 118 119 119 119 119 119 119 119 119 119'
+      - series: 'symfony_slo_events_total{application="shop",component="worker",slo="cleanup.run",objective="availability",revision="e16395ab",result="good",instance="b"}'
+        values: '_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 111 111 111 112 112 112 112 112 112 112 112 112 112 113 113 113 113 113 113 113 113 113 113 114 114 114 114 114 114 114 114 114 114 115 115 115 115 115 115 115 115 115 115 116 116 116 116 116 116 116 116 116 116 117 117 117 117 117 117 117 117 117 117 118 118 118 118 118 118 118 118 118 118 119 119 119 119 119 119 119 119 119'
+    promql_expr_test:
+      - expr: slo:error_ratio:rate5m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 118m
+        exp_samples: []
+      - expr: slo:error_ratio:rate30m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 118m
+        exp_samples: []
+      - expr: slo:error_ratio:rate1h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 118m
+        exp_samples: []
+      - expr: slo:error_ratio:rate6h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 118m
+        exp_samples: []
+      - expr: slo:error_ratio:rate5m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 119m
+        exp_samples: []
+      - expr: slo:error_ratio:rate30m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 119m
+        exp_samples: []
+      - expr: slo:error_ratio:rate1h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 119m
+        exp_samples: []
+      - expr: slo:error_ratio:rate6h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 119m
+        exp_samples: []
+      - expr: slo:error_ratio:rate5m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 120m
+        exp_samples: []
+      - expr: slo:error_ratio:rate30m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 120m
+        exp_samples: []
+      - expr: slo:error_ratio:rate1h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 120m
+        exp_samples: []
+      - expr: slo:error_ratio:rate6h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 120m
+        exp_samples: []
+      - expr: slo:error_ratio:rate5m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 121m
+        exp_samples: []
+      - expr: slo:error_ratio:rate30m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 121m
+        exp_samples: []
+      - expr: slo:error_ratio:rate1h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 121m
+        exp_samples: []
+      - expr: slo:error_ratio:rate6h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 121m
+        exp_samples: []
+      - expr: slo:error_ratio:rate5m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 122m
+        exp_samples: []
+      - expr: slo:error_ratio:rate30m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 122m
+        exp_samples: []
+      - expr: slo:error_ratio:rate1h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 122m
+        exp_samples: []
+      - expr: slo:error_ratio:rate6h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 122m
+        exp_samples: []
+      - expr: slo:error_ratio:rate5m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 123m
+        exp_samples: []
+      - expr: slo:error_ratio:rate30m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 123m
+        exp_samples: []
+      - expr: slo:error_ratio:rate1h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 123m
+        exp_samples: []
+      - expr: slo:error_ratio:rate6h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 123m
+        exp_samples: []
+      - expr: slo:error_ratio:rate5m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 124m
+        exp_samples: []
+      - expr: slo:error_ratio:rate30m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 124m
+        exp_samples: []
+      - expr: slo:error_ratio:rate1h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 124m
+        exp_samples: []
+      - expr: slo:error_ratio:rate6h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 124m
+        exp_samples: []
+      - expr: slo:error_ratio:rate5m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 125m
+        exp_samples: []
+      - expr: slo:error_ratio:rate30m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 125m
+        exp_samples: []
+      - expr: slo:error_ratio:rate1h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 125m
+        exp_samples: []
+      - expr: slo:error_ratio:rate6h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 125m
+        exp_samples: []
+      - expr: slo:error_ratio:rate5m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 128m
+        exp_samples: []
+      - expr: slo:error_ratio:rate30m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 128m
+        exp_samples: []
+      - expr: slo:error_ratio:rate1h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 128m
+        exp_samples: []
+      - expr: slo:error_ratio:rate6h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 128m
+        exp_samples: []
+      - expr: slo:error_ratio:rate5m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 130m
+        exp_samples: []
+      - expr: slo:error_ratio:rate30m{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 130m
+        exp_samples: []
+      - expr: slo:error_ratio:rate1h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 130m
+        exp_samples: []
+      - expr: slo:error_ratio:rate6h{slo="cleanup.run",objective="availability"} > 0
+        eval_time: 130m
+        exp_samples: []
+    alert_rule_test:
+      - eval_time: 118m
+        alertname: SloErrorBudgetBurn
+        exp_alerts: []
+      - eval_time: 119m
+        alertname: SloErrorBudgetBurn
+        exp_alerts: []
+      - eval_time: 120m
+        alertname: SloErrorBudgetBurn
+        exp_alerts: []
+      - eval_time: 121m
+        alertname: SloErrorBudgetBurn
+        exp_alerts: []
+      - eval_time: 122m
+        alertname: SloErrorBudgetBurn
+        exp_alerts: []
+      - eval_time: 123m
+        alertname: SloErrorBudgetBurn
+        exp_alerts: []
+      - eval_time: 124m
+        alertname: SloErrorBudgetBurn
+        exp_alerts: []
+      - eval_time: 125m
+        alertname: SloErrorBudgetBurn
+        exp_alerts: []
+      - eval_time: 128m
+        alertname: SloErrorBudgetBurn
+        exp_alerts: []
+      - eval_time: 130m
+        alertname: SloErrorBudgetBurn
+        exp_alerts: []

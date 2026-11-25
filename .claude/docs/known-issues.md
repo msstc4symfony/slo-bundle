@@ -382,17 +382,22 @@
 
 - Буквальная формула спеки `started[w] offset d - finished[w] offset d` считает незавершённым любой здоровый запуск,
   пересекающий `t-d`. Используется R1: старты в `[t-d-r, t-d]` минус финиши в `[t-d-r, t]`.
-- **U считается по мгновенным значениям счётчиков, не по `increase()`** (fix round 1): три `increase` по окнам разной длины
-  экстраполируются каждый своим множителем (~окно/(окно−scrape)), и один здоровый запуск оставлял остаток (≈0.14 при d=10m,
-  r=5m); при T=0 ratio = U/U = 1. Форма: `(clamp_min((S offset d - S offset (d+r)) - (F - F offset (d+r)), 0) and on() sum(S))`,
-  каждый член `sum(...) or vector(0)`, `d+r` — литерал (`PromQlRenderer::milliseconds`, напр. `43210m` для 30d+10m).
-- `and on() sum(started)`: при отсутствии started-серии в момент t (scrape gap, stale) U отсутствует, а с ним и ratio задачи.
-- Sloth: `d + {{.window}}` не выразим, левый край окна — `last_over_time(sum(X offset d)[1m:1m] offset {{.window}})` для
-  started и finished: оба края сдвинуты на один и тот же шаг сабквери (выравнивание по минуте), окна R1 остаются согласованными.
-- **Известная цена**: отсутствующий старый момент (`t-d-r` раньше истории Prometheus — retention короче окна SLO, свежий
-  Prometheus, gap длиннее lookback 5m ровно на `t-d-r`) заменяется 0, и U = все незавершённые за жизнь счётчика (убитые давно
-  запуски). Сброс счётчиков (flush Redis-хранилища metrics-bundle, рестарт без персистентности) даёт отрицательную разницу →
-  clamp 0 до тех пор, пока `t-d-r` не уйдёт за сброс: убитые в этом интервале запуски теряются.
+- **U считается по мгновенным значениям счётчиков и по каждой серии отдельно** (fix rounds 1–2). Три `increase` по окнам
+  разной длины экстраполируются каждый своим множителем и оставляли остаток для здорового запуска; `sum()` мгновенных значений
+  до вычитания ломался на сбросах, пропусках и смене набора серий (реплики над общим Redis: снятая серия вычитала весь свой F).
+  Форма: `(sum(clamp_min((S offset d - S offset (d+r)) - (F' - F' offset (d+r)), 0) unless ignoring (outcome) (resets(S[d+r]) > 0
+  or resets(F[d+r]) > 0)) or vector(0))`, где `F' = sum without (outcome) (F) or (S * 0)` в том же моменте (у вечно падающей задачи
+  finished-серии нет — там, где есть started, finished = 0). `d+r` — литерал (`PromQlRenderer::milliseconds`, `43210m` для 30d+10m).
+- Сопоставление one-to-one по всем меткам, кроме `outcome`: started и finished должны экспортироваться с одним набором меток
+  (так их пишет metrics-bundle). Дубли серий (несколько target над общим Redis) умножают и T, и U — ratio не меняется.
+- **Когда детекция теряется** (никогда не выдумывается): серия, которой нет хотя бы в одном из моментов `t-d-r`, `t-d`, `t`
+  (outage, неудачный scrape со stale-маркером, свежий Prometheus/история короче окна, смена реплик), или со сбросом счётчика в
+  `[t-d-r, t]` (flush Redis), выпадает из U на окно до `d+r`; ratio тогда читает только события. Первый запуск новой серии
+  не считается вовсе (серия появляется уже со значением 1). Сброс точно в момент `t-d-r` (`resets` берёт полуоткрытый диапазон)
+  даёт U ≤ числа реально незавершённых после сброса.
+- Sloth: `d + {{.window}}` не выразим. Левый край окна — `last_over_time((X offset d)[1m:1m] offset {{.window}})` по каждой серии,
+  resets — `resets(X[{{.window}}]) or resets(X[d] offset {{.window}})`. Started и finished сдвинуты на один и тот же шаг сабквери.
+  `PromtoolTest::testSlothQueriesOfTasksAgreeWithTheRecordingRules` подставляет 5m/30m/1h и сверяет с ratio правил.
 - Total задачи — `(total + U) or (U > 0)`: без серий вообще — NoData (`no-data.test.yml`), убитая задача без событий — 100 % bad.
 - Coverage и `SloNoEvents` задачи считают started-серию данными (`sum(total) or sum(started)` в `timestamp`, `+ increase(started)`):
   иначе у вечно падающей задачи нет coverage и ticket не срабатывает (promtool `scheduled-task-multi-point.test.yml`, 3d).

@@ -111,10 +111,11 @@ final readonly class PromQlBuilder
 
     /**
      * Runs started in [t-d-r, t-d] minus runs finished in [t-d-r, t], d the run deadline (ruling R1), from instant
-     * counter values: increase() extrapolates each window by its own factor and would leave a remainder for every
-     * healthy run. Absent while the started series is absent at t (scrape gap, target down). A Sloth `{{.window}}`
-     * cannot be added to d, so the window start is the last 1m subquery step at or before t-r: started and finished
-     * share that edge, so the windows stay aligned.
+     * counter values (increase() extrapolates each window by its own factor). Computed per series and summed after:
+     * a series missing at one of the instants (outage, fresh Prometheus, replica churn) or reset within [t-d-r, t]
+     * drops out, so detection is lost for that window but never invented. A task that never finished has no finished
+     * series: where the started series exists, finished counts as 0. A Sloth `{{.window}}` cannot be added to d, so
+     * the window start is the last 1m subquery step at or before t-r, the same edge for started and finished.
      *
      * @param non-empty-string $range
      *
@@ -128,18 +129,35 @@ final readonly class PromQlBuilder
             return null;
         }
 
-        $offset = PromQlRenderer::milliseconds($deadline->milliseconds);
-        $windowStart = preg_match(self::TEMPLATE, $range) === 1
-            ? static fn (string $series): string => \sprintf('(last_over_time(sum(%s offset %s)[1m:1m] offset %s) or vector(0))', $series, $offset, $range)
-            : static fn (string $series): string => \sprintf('(sum(%s offset %s) or vector(0))', $series, PromQlRenderer::milliseconds(PromQlRenderer::seconds($range) * 1000 + $deadline->milliseconds));
+        ['started' => $started, 'finished' => $finished] = $runs;
+        $d = PromQlRenderer::milliseconds($deadline->milliseconds);
+        $finishedAt = static fn (string $offset): string => \sprintf('(sum without (outcome) (%2$s%3$s) or (%1$s%3$s * 0))', $started, $finished, $offset);
+
+        if (preg_match(self::TEMPLATE, $range) === 1) {
+            $startedAtStart = \sprintf('last_over_time((%s offset %s)[1m:1m] offset %s)', $started, $d, $range);
+            $finishedAtStart = \sprintf('last_over_time(%s[1m:1m] offset %s)', $finishedAt(' offset ' . $d), $range);
+            $reset = \sprintf(
+                'resets(%1$s[%3$s]) > 0 or resets(%1$s[%4$s] offset %3$s) > 0 or resets(%2$s[%3$s]) > 0 or resets(%2$s[%4$s] offset %3$s) > 0',
+                $started,
+                $finished,
+                $range,
+                $d,
+            );
+        } else {
+            $dr = PromQlRenderer::milliseconds(PromQlRenderer::seconds($range) * 1000 + $deadline->milliseconds);
+            $startedAtStart = \sprintf('%s offset %s', $started, $dr);
+            $finishedAtStart = $finishedAt(' offset ' . $dr);
+            $reset = \sprintf('resets(%1$s[%3$s]) > 0 or resets(%2$s[%3$s]) > 0', $started, $finished, $dr);
+        }
 
         return \sprintf(
-            '(clamp_min(((sum(%1$s offset %3$s) or vector(0)) - %4$s) - ((sum(%2$s) or vector(0)) - %5$s), 0) and on() sum(%1$s))',
-            $runs['started'],
-            $runs['finished'],
-            $offset,
-            $windowStart($runs['started']),
-            $windowStart($runs['finished']),
+            '(sum(clamp_min((%s offset %s - %s) - (%s - %s), 0) unless ignoring (outcome) (%s)) or vector(0))',
+            $started,
+            $d,
+            $startedAtStart,
+            $finishedAt(''),
+            $finishedAtStart,
+            $reset,
         );
     }
 

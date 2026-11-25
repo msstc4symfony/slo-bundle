@@ -13,6 +13,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Filesystem\Filesystem;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * Validates the generated rules with the real promtool (ruling 10): never skipped, a missing Docker is a failure.
@@ -63,6 +64,44 @@ final class PromtoolTest extends TestCase
         $this->promtool($this->scratch, ['test', 'rules', 'scheduled-task-multi-point.test.yml']);
     }
 
+    public function testSlothQueriesOfTasksAgreeWithTheRecordingRules(): void
+    {
+        $output = GenerationFixture::slothAction(GenerationFixture::catalog())(new SlothInput(new Selector('shop', ['worker', 'web'])));
+        $rules = [];
+        foreach ($output->files->files as $file) {
+            if (!\in_array($file->relativePath, ['sloth/slo-cleanup.run.yml', 'sloth/slo-partners.sync.yml'], true)) {
+                continue;
+            }
+            $spec = Yaml::parse($file->contents);
+            self::assertIsArray($spec);
+            self::assertIsArray($spec['slos']);
+            foreach ($spec['slos'] as $slo) {
+                self::assertIsArray($slo);
+                self::assertIsArray($slo['labels']);
+                self::assertIsArray($slo['sli']);
+                self::assertIsArray($slo['sli']['events']);
+                self::assertIsString($slo['sli']['events']['error_query']);
+                self::assertIsString($slo['sli']['events']['total_query']);
+                foreach (['5m', '30m', '1h'] as $window) {
+                    $rules[] = [
+                        'record' => 'sloth:ratio:rate' . $window,
+                        'expr' => str_replace('{{.window}}', $window, \sprintf('(%s) / (%s)', $slo['sli']['events']['error_query'], $slo['sli']['events']['total_query'])),
+                        'labels' => ['objective' => $slo['labels']['objective'], 'slo' => $slo['labels']['slo']],
+                    ];
+                }
+            }
+        }
+        self::assertCount(9, $rules);
+        $filesystem = new Filesystem();
+        $filesystem->dumpFile($this->scratch . '/sloth-queries.rules.yml', Yaml::dump(['groups' => [['name' => 'sloth-queries', 'interval' => '1m', 'rules' => $rules]]], 6));
+        $filesystem->copy(self::FIXTURES . '/Promtool/scheduled-task-sloth.test.yml', $this->scratch . '/scheduled-task-sloth.test.yml');
+        chmod($this->scratch, 0o755);
+        chmod($this->scratch . '/sloth-queries.rules.yml', 0o644);
+        chmod($this->scratch . '/scheduled-task-sloth.test.yml', 0o644);
+
+        $this->promtool($this->scratch, ['test', 'rules', 'scheduled-task-sloth.test.yml']);
+    }
+
     public function testGeneratedSlothSpecsPassSlothValidate(): void
     {
         $output = GenerationFixture::slothAction(GenerationFixture::catalog())(new SlothInput(new Selector('shop', ['worker', 'web'])));
@@ -91,6 +130,7 @@ final class PromtoolTest extends TestCase
         yield '2 days of a 30d window: warming up, no ticket' => ['warming-up.test.yml'];
         yield 'Strategy A latency reads the Prometheus 3 le="1.0" bucket' => ['latency-bucket.test.yml'];
         yield 'scheduled task: unfinished runs are bad events, healthy and retried runs are not' => ['scheduled-task.test.yml'];
+        yield 'scheduled task: resets, outages and replica churn never report unfinished runs' => ['scheduled-task-resilience.test.yml'];
     }
 
     /**

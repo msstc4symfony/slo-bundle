@@ -34,8 +34,10 @@
   started in `[t-d-r, t-d]` minus runs finished in `[t-d-r, t]` (`d` the run deadline, `r` the range), clamped at 0,
   are added to the bad and the total events of every objective, so a hung or killed run is bad and a task that always
   dies reads 100 % bad instead of NoData. A run still within its deadline is not counted; a frequent task with a long
-  deadline can hide a hung run behind later runs that finished. The runs are counted from instant counter values, so
-  they are exact; a window older than the Prometheus history counts every unfinished run since the counter was created.
+  deadline can hide a hung run behind later runs that finished. The runs are counted per series from instant counter
+  values, so they are exact and never invented: a series missing at one of the instants (outage, failed scrape, fresh
+  Prometheus, replica churn) or whose counters reset (Redis flush) drops out for up to deadline + range, and the first
+  run of a new series is not counted.
   Sloth specs of task SLOs use `increase` queries. The window coverage and the no-events alert of a task SLO count
   started runs as data, so the ticket alert of a task that always dies can fire.
 

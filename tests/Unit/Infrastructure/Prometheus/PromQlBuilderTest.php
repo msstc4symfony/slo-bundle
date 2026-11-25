@@ -143,15 +143,15 @@ final class PromQlBuilderTest extends TestCase
         );
     }
 
-    public function testUnfinishedRunsOfAScheduledTaskReadInstantCounterValues(): void
+    public function testUnfinishedRunsAreComputedPerSeriesFromInstantCounterValues(): void
     {
         $started = 'symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\\\Task\\\\CleanupTask::__invoke"}';
         $finished = 'symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\\\Task\\\\CleanupTask::__invoke"}';
+        $finishedAt = static fn (string $offset): string => '(sum without (outcome) (' . $finished . $offset . ') or (' . $started . $offset . ' * 0))';
 
         self::assertSame(
-            '(clamp_min(((sum(' . $started . ' offset 2m) or vector(0)) - (sum(' . $started . ' offset 7m) or vector(0)))'
-            . ' - ((sum(' . $finished . ') or vector(0)) - (sum(' . $finished . ' offset 7m) or vector(0))), 0)'
-            . ' and on() sum(' . $started . '))',
+            '(sum(clamp_min((' . $started . ' offset 2m - ' . $started . ' offset 7m) - (' . $finishedAt('') . ' - ' . $finishedAt(' offset 7m') . '), 0)'
+            . ' unless ignoring (outcome) (resets(' . $started . '[7m]) > 0 or resets(' . $finished . '[7m]) > 0)) or vector(0))',
             (new PromQlBuilder())->unfinishedRuns(GenerationFixture::input()->selector, $this->objective('cleanup.run', 'latency'), '5m'),
         );
     }
@@ -160,11 +160,13 @@ final class PromQlBuilderTest extends TestCase
     {
         $started = 'symfony_slo_scheduled_task_started_total{application="shop",task="command:app:sync-partners"}';
         $finished = 'symfony_slo_scheduled_task_finished_total{application="shop",task="command:app:sync-partners"}';
+        $finishedAt = static fn (string $offset): string => '(sum without (outcome) (' . $finished . $offset . ') or (' . $started . $offset . ' * 0))';
 
         self::assertSame(
-            '(clamp_min(((sum(' . $started . ' offset 10m) or vector(0)) - (last_over_time(sum(' . $started . ' offset 10m)[1m:1m] offset {{.window}}) or vector(0)))'
-            . ' - ((sum(' . $finished . ') or vector(0)) - (last_over_time(sum(' . $finished . ' offset 10m)[1m:1m] offset {{.window}}) or vector(0))), 0)'
-            . ' and on() sum(' . $started . '))',
+            '(sum(clamp_min((' . $started . ' offset 10m - last_over_time((' . $started . ' offset 10m)[1m:1m] offset {{.window}}))'
+            . ' - (' . $finishedAt('') . ' - last_over_time(' . $finishedAt(' offset 10m') . '[1m:1m] offset {{.window}})), 0)'
+            . ' unless ignoring (outcome) (resets(' . $started . '[{{.window}}]) > 0 or resets(' . $started . '[10m] offset {{.window}}) > 0'
+            . ' or resets(' . $finished . '[{{.window}}]) > 0 or resets(' . $finished . '[10m] offset {{.window}}) > 0)) or vector(0))',
             (new PromQlBuilder())->unfinishedRuns(new Selector('shop', []), $this->objective('partners.sync', 'availability'), '{{.window}}'),
         );
     }
@@ -197,7 +199,8 @@ final class PromQlBuilderTest extends TestCase
         foreach (['1h' => '70m', '30d' => '43210m'] as $range => $windowStart) {
             $unfinished = $builder->unfinishedRuns(new Selector('shop', []), $objective, $range);
             self::assertNotNull($unfinished);
-            self::assertSame(2, substr_count($unfinished, 'task="command:app:sync-partners"} offset ' . $windowStart . ')'));
+            self::assertSame(3, substr_count($unfinished, '} offset ' . $windowStart));
+            self::assertSame(2, substr_count($unfinished, '}[' . $windowStart . ']'));
         }
     }
 
@@ -231,7 +234,7 @@ final class PromQlBuilderTest extends TestCase
 
         self::assertNotNull($unfinished);
         self::assertStringContainsString(
-            'symfony_slo_scheduled_task_started_total{application="shop",task=~"App\\\\\\\\Task\\\\\\\\A\\\\:\\\\:__invoke|command\\\\:app\\\\:b"} offset 90s)',
+            'symfony_slo_scheduled_task_started_total{application="shop",task=~"App\\\\\\\\Task\\\\\\\\A\\\\:\\\\:__invoke|command\\\\:app\\\\:b"} offset 90s -',
             $unfinished,
         );
     }

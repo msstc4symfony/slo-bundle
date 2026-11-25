@@ -1,0 +1,234 @@
+# The Sloth queries of the task SLOs ({{.window}} replaced by 5m, 30m and 1h, error / total) give the same ratios as
+# the recording rules on the cases of scheduled-task.test.yml and scheduled-task-resilience.test.yml.
+rule_files:
+  - sloth-queries.rules.yml
+
+evaluation_interval: 1m
+
+tests:
+  - name: healthy runs, deadline shorter than the range
+    interval: 1m
+    input_series:
+      - series: 'symfony_slo_scheduled_task_started_total{application="shop",component="worker",task="App\\Task\\CleanupTask::__invoke"}'
+        values: '103 103 103 103 103 103 103 103 103 103 104 104 104 104 104 104 104 104 104 104 105 105 105 105 105 105 105 105 105 105 106 106 106 106 106 106 106 106 106 106 107 107 107 107 107 107 107 107 107 107 108 108 108 108 108 108 108 108 108 108 109 109 109 109 109 109 109 109 109 109'
+      - series: 'symfony_slo_scheduled_task_finished_total{application="shop",component="worker",task="App\\Task\\CleanupTask::__invoke",outcome="success"}'
+        values: '100 100 100 100 100 100 100 100 100 100 100 101 101 101 101 101 101 101 101 101 101 102 102 102 102 102 102 102 102 102 102 103 103 103 103 103 103 103 103 103 103 104 104 104 104 104 104 104 104 104 104 105 105 105 105 105 105 105 105 105 105 106 106 106 106 106 106 106 106 106'
+      - series: 'symfony_slo_events_total{application="shop",component="worker",slo="cleanup.run",objective="availability",revision="e16395ab",result="good"}'
+        values: '100 100 100 100 100 100 100 100 100 100 100 101 101 101 101 101 101 101 101 101 101 102 102 102 102 102 102 102 102 102 102 103 103 103 103 103 103 103 103 103 103 104 104 104 104 104 104 104 104 104 104 105 105 105 105 105 105 105 105 105 105 106 106 106 106 106 106 106 106 106'
+      - series: 'symfony_slo_events_total{application="shop",component="worker",slo="cleanup.run",objective="latency",revision="2a2eb2b1",result="good"}'
+        values: '100 100 100 100 100 100 100 100 100 100 100 101 101 101 101 101 101 101 101 101 101 102 102 102 102 102 102 102 102 102 102 103 103 103 103 103 103 103 103 103 103 104 104 104 104 104 104 104 104 104 104 105 105 105 105 105 105 105 105 105 105 106 106 106 106 106 106 106 106 106'
+    promql_expr_test:
+      - expr: sloth:ratio:rate5m{slo="cleanup.run",objective="availability"}
+        eval_time: 62m
+        exp_samples:
+          - labels: 'sloth:ratio:rate5m{objective="availability",slo="cleanup.run"}'
+            value: 0
+      - expr: sloth:ratio:rate5m{slo="cleanup.run",objective="latency"}
+        eval_time: 62m
+        exp_samples:
+          - labels: 'sloth:ratio:rate5m{objective="latency",slo="cleanup.run"}'
+            value: 0
+      - expr: sloth:ratio:rate30m{slo="cleanup.run",objective="availability"}
+        eval_time: 62m
+        exp_samples:
+          - labels: 'sloth:ratio:rate30m{objective="availability",slo="cleanup.run"}'
+            value: 0
+      - expr: sloth:ratio:rate30m{slo="cleanup.run",objective="latency"}
+        eval_time: 62m
+        exp_samples:
+          - labels: 'sloth:ratio:rate30m{objective="latency",slo="cleanup.run"}'
+            value: 0
+      - expr: sloth:ratio:rate1h{slo="cleanup.run",objective="availability"}
+        eval_time: 62m
+        exp_samples:
+          - labels: 'sloth:ratio:rate1h{objective="availability",slo="cleanup.run"}'
+            value: 0
+      - expr: sloth:ratio:rate1h{slo="cleanup.run",objective="latency"}
+        eval_time: 62m
+        exp_samples:
+          - labels: 'sloth:ratio:rate1h{objective="latency",slo="cleanup.run"}'
+            value: 0
+  - name: healthy runs, deadline longer than the range
+    interval: 1m
+    input_series:
+      - series: 'symfony_slo_scheduled_task_started_total{application="shop",component="worker",task="command:app:sync-partners"}'
+        values: '103 103 103 103 103 103 103 103 103 103 104 104 104 104 104 104 104 104 104 104 105 105 105 105 105 105 105 105 105 105 106 106 106 106 106 106 106 106 106 106 107 107 107 107 107 107 107 107 107 107 108 108 108 108 108 108 108 108 108 108 109 109 109 109 109 109 109 109 109 109'
+      - series: 'symfony_slo_scheduled_task_finished_total{application="shop",component="worker",task="command:app:sync-partners",outcome="success"}'
+        values: '100 100 100 100 100 100 100 100 100 100 100 100 100 100 100 101 101 101 101 101 101 101 101 101 101 102 102 102 102 102 102 102 102 102 102 103 103 103 103 103 103 103 103 103 103 104 104 104 104 104 104 104 104 104 104 105 105 105 105 105 105 105 105 105 105 106 106 106 106 106'
+      - series: 'symfony_slo_events_total{application="shop",component="worker",slo="partners.sync",objective="availability",revision="e16395ab",result="good"}'
+        values: '100 100 100 100 100 100 100 100 100 100 100 100 100 100 100 101 101 101 101 101 101 101 101 101 101 102 102 102 102 102 102 102 102 102 102 103 103 103 103 103 103 103 103 103 103 104 104 104 104 104 104 104 104 104 104 105 105 105 105 105 105 105 105 105 105 106 106 106 106 106'
+    promql_expr_test:
+      - expr: sloth:ratio:rate5m{slo="partners.sync",objective="availability"}
+        eval_time: 57m
+        exp_samples:
+          - labels: 'sloth:ratio:rate5m{objective="availability",slo="partners.sync"}'
+            value: 0
+      - expr: sloth:ratio:rate30m{slo="partners.sync",objective="availability"}
+        eval_time: 57m
+        exp_samples:
+          - labels: 'sloth:ratio:rate30m{objective="availability",slo="partners.sync"}'
+            value: 0
+      - expr: sloth:ratio:rate1h{slo="partners.sync",objective="availability"}
+        eval_time: 57m
+        exp_samples:
+          - labels: 'sloth:ratio:rate1h{objective="availability",slo="partners.sync"}'
+            value: 0
+  - name: killed run is bad without any finished event
+    interval: 1m
+    input_series:
+      - series: 'symfony_slo_scheduled_task_started_total{application="shop",component="worker",task="App\\Task\\CleanupTask::__invoke"}'
+        values: '100x9 101x60'
+      - series: 'symfony_slo_scheduled_task_finished_total{application="shop",component="worker",task="App\\Task\\CleanupTask::__invoke",outcome="success"}'
+        values: '100x70'
+      - series: 'symfony_slo_events_total{application="shop",component="worker",slo="cleanup.run",objective="availability",revision="e16395ab",result="good"}'
+        values: '100x70'
+      - series: 'symfony_slo_events_total{application="shop",component="worker",slo="cleanup.run",objective="latency",revision="2a2eb2b1",result="good"}'
+        values: '100x70'
+    promql_expr_test:
+      - expr: sloth:ratio:rate5m{slo="cleanup.run",objective="availability"}
+        eval_time: 13m
+        exp_samples:
+          - labels: 'sloth:ratio:rate5m{objective="availability",slo="cleanup.run"}'
+            value: 1
+      - expr: sloth:ratio:rate5m{slo="cleanup.run",objective="latency"}
+        eval_time: 13m
+        exp_samples:
+          - labels: 'sloth:ratio:rate5m{objective="latency",slo="cleanup.run"}'
+            value: 1
+  - name: counter reset
+    interval: 1m
+    input_series:
+      - series: 'symfony_slo_scheduled_task_started_total{application="shop",component="worker",task="App\\Task\\CleanupTask::__invoke"}'
+        values: '103 103 103 103 103 103 103 103 103 103 104 104 104 104 104 104 104 104 104 104 105 105 105 105 105 105 105 105 105 105 106 106 106 106 106 106 106 106 106 106 107 107 107 107 107 107 107 107 107 107 108 108 108 108 108 108 108 108 108 108 109 109 109 109 109 109 109 109 109 109 110 110 110 110 110 110 110 110 110 110 111 111 111 111 111 111 111 111 111 111 112 112 112 112 112 112 112 112 112 112 113 113 113 113 113 113 113 113 113 113 114 114 114 114 114 114 114 114 114 114 115 115 115 115 115 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3 3 3 3 3 3 3 3 3 4 4 4 4 4 4 4 4 4 4 5 5 5 5 5 5 5 5 5 5 6 6 6 6 6 6 6 6 6 6 7 7 7 7 7 7 7 7 7 7'
+      - series: 'symfony_slo_scheduled_task_finished_total{application="shop",component="worker",task="App\\Task\\CleanupTask::__invoke",outcome="success"}'
+        values: '100 100 100 100 100 100 100 100 100 100 100 101 101 101 101 101 101 101 101 101 101 102 102 102 102 102 102 102 102 102 102 103 103 103 103 103 103 103 103 103 103 104 104 104 104 104 104 104 104 104 104 105 105 105 105 105 105 105 105 105 105 106 106 106 106 106 106 106 106 106 106 107 107 107 107 107 107 107 107 107 107 108 108 108 108 108 108 108 108 108 108 109 109 109 109 109 109 109 109 109 109 110 110 110 110 110 110 110 110 110 110 111 111 111 111 111 111 111 111 111 111 112 112 112 112 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3 3 3 3 3 3 3 3 3 4 4 4 4 4 4 4 4 4 4 5 5 5 5 5 5 5 5 5 5 6 6 6 6 6 6 6 6 6 6 7 7 7 7 7 7 7 7 7'
+      - series: 'symfony_slo_events_total{application="shop",component="worker",slo="cleanup.run",objective="availability",revision="e16395ab",result="good"}'
+        values: '100 100 100 100 100 100 100 100 100 100 100 101 101 101 101 101 101 101 101 101 101 102 102 102 102 102 102 102 102 102 102 103 103 103 103 103 103 103 103 103 103 104 104 104 104 104 104 104 104 104 104 105 105 105 105 105 105 105 105 105 105 106 106 106 106 106 106 106 106 106 106 107 107 107 107 107 107 107 107 107 107 108 108 108 108 108 108 108 108 108 108 109 109 109 109 109 109 109 109 109 109 110 110 110 110 110 110 110 110 110 110 111 111 111 111 111 111 111 111 111 111 112 112 112 112 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3 3 3 3 3 3 3 3 3 4 4 4 4 4 4 4 4 4 4 5 5 5 5 5 5 5 5 5 5 6 6 6 6 6 6 6 6 6 6 7 7 7 7 7 7 7 7 7'
+    promql_expr_test:
+      - expr: sloth:ratio:rate5m{slo="cleanup.run"} > 0
+        eval_time: 125m
+        exp_samples: []
+      - expr: sloth:ratio:rate30m{slo="cleanup.run"} > 0
+        eval_time: 125m
+        exp_samples: []
+      - expr: sloth:ratio:rate1h{slo="cleanup.run"} > 0
+        eval_time: 125m
+        exp_samples: []
+      - expr: sloth:ratio:rate5m{slo="cleanup.run"} > 0
+        eval_time: 126m
+        exp_samples: []
+      - expr: sloth:ratio:rate30m{slo="cleanup.run"} > 0
+        eval_time: 126m
+        exp_samples: []
+      - expr: sloth:ratio:rate1h{slo="cleanup.run"} > 0
+        eval_time: 126m
+        exp_samples: []
+      - expr: sloth:ratio:rate5m{slo="cleanup.run"} > 0
+        eval_time: 127m
+        exp_samples: []
+      - expr: sloth:ratio:rate30m{slo="cleanup.run"} > 0
+        eval_time: 127m
+        exp_samples: []
+      - expr: sloth:ratio:rate1h{slo="cleanup.run"} > 0
+        eval_time: 127m
+        exp_samples: []
+      - expr: sloth:ratio:rate5m{slo="cleanup.run"} > 0
+        eval_time: 128m
+        exp_samples: []
+      - expr: sloth:ratio:rate30m{slo="cleanup.run"} > 0
+        eval_time: 128m
+        exp_samples: []
+      - expr: sloth:ratio:rate1h{slo="cleanup.run"} > 0
+        eval_time: 128m
+        exp_samples: []
+      - expr: sloth:ratio:rate5m{slo="cleanup.run"} > 0
+        eval_time: 130m
+        exp_samples: []
+      - expr: sloth:ratio:rate30m{slo="cleanup.run"} > 0
+        eval_time: 130m
+        exp_samples: []
+      - expr: sloth:ratio:rate1h{slo="cleanup.run"} > 0
+        eval_time: 130m
+        exp_samples: []
+      - expr: sloth:ratio:rate5m{slo="cleanup.run"} > 0
+        eval_time: 132m
+        exp_samples: []
+      - expr: sloth:ratio:rate30m{slo="cleanup.run"} > 0
+        eval_time: 132m
+        exp_samples: []
+      - expr: sloth:ratio:rate1h{slo="cleanup.run"} > 0
+        eval_time: 132m
+        exp_samples: []
+      - expr: sloth:ratio:rate5m{slo="cleanup.run"} > 0
+        eval_time: 135m
+        exp_samples: []
+      - expr: sloth:ratio:rate30m{slo="cleanup.run"} > 0
+        eval_time: 135m
+        exp_samples: []
+      - expr: sloth:ratio:rate1h{slo="cleanup.run"} > 0
+        eval_time: 135m
+        exp_samples: []
+  - name: outage of 70m
+    interval: 1m
+    input_series:
+      - series: 'symfony_slo_scheduled_task_started_total{application="shop",component="worker",task="App\\Task\\CleanupTask::__invoke"}'
+        values: '103 103 103 103 103 103 103 103 103 103 104 104 104 104 104 104 104 104 104 104 105 105 105 105 105 105 105 105 105 105 106 106 106 106 106 106 106 106 106 106 107 107 107 107 107 107 107 107 107 107 108 108 108 108 108 108 108 108 108 108 109 109 109 109 109 109 109 109 109 109 110 110 110 110 110 110 110 110 110 110 111 111 111 111 111 111 111 111 111 111 112 112 112 112 112 112 112 112 112 112 113 113 113 113 113 113 113 113 113 113 114 114 114 114 114 114 114 114 114 114 stale _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 122 122 122 122 122 122 122 122 122 122 123 123 123 123 123 123 123 123 123 123 124 124 124 124 124 124 124 124 124 124 125 125 125 125 125 125 125 125 125 125 126 126 126 126 126 126 126 126 126 126 127 127 127 127 127 127 127 127 127 127 128 128 128 128 128 128 128 128 128 128'
+      - series: 'symfony_slo_scheduled_task_finished_total{application="shop",component="worker",task="App\\Task\\CleanupTask::__invoke",outcome="success"}'
+        values: '100 100 100 100 100 100 100 100 100 100 100 101 101 101 101 101 101 101 101 101 101 102 102 102 102 102 102 102 102 102 102 103 103 103 103 103 103 103 103 103 103 104 104 104 104 104 104 104 104 104 104 105 105 105 105 105 105 105 105 105 105 106 106 106 106 106 106 106 106 106 106 107 107 107 107 107 107 107 107 107 107 108 108 108 108 108 108 108 108 108 108 109 109 109 109 109 109 109 109 109 109 110 110 110 110 110 110 110 110 110 110 111 111 111 111 111 111 111 111 111 stale _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 118 119 119 119 119 119 119 119 119 119 119 120 120 120 120 120 120 120 120 120 120 121 121 121 121 121 121 121 121 121 121 122 122 122 122 122 122 122 122 122 122 123 123 123 123 123 123 123 123 123 123 124 124 124 124 124 124 124 124 124 124 125 125 125 125 125 125 125 125 125'
+      - series: 'symfony_slo_events_total{application="shop",component="worker",slo="cleanup.run",objective="availability",revision="e16395ab",result="good"}'
+        values: '100 100 100 100 100 100 100 100 100 100 100 101 101 101 101 101 101 101 101 101 101 102 102 102 102 102 102 102 102 102 102 103 103 103 103 103 103 103 103 103 103 104 104 104 104 104 104 104 104 104 104 105 105 105 105 105 105 105 105 105 105 106 106 106 106 106 106 106 106 106 106 107 107 107 107 107 107 107 107 107 107 108 108 108 108 108 108 108 108 108 108 109 109 109 109 109 109 109 109 109 109 110 110 110 110 110 110 110 110 110 110 111 111 111 111 111 111 111 111 111 stale _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 118 119 119 119 119 119 119 119 119 119 119 120 120 120 120 120 120 120 120 120 120 121 121 121 121 121 121 121 121 121 121 122 122 122 122 122 122 122 122 122 122 123 123 123 123 123 123 123 123 123 123 124 124 124 124 124 124 124 124 124 124 125 125 125 125 125 125 125 125 125'
+    promql_expr_test:
+      - expr: sloth:ratio:rate5m{slo="cleanup.run"} > 0
+        eval_time: 191m
+        exp_samples: []
+      - expr: sloth:ratio:rate30m{slo="cleanup.run"} > 0
+        eval_time: 191m
+        exp_samples: []
+      - expr: sloth:ratio:rate1h{slo="cleanup.run"} > 0
+        eval_time: 191m
+        exp_samples: []
+      - expr: sloth:ratio:rate5m{slo="cleanup.run"} > 0
+        eval_time: 193m
+        exp_samples: []
+      - expr: sloth:ratio:rate30m{slo="cleanup.run"} > 0
+        eval_time: 193m
+        exp_samples: []
+      - expr: sloth:ratio:rate1h{slo="cleanup.run"} > 0
+        eval_time: 193m
+        exp_samples: []
+      - expr: sloth:ratio:rate5m{slo="cleanup.run"} > 0
+        eval_time: 195m
+        exp_samples: []
+      - expr: sloth:ratio:rate30m{slo="cleanup.run"} > 0
+        eval_time: 195m
+        exp_samples: []
+      - expr: sloth:ratio:rate1h{slo="cleanup.run"} > 0
+        eval_time: 195m
+        exp_samples: []
+      - expr: sloth:ratio:rate5m{slo="cleanup.run"} > 0
+        eval_time: 198m
+        exp_samples: []
+      - expr: sloth:ratio:rate30m{slo="cleanup.run"} > 0
+        eval_time: 198m
+        exp_samples: []
+      - expr: sloth:ratio:rate1h{slo="cleanup.run"} > 0
+        eval_time: 198m
+        exp_samples: []
+      - expr: sloth:ratio:rate5m{slo="cleanup.run"} > 0
+        eval_time: 200m
+        exp_samples: []
+      - expr: sloth:ratio:rate30m{slo="cleanup.run"} > 0
+        eval_time: 200m
+        exp_samples: []
+      - expr: sloth:ratio:rate1h{slo="cleanup.run"} > 0
+        eval_time: 200m
+        exp_samples: []
+      - expr: sloth:ratio:rate5m{slo="cleanup.run"} > 0
+        eval_time: 250m
+        exp_samples: []
+      - expr: sloth:ratio:rate30m{slo="cleanup.run"} > 0
+        eval_time: 250m
+        exp_samples: []
+      - expr: sloth:ratio:rate1h{slo="cleanup.run"} > 0
+        eval_time: 250m
+        exp_samples: []
