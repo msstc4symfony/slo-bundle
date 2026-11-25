@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-25
+
 ### Added
 
 - `PointType::ScheduledTask` (`scheduled_task`), a new enum case: an exhaustive `match` over `PointType` in user code
@@ -257,7 +259,9 @@
 - README: cleaning the series of retired revisions from the Redis storage; Messenger latency uses dedicated counters
   when the message short name is shared.
 
-[Unreleased]: https://github.com/msstc4symfony/slo-bundle/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/msstc4symfony/slo-bundle/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/msstc4symfony/slo-bundle/compare/v1.1.0...v1.2.0
+[1.1.0]: https://github.com/msstc4symfony/slo-bundle/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/msstc4symfony/slo-bundle/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/msstc4symfony/slo-bundle/compare/v1.0.0-rc.4...v1.0.0
 [1.0.0-rc.4]: https://github.com/msstc4symfony/slo-bundle/compare/v1.0.0-rc.3...v1.0.0-rc.4
