@@ -218,7 +218,7 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
   `GrafanaFileBuilderInterface` (адаптер `Infrastructure/Grafana/GrafanaFileBuilder`, создаётся фабрикой
   `GrafanaFileBuilder::standard($datasourceUid, $folder)` из `generation.grafana.*`: опции Grafana — настройки адаптера, не Application;
   `Input` = только `Selector`, `ignoredRoutes` coverage-таблицы приходит в `GenerateDashboards\Action` из `coverage.http_routes.ignored_routes`).
-- Файлы: `grafana/dashboards/slo-<slug>.json`, slug = `application-overview|http-routes|messenger|business-operations|slo-overview|
+- Файлы: `grafana/dashboards/slo-<slug>.json`, slug = `application-overview|http-routes|messenger|business-operations|scheduled-tasks|slo-overview|
   monitoring-coverage` (т. е. `slo-slo-overview.json` — буквально по брифу), `grafana/provisioning/dashboards/slo.yaml`
   (провайдер `slo`, `folder` из `generation.grafana.folder`, `options.path` = `GrafanaFileBuilder::DASHBOARDS_PATH` `/var/lib/grafana/dashboards`
   — путь внутри контейнера Grafana, не `output_dir`).

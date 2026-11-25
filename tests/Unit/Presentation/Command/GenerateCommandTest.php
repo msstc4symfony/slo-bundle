@@ -74,11 +74,11 @@ final class GenerateCommandTest extends TestCase
         self::assertContains('/project/observability/grafana/dashboards/slo-slo-overview.json', $paths);
         self::assertContains('/project/observability/grafana/provisioning/dashboards/slo.yaml', $paths);
         self::assertNotContains('/project/observability/prometheus/slo-old.rules.yml', $paths);
-        self::assertCount(10, $paths);
+        self::assertCount(11, $paths);
         self::assertStringContainsString('written prometheus/slo-alerts.rules.yml', $tester->getDisplay());
         self::assertStringContainsString('written grafana/dashboards/slo-http-routes.json', $tester->getDisplay());
         self::assertStringContainsString('deleted prometheus/slo-old.rules.yml', $tester->getDisplay());
-        self::assertStringContainsString('9 file(s) written, 1 deleted in /project/observability', $tester->getDisplay());
+        self::assertStringContainsString('10 file(s) written, 1 deleted in /project/observability', $tester->getDisplay());
 
         $check = new CommandTester($command);
         self::assertSame(Command::SUCCESS, $check->execute(['--check' => true]));

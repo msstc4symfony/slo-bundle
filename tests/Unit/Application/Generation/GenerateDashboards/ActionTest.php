@@ -15,7 +15,7 @@ final class ActionTest extends TestCase
 {
     private const GOLDEN = __DIR__ . '/../../../../Fixtures/Generated/';
 
-    private const SLUGS = ['application-overview', 'http-routes', 'messenger', 'business-operations', 'slo-overview', 'monitoring-coverage'];
+    private const SLUGS = ['application-overview', 'http-routes', 'messenger', 'business-operations', 'scheduled-tasks', 'slo-overview', 'monitoring-coverage'];
 
     public function testFixtureCatalogMatchesTheGoldenFiles(): void
     {
@@ -177,6 +177,20 @@ final class ActionTest extends TestCase
         $titles = $without->column('panels', 'title');
         self::assertContains('report.export / availability', $titles);
         self::assertNotContains('checkout.pay / availability', $titles);
+    }
+
+    public function testScheduledTasksShowsRunMetricsAndTheSloRowsOfTaskObjectivesOnly(): void
+    {
+        $dashboard = $this->dashboards()['grafana/dashboards/slo-scheduled-tasks.json'];
+
+        self::assertSame('SLO: Scheduled Tasks (shop: web, worker)', $dashboard->get('title'));
+        $titles = $dashboard->column('panels', 'title');
+        self::assertSame(['Runs started by task', 'Runs finished by task and outcome', 'p95 run duration by task', 'Runs started minus finished'], \array_slice($titles, 0, 4));
+        self::assertContains('cleanup.run / availability', $titles);
+        self::assertContains('cleanup.run / latency', $titles);
+        self::assertContains('partners.sync / availability', $titles);
+        self::assertNotContains('checkout.pay / availability', $titles);
+        self::assertCount(4 + 3 * 7, $titles, 'four run panels and seven panels for each of the three task objectives');
     }
 
     public function testMonitoringCoverageEmbedsTheCatalogStateAsAMarkdownTable(): void

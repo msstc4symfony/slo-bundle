@@ -48,6 +48,7 @@ final readonly class GrafanaFileBuilder implements GrafanaFileBuilderInterface
                 new HttpRoutes($panels, $rows),
                 new Messenger($panels, $rows),
                 new BusinessOperations($panels, $rows),
+                new ScheduledTasks($panels, $rows),
                 new SloOverview($panels, $rows),
                 new MonitoringCoverage($panels),
             ],

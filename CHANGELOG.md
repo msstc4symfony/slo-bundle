@@ -43,6 +43,9 @@
   plus the window.
   Sloth specs of task SLOs use `increase` queries. The window coverage and the no-events alert of a task SLO count
   started runs as data, so the ticket alert of a task that always dies can fire.
+- Generated Grafana dashboard `slo-scheduled-tasks.json` (Scheduled Tasks): runs started, runs finished by outcome, p95 run
+  duration and started minus finished per task, then the SLO rows of scheduled-task objectives; `slo:generate --check`
+  reports it as missing until regenerated.
 
 ### Changed
 

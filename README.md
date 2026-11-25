@@ -307,7 +307,7 @@ reads the runtime environment (only the explicit `generation.selector`). It mana
     prometheus/slo-recording.rules.yml
     prometheus/slo-alerts.rules.yml
     grafana/dashboards/slo-*.json                  # application overview, HTTP routes, Messenger, business
-                                                   # operations, SLO overview, monitoring coverage
+                                                   # operations, scheduled tasks, SLO overview, monitoring coverage
     grafana/provisioning/dashboards/slo.yaml       # file provider; options.path is /var/lib/grafana/dashboards
     sloth/slo-<name>.yml                           # only with generation.sloth: true
     alertmanager/slo-alertmanager.yml              # only with generation.alertmanager.enabled: true
