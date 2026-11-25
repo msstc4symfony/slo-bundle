@@ -165,6 +165,18 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
 - `RecordEvent\Action`: ошибка резолвера/ревизии мемоизируется по (slo, kind) как «пропуск» и логируется один раз
   (контекст `slo`, `objective`, `point`, `exception`); поиск конфликтов в отдельном guard; все вызовы логгера защищены.
 
+## Задачи Scheduler (1.2)
+
+- Слои: `Application/Discovery/ScheduledTaskPoint` (билдер `PointId`, общий для DI и рантайма), `DependencyInjection/CompilerPass/Discovery/{ScheduledTaskReader,CommandName}`
+  (теги `scheduler.task` и `console.command` → `CatalogExtras::$scheduledTasks`), порт `Application/Port/ScheduledTaskRunWriterInterface` (+ `ScheduledTaskRunOutcome`) с
+  адаптером `Infrastructure/MetricsBundle/MetricsScheduledTaskRunWriter`, воркер-слушатель `Infrastructure/Scheduler/ScheduledTaskRunListener`
+  (+ `ScheduledTaskMessage::pointOf()`), метрики — три case `SloMetric::SCHEDULED_TASK_*`. Правил deptrac не добавлялось.
+- Слушатель: `#[AsEventListener]`, received -1000 (после чужих `shouldHandle()`), handled 0, failed 0 (после retry-слушателя на 100);
+  `ResetInterface` (`kernel.reset`). Регистрируется в `services.php` только при существовании классов scheduler
+  (`ServiceCallMessage`) и messenger (`WorkerMessageReceivedEvent`) — без `symfony/scheduler` сервиса нет.
+- Стратегия задач всегда B (`Auto` → dedicated), стратегия A для `PointType::ScheduledTask` не существует (`MetricBindingResolver`).
+- Правила Prometheus, Sloth и дашборд `slo-scheduled-tasks.json` — в разделах генерации ниже.
+
 ## Покрытие (`slo:coverage`, Task 11)
 
 - `Application/Coverage/Analyze/{Action,Input,Output,PointCoverage,CoverageKind,KindCoverage,CoverageVerdict,CoverageStatus}` (`CoverageStatus` и `Binding/Strategy` перенесены из Domain, `@internal`, R2-022)

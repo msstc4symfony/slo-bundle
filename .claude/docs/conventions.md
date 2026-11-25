@@ -24,3 +24,6 @@
   узко типизированное свойство после проверки: с узким `@param` Rector (dead code) удаляет проверку как «всегда ложную»
   (`GenerationConfig::$components`).
 - Коммиты — одна строка на английском, ≤ 20 слов; теги `vX.Y.Z`.
+- Точка задачи Scheduler строится только через `Application\Discovery\ScheduledTaskPoint::forService()/forCommand()` — один билдер для
+  DI-прохода и рантайм-слушателя, чтобы id в каталоге и в `ScheduledTaskMessage::pointOf()` не разошлись.
+- Фикстуры Scheduler (`tests/Fixtures/Scheduler`) — общие для discovery-тестов, kernel-теста и `HardeningKernel`.

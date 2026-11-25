@@ -122,3 +122,9 @@
   Запуски на failure-транспорте пишут метрики запуска, событие SLO — с флагом `onFailureTransport` (не eligible).
 - Fail-open: каждый обработчик и запись метрик/события в своём `try`, предупреждение `Scheduled task run was not recorded.`
   (`task` = id точки) или `Scheduled task exception could not be classified, it counts as an error.` в канал `slo_bundle`.
+- `RunCommandMessageHandler` оборачивает в `RunCommandFailedException` любое исключение команды (и не только ненулевой код выхода) —
+  в 7.4 и 8.0; поэтому сбой командной задачи всегда `error`, а для сервисной задачи классифицируется `HandlerFailedException::getPrevious()`
+  через `ExpectedFailureClassifierInterface`.
+- Что читается: `scheduler.task` — атрибуты `#[AsCronTask]`/`#[AsPeriodicTask]` (набор полей одинаков в 7.4 и 8.x); `console.command` —
+  только чтобы узнать имя команды (правила 7.4 и 8.1 различаются, см. выше). Расписания, собранные вручную (`RecurringMessage` в провайдере),
+  не обнаруживаются; сообщение, отправленное приложением само, учитывается под точкой задачи.

@@ -74,8 +74,9 @@ msstc4symfony_slo:
 ## Declaring SLOs
 
 `#[Slo]` goes on a controller method, an invokable controller class or its `__invoke`, a Messenger handler class or
-method, or a class of any service tagged as a [measurement point](#bridges-and-measurement-points). The attribute is
-repeatable: different names are independent SLOs on the same point.
+method, a Symfony Scheduler task (the class or method carrying `#[AsCronTask]` / `#[AsPeriodicTask]`, or a scheduled
+console command class), or a class of any service tagged as a [measurement point](#bridges-and-measurement-points).
+The attribute is repeatable: different names are independent SLOs on the same point.
 
 ```php
 use Msstc4Symfony\SloBundle\Application\Attribute\Availability;
@@ -106,7 +107,8 @@ public function debug(): Response { /* ... */ }
 | `name` | unique per application, `^[a-z][a-z0-9_.-]{0,62}$`; becomes the `slo` label |
 | `window` | `<N>h`, `<N>d`, `<N>w`, `<N>mo` (month = 30 days; `m` is minutes and rejected), 1h - 90d, default `defaults.window` |
 | `badStatuses`, `ineligibleStatuses` | HTTP only: codes, ranges (`500-503`) or classes (`5xx`) |
-| `expectedFailureIsGood` | logic actions and operations only |
+| `expectedFailureIsGood` | logic actions, operations and scheduled tasks only |
+| `deadline` | scheduled tasks only: how long a run may take before it counts as unfinished, `<int>ms`, `<decimal>s`, `<int>m` or `<int>h` (1ms to 999999999ms); required when the SLO has neither a latency nor a combined objective, otherwise the threshold is the deadline |
 | `countAttempts` | Messenger only |
 | `strategy` | `StrategyPreference::Auto` (default) or `StrategyPreference::Dedicated` (`Domain\Enum\StrategyPreference`) to force dedicated counters |
 | `IgnoreMonitoring(reason)` | excludes the point from the coverage gate; the reason is mandatory |
@@ -139,15 +141,25 @@ Events come from the metrics-bundle measurement observers, with the duration met
   unrouted message still looks synchronous), and a producer that targets a transport only through `#[AsMessage]` on
   messages it does not handle or a `TransportNamesStamp` (the transport looks receive-only, so the app's unrouted
   handlers look worker-consumed). For both, bind the handler with `#[AsMessageHandler(fromTransport: '<transport>')]`
-  or add an explicit `routing` entry. Messages dispatched by Symfony Scheduler are not detected either: schedules are
-  built at runtime (`RecurringMessage` in a schedule provider), so a scheduled message is not recognised as
-  worker-consumed through its `scheduler_<name>` transport, which a separate `messenger:consume scheduler_<name>`
-  worker reads; its classification falls back to the routing and receive-only rules above. Bind its handler with
-  `#[AsMessageHandler(fromTransport: 'scheduler_<name>')]`. `#[Slo]` on a handler is an SLO on the envelope of its
+  or add an explicit `routing` entry. Hand-built schedules (`RecurringMessage` in a schedule provider) are not detected either: the schedule is built
+  at runtime, so such a message is not recognised as worker-consumed through its `scheduler_<name>` transport, which a
+  separate `messenger:consume scheduler_<name>` worker reads; its classification falls back to the routing and
+  receive-only rules above. Bind its handler with `#[AsMessageHandler(fromTransport: 'scheduler_<name>')]`. Tasks
+  declared with `#[AsCronTask]` / `#[AsPeriodicTask]` are supported directly, see the next bullet. `#[Slo]` on a handler is an SLO on the envelope of its
   message; a message with several handlers gets a validation warning. The handler must take a concrete message class:
   events are matched by the dispatched message's class, so `#[Slo]` on a handler of an interface or abstract class is a
   compilation error.
 - Operations: one event per finished handle, see [Operations API](#operations-api).
+- Scheduled tasks: Scheduler tasks declared with `#[AsCronTask]` / `#[AsPeriodicTask]` (the `scheduler.task` tag), as the
+  point `<service id>::<method>` (method from the attribute, default `__invoke`) or `command:<command name>` for console
+  commands. One event per final run on a worker (`symfony/scheduler` and `symfony/messenger` installed): a retried
+  attempt is not an event, anything consumed from a failure transport is not eligible, and the consuming transport is
+  not filtered. A `ServiceCallMessage` / `RunCommandMessage` the application dispatches itself counts under the same
+  point. A failing command task is always an error (`RunCommandMessageHandler` wraps whatever the command threw); for a
+  service task the handler's exception is classified like an operation's. The duration comes from the bundle's own
+  `hrtime` timer around the run, so it can differ from the Messenger histogram by the listener overhead. Runs that never
+  finish are counted through the run metrics, see [Generation](#generation-and-gitops-provisioning). Aliases and
+  abbreviations of a command name are not matched: use the name the task is dispatched with.
 - Logic actions: through the [`slo-bridge-logic`](https://github.com/msstc4symfony/slo-bridge-logic) package, see [Bridges](#bridges-and-measurement-points).
 
 ## Classification of events
@@ -160,6 +172,7 @@ Defaults, all overridable per SLO. An *eligible* event enters the denominator; *
 | Messenger message | final outcome of the envelope on its source transport: `handled` or `failed` without retry; `retried` and every event on a failure transport are not eligible | `failed` | only `handled` |
 | Logic action | action call | `error`; `expected_failure` is good | `success` and `expected_failure` |
 | Operation | finished handle | `error` | everything except `error` |
+| Scheduled task | final run outcome on a worker; retried and failure-transport runs are not eligible | `error`, `expected_failure` when `expectedFailureIsGood` is false, unfinished runs | `success` and `expected_failure`, plus unfinished runs |
 
 - HTTP and Messenger: latency is eligible only for availability-good events, unless `Latency(includeErrors: true)`
   (then every availability-eligible event; `includeErrors` applies to HTTP routes only, elsewhere it is a compilation
@@ -168,6 +181,8 @@ Defaults, all overridable per SLO. An *eligible* event enters the denominator; *
   `Combined` is bad when the event is bad or slow.
 - `countAttempts: true` (Messenger): every attempt is an event - handled is good, failed and retried are bad;
   failure-transport events stay ineligible.
+- Unfinished runs (a scheduled task started and not finished within its deadline) are bad events of every objective of
+  the task SLO, also of latency and `Combined`: they enter both the bad and the total events.
 - Failure transports are detected at compile time from the framework's failure-transport listener and can be set with
   `defaults.messenger.failure_transports`.
 - Status sets are canonical: `['5xx', '500-599']` is the same set as `['5xx']`.
@@ -187,6 +202,7 @@ written) or counts good and bad events itself (Strategy B, `symfony_slo_events_t
 | Messenger latency | `countAttempts` not set (`countAttempts: false`), the threshold is a bucket boundary, and no other handled message shares the short class name (`slo:validate` warns) | observer |
 | Logic action | the point has a `metric_label` no other point shares; availability: `expectedFailureIsGood` is default; latency: the threshold is a bucket of `logic_action_duration_histogram_seconds` | `slo-bridge-logic` |
 | Operation, `Combined` | never | always B |
+| Scheduled task | never | always B (`Auto` resolves to dedicated, `Dedicated` is accepted) |
 
 `strategy: StrategyPreference::Dedicated` forces B. A threshold matches a bucket when the bucket, as metrics-bundle exposes it, equals
 `thresholdMs / 1000` up to float noise (relative 1e-9): `0.25` matches `250ms`, `0.2504` does not. The generated
@@ -198,8 +214,9 @@ a bucket exposed as `le="1"` is selected as `le="1.0"`, `1e6` as `le="1e+06"`.
 Every dedicated series carries `revision`, the first 8 hex digits of a hash of the event semantics: objective kind,
 eligibility and good rule, threshold, point type, classification overrides, and for Messenger SLOs the sorted list of
 failure transports (it decides which deliveries are eligible). `expectedFailureIsGood` is not part of the latency
-revision of logic actions and operations, whose latency does not depend on it. Target, window, name and the list of
-points are **not** part of it. Consequences:
+revision of logic actions and operations, whose latency does not depend on it. Target, window, name, the list of
+points and the `deadline` of a scheduled task are **not** part of it (it changes what is read from the counters, not
+what is written). Consequences:
 
 - Changing a threshold from `200ms` to `100ms` creates a new revision. Generated rules filter only the current
   revision, so old and new data are never summed; `slo:window:coverage_ratio` stays below 1 until the new revision
@@ -278,6 +295,7 @@ msstc4symfony_slo:
             rules: true
             alerts: true
             no_events_alert_hours: ~         # opt-in "no events for N hours" alert
+            scrape_interval_seconds: 60      # slo:validate rejects a task deadline below it
         sloth: false
         alertmanager:
             enabled: false                   # opt-in routing + full config, see "Alertmanager"
@@ -290,7 +308,7 @@ msstc4symfony_slo:
 |---------|---------|------------|
 | `slo:list [--format=text\|json]` | declared SLOs with points, routes, strategy and revisions; shared and `DUPLICATE` names are marked | 0 ok, 1 the JSON cannot be encoded, 2 bad option |
 | `slo:validate` | validates the catalog against the routes; prints `ERROR`, `WARNING` and `NOTICE` lines | 0 no errors (warnings allowed), 1 errors |
-| `slo:coverage [--format=text\|json] [--min=<0-100>]` | which routes, handlers, actions and operations have an SLO and which are already measured by a universal series; statuses `monitored`, `unmonitored`, `ignored`, `invalid`, `unsupported` | 0 passed, 1 any `invalid` point, a kind below its required percent (compared on the exact fraction in basis points, the requirement taken to 0.01: 2 of 3 is below 66.67, 7 of 10000 meets 0.07; `--min` overrides all kinds) or the JSON cannot be encoded, 2 bad option |
+| `slo:coverage [--format=text\|json] [--min=<0-100>]` | which routes, handlers, actions, operations and scheduled tasks have an SLO and which are already measured by a universal series; statuses `monitored`, `unmonitored`, `ignored`, `invalid`, `unsupported` | 0 passed, 1 any `invalid` point, a kind below its required percent (compared on the exact fraction in basis points, the requirement taken to 0.01: 2 of 3 is below 66.67, 7 of 10000 meets 0.07; `--min` overrides all kinds, scheduled tasks included) or the JSON cannot be encoded, 2 bad option |
 | `slo:generate [--output=<dir>] [--check] [--page-receiver=<name>] [--ticket-receiver=<name>]` | writes Prometheus rules, Grafana dashboards, optional Sloth specs and optional Alertmanager files (`generation.alertmanager.enabled`); the receiver options override `generation.alertmanager.receivers` and are an error (exit 2) while Alertmanager generation is off; `--check` compares with the disk without writing and prints `stale`, `missing`, `extra` paths | 0 ok / up to date, 1 `--check` found differences, 2 missing `generation.selector.application` or output directory, a receiver option without `generation.alertmanager.enabled`, an invalid or empty receiver name, `generation.alertmanager.enabled` with `generation.prometheus.alerts: false` |
 
 `slo:coverage --format=json` is stable and described by the JSON Schema [`doc/coverage-schema.json`](doc/coverage-schema.json).
@@ -321,6 +339,29 @@ Commit the directory, run `slo:generate --check` in CI ("rules are stale" fails 
   `slo:objective:target`, `slo:sli:ratio`, `slo:error_budget:remaining`, `slo:window:coverage_ratio`, and for
   scheduled tasks `slo:unfinished_runs:step` (runs that passed their deadline without finishing in the last 1m
   evaluation, summed by every window). Every series is scoped by `application` (and by `component` when configured).
+- Scheduled tasks write per-task run metrics for every attempt of a task that has an SLO (retries included):
+
+  | Metric | Labels |
+  |--------|--------|
+  | `symfony_slo_scheduled_task_started_total` | `task` |
+  | `symfony_slo_scheduled_task_finished_total` | `task`, `outcome` (`success`, `error`, `expected_failure`, `retried`) |
+  | `symfony_slo_scheduled_task_duration_seconds` | `task`, `outcome`; buckets 0.005 ... 3600 s (the Messenger buckets plus 300, 600, 1800, 3600) |
+
+  `task` is the point id. A run that never finishes (the worker was killed, the handler hangs) writes `started` and no
+  `finished`, so these series are the only way to see it. Unfinished runs of task SLOs are computed from them: the
+  record `slo:unfinished_runs:step` counts, once per minute and per series, the runs started in
+  `[t - d - 1m, t - d]` minus the runs finished in `[t - d - 1m, t]` (`d` is the run deadline; instant counter values,
+  clamped at 0, the label `outcome` ignored), and every window sums the record with `sum_over_time`. They are bad
+  events and part of the total, so a task that always dies reads 100 % bad, not NoData; the coverage gate and the
+  `SloNoEvents` alert of a task SLO also treat the started series as data. A run still inside its deadline is never
+  counted. What the formula misses, never inventing a run instead: a step in which a series is missing (outage, failed
+  scrape, pod replacement) or its counters reset (Redis flush), or in which the rule evaluation was skipped; the very
+  first run of a new series; and a hung run hidden by the finish of another run of the same task within `d + 1m` (a
+  frequent task with a long deadline). Sloth specs cannot rely on the bundle's records, so they use the same per-series
+  form over their own window, and long Sloth windows need series that live for the deadline plus the window.
+- Not a goal: "the task stopped running". A task that is never scheduled writes nothing, so it is neither bad nor
+  unfinished; alert on it separately, for example
+  `sum(increase(symfony_slo_scheduled_task_started_total{task="command:app:sync-partners"}[2h])) == 0`.
 - Alerts are multi-window multi-burn-rate (Google SRE workbook) named `SloErrorBudgetBurn`: page - 2 % of the budget
   in 1h (long) / 5m (short) and 5 % in 6h / 30m; ticket - 10 % in 3d / 6h. The factors scale with the window
   (`share * window / long window`: 14.4, 6 and 1 for 30d). A pair whose long window exceeds the SLO window is
@@ -386,16 +427,23 @@ few public methods of the types below that carry `@internal` (helpers of discove
 | Operations | `Application\Port\OperationMonitorInterface`, `Application\Port\OperationHandleInterface`, `Application\Port\ExpectedFailureClassifierInterface` |
 | Bridges | `Application\Discovery\PointTag`, `Application\Port\EventRecorderInterface` (a public service, inject it), `Application\Evaluation\RecordEvent\Input` |
 | Catalog | `Domain\Repository\SloCatalogInterface`, `Domain\Entity\SloDefinition` |
-| Value objects | `Domain\ValueObject\SloName`, `PointId`, `Objective`, `Target`, `LatencyThreshold`, `Window`, `Classification`, `StatusSet`, `Observation` |
+| Value objects | `Domain\ValueObject\SloName`, `PointId`, `Objective`, `Target`, `LatencyThreshold`, `Window`, `Classification`, `StatusSet`, `Observation`, `Deadline` |
 | Enums | `Domain\Enum\PointType`, `ObjectiveKind`, `StrategyPreference`, `DeliveryStatus`, `Outcome` |
 | Console | the commands `slo:list`, `slo:validate`, `slo:coverage`, `slo:generate`, their options, exit codes and the JSON of `slo:coverage` |
-| Configuration | the `msstc4symfony_slo` configuration keys, the metric `symfony_slo_events_total` with its labels, the generated recording rule and alert names |
+| Configuration | the `msstc4symfony_slo` configuration keys, the metrics `symfony_slo_events_total`, `symfony_slo_scheduled_task_started_total`, `symfony_slo_scheduled_task_finished_total` and `symfony_slo_scheduled_task_duration_seconds` with their labels, the generated recording rule and alert names |
 | Bundle | `SloBundle` |
 
 ## Upgrade notes
 
 1.0 is the first release; there is nothing to migrate. Notes for the next ones:
 
+- 1.2 adds the case `PointType::ScheduledTask`: an exhaustive `match` over `PointType` in your code needs an arm for it.
+  `Observation::outcome()` gained a fourth argument `$onFailureTransport` (default `false`).
+- 1.2 changes the compiled catalog format to 4 (`deadline_ms`, `scheduled_tasks`): clear the cache on upgrade.
+- 1.2 changes the generated output: the Scheduled Tasks dashboard is new and the Monitoring Coverage dashboard gains a
+  `scheduled_task` row, so `slo:generate --check` reports drift until you regenerate. `slo:coverage --min` now applies
+  to scheduled tasks too, so an application with unmonitored Scheduler tasks fails a `--min` gate until they get an
+  SLO or `#[IgnoreMonitoring]`.
 - metrics-bundle 2.3.0 is the minimum; with an older metrics-bundle the container does not compile.
 - A change of event semantics (threshold, classification, point type) changes the `revision`; the SLI of the new
   revision warms up for one window while the generated rules ignore the old one. Regenerate and commit the rules

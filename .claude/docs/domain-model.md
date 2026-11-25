@@ -62,3 +62,7 @@
   иначе порог latency, иначе combined; `null` вне `scheduled_task`. Инварианты сущности: deadline только у `scheduled_task`,
   а у задачи `runDeadline() !== null`; понятные сообщения для пользователя выдаёт `DefinitionFactory` до конструктора.
 - `slo:validate` сравнивает `runDeadline()` с `generation.prometheus.scrape_interval_seconds` (по умолчанию 60).
+- `Observation::outcome(PointType, Outcome, float, bool $onFailureTransport = false)` принимает `LogicAction|Operation|ScheduledTask`; флаг
+  failure-транспорта допустим только у `ScheduledTask` (иначе `InvalidArgumentException`) и делает наблюдение не eligible для любой цели.
+  `PointType::ScheduledTask` = `scheduled_task`; `expectedFailureIsGood` применим и к задачам (дефолт — `defaults.logic.expected_failure_is_good`).
+- Незавершённый запуск — плохое событие любой цели SLO задачи (availability, latency, combined): входит в bad и в total (формула — `known-issues.md`).
