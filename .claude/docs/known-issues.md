@@ -426,11 +426,18 @@
 
 - **Отсечка опоздавших запусков — `d + шаг` (CR-001 вариант A, уточнён N-001).** Step-record в момент t видит старт в
   `(t-d-1m, t-d]`, поэтому эффективный deadline запуска лежит в `[d, d+1m)`, плюс до одного scrape задержки финиша. Запуск длиннее
-  `d + 1m` (шаг = `Deadline::UNFINISHED_RUN_STEP_MILLISECONDS`, из него же `RuleGroupsBuilder` берёт interval 1m-группы) записью
+  `d + 1m` (шаг = `Deadline::UNFINISHED_RUN_STEP_MILLISECONDS` — единственный источник: из него `RuleGroupsBuilder` берёт interval
+  1m-группы, а `PromQlBuilder::SUBQUERY_STEP_MILLISECONDS` — шаг сабквери `[1m:1m]` и запас reset-проверки Sloth-формы) записью
   засчитан наверняка → `EventClassifier` (через `SloDefinition::countsAsUnfinished()`) не даёт ему события, по каждому SLO отдельно.
   Слушатель всегда зовёт recorder (S-001: предупреждения о конфликтах не теряются). Итог: вне полосы длительностей ~`(d - scrape,
   d + 1m]` — не более одного счёта, внутри полосы — возможен двойной (своё событие + unfinished, в сторону bad), потерь на границе нет
   (теряют только прежние случаи: пропуск шага/серии, сброс, маскировка). При шаге 1m и scrape 60s полоса ≈ 2 минуты (`d±60s`).
+  **Оговорка N2-002**: «потерь нет» верно, только если `d` кратен scrape interval — сэмплы старта/финиша выровнены по сетке scrape,
+  и при S=60s, d=90s запуск ~151 s может потеряться (U=0, своё событие отброшено). `slo:validate` проверяет лишь `deadline >= scrape`;
+  в README совет — deadline, кратный scrape interval.
+  **Оговорка N2-001 (Sloth, решение — только документация)**: у Sloth нет step-record, per-series форма видит запуск незавершённым,
+  только пока он идёт; запуск длительностью `D > d + 1m` теряет своё событие и в окне `W` весит ≈ `(D - d)/W`. «Never lost» — только
+  для native rules бандла.
   Явный `deadline` больше порога latency сужает искажение latency-цели. Promtool: `run finishing after its deadline counts once,
   as unfinished` (финиш после d+1m: 1 bad из 1) и `run finishing within one step after its deadline also keeps its own event`
   (U = 1 и собственные события; `increase` экстраполирует счётчик событий, поэтому кейс читает U и дельту счётчика точно).

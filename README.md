@@ -370,16 +370,24 @@ Commit the directory, run `slo:generate --check` in CI ("rules are stale" fails 
   flush), or in which the rule evaluation was skipped; the very first run of a new series; and a hung run hidden by the
   finish of another run of the same task within `d + 1m` (a frequent task with a long deadline). Sloth specs cannot
   rely on the bundle's records, so they use the same per-series form over their own window, and long Sloth windows
-  need series that live for the deadline plus the window.
+  need series that live for the deadline plus the window; runs that finish late count only partially there, see
+  below.
 - Runs near the deadline: a run counts at most once outside the band of about `(d - scrape interval, d + 1m]` of
   duration, where `1m` is the step of `slo:unfinished_runs:step`. A shorter run is its own event only; a longer one
   was certainly seen by the step record, so the bundle writes no SLO event for it and it counts once, as unfinished. A
   run inside the band keeps its own event and may also be counted unfinished: twice, towards bad, never lost by the
-  boundary (only the misses listed above can lose it). With the 1m step and Prometheus' default 60 s scrape interval
+  boundary in the bundle's own rules (only the misses listed above can lose it) as long as the deadline is a multiple
+  of the scrape interval. Otherwise the start and finish samples, aligned to the scrape grid, can be closer than the
+  run lasted: with a 60 s scrape and a 90 s deadline a run of about 151 s can be lost, so prefer deadlines that are
+  multiples of the scrape interval. With the 1m step and Prometheus' default 60 s scrape interval
   the band is about two minutes wide, from `d - 60s` to `d + 60s`. With the default deadline (the latency threshold)
   a moderately slow run therefore weighs double on the latency objective; an explicit `deadline` above the latency
   threshold (for example threshold plus 2m) gives slow runs a single latency-bad event of their own and leaves the
   unfinished count to runs that really hang.
+- Sloth specs count late runs only partially: they have no step record, and their per-series form sees a run as
+  unfinished only while it is still running. A run of duration `D` longer than `d + 1m` loses its own event, so in a
+  Sloth window `W` it weighs about `(D - d) / W` instead of one bad event. "Never lost" holds for the bundle's own
+  rules only; prefer them for scheduled-task SLOs.
 - A retried attempt that runs past its deadline is counted unfinished (the run metrics cover every attempt), and the
   final attempt then records its own event: two events for one logical run.
 - Run metrics are also written for runs consumed from a failure transport (`messenger:failed:retry`), so `started` and

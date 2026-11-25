@@ -32,7 +32,10 @@
   under the task's point too. A run longer than its deadline plus the 1m unfinished-runs step records no SLO event
   (per SLO): the rules certainly counted it, as unfinished. A run counts at most once outside a duration band of about
   `(d - scrape interval, d + 1m]` (about two minutes with a 60 s scrape); within the band it may count twice, towards
-  bad, and it is never lost. An explicit `deadline` above the latency threshold narrows the latency distortion.
+  bad, and the bundle's own rules never lose it when the deadline is a multiple of the scrape interval (otherwise a
+  run just past `d + 1m` can be lost: 60 s scrape, 90 s deadline, a run of about 151 s). An explicit `deadline` above
+  the latency threshold narrows the latency distortion. Sloth specs have no step record: a run longer than `d + 1m`
+  weighs only about `(D - d) / W` in a Sloth window `W`, so "never lost" applies to the native rules only.
   `SloDefinition::countsAsUnfinished()` applies the cut-off; `Deadline::UNFINISHED_RUN_STEP_MILLISECONDS` is the step
   shared with the generated rules.
 - Unfinished runs counted as bad events of scheduled-task SLOs in the generated Prometheus rules and Sloth specs: runs
