@@ -91,7 +91,7 @@ final readonly class EventClassifier
     {
         return $observation->pointType === PointType::ScheduledTask
             && $observation->durationSeconds !== null
-            && $slo->isPastRunDeadline($observation->durationSeconds);
+            && $slo->countsAsUnfinished($observation->durationSeconds);
     }
 
     private function isBad(Classification $classification, Observation $observation): bool

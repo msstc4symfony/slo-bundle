@@ -31,8 +31,8 @@ use WeakMap;
 
 /**
  * Times scheduled-task runs consumed by a worker with its own clock (the metrics-bundle series does not identify the
- * task), writes run metrics for every attempt and one SLO event for the final outcome of a run within its deadline.
- * Fail-open: nothing leaves it.
+ * task), writes run metrics for every attempt and passes the final outcome to the recorder; EventClassifier drops
+ * runs the generated rules already counted as unfinished. Fail-open: nothing leaves it.
  *
  * @internal
  */
@@ -102,7 +102,8 @@ final class ScheduledTaskRunListener implements ResetInterface
         try {
             $run = $this->takeRun($event);
             if ($run !== null) {
-                $this->finish($event, $run, $event->willRetry() ? ScheduledTaskRunOutcome::Retried : $this->classify($run[0], $event->getThrowable()));
+                $outcome = $event->willRetry() ? ScheduledTaskRunOutcome::Retried : $this->classify($run[0], $event->getThrowable());
+                $this->finish($event, $run, $outcome);
             }
         } catch (Throwable $e) {
             $this->warn(null, $e);
@@ -144,10 +145,8 @@ final class ScheduledTaskRunListener implements ResetInterface
         $sloOutcome = $this->sloOutcome($outcome);
         if ($sloOutcome instanceof Outcome) {
             try {
-                if (!$this->isPastEveryDeadline($point, $duration)) {
-                    $onFailureTransport = \in_array($event->getReceiverName(), $this->diagnostics->failureTransports(), true);
-                    $this->recorder->record(new Input($point, Observation::outcome(PointType::ScheduledTask, $sloOutcome, $duration, $onFailureTransport)));
-                }
+                $onFailureTransport = \in_array($event->getReceiverName(), $this->diagnostics->failureTransports(), true);
+                $this->recorder->record(new Input($point, Observation::outcome(PointType::ScheduledTask, $sloOutcome, $duration, $onFailureTransport)));
             } catch (Throwable $e) {
                 $this->warn($point, $e);
             }
@@ -157,21 +156,6 @@ final class ScheduledTaskRunListener implements ResetInterface
         } catch (Throwable $e) {
             $this->warn($point, $e);
         }
-    }
-
-    /**
-     * The rules already counted such a run as unfinished at start + deadline; EventClassifier skips it per SLO too.
-     */
-    private function isPastEveryDeadline(PointId $point, float $duration): bool
-    {
-        $definitions = $this->catalog->forPoint($point);
-        foreach ($definitions as $definition) {
-            if (!$definition->isPastRunDeadline($duration)) {
-                return false;
-            }
-        }
-
-        return $definitions !== [];
     }
 
     /**

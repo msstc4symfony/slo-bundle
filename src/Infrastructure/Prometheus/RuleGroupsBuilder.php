@@ -13,6 +13,7 @@ use Msstc4Symfony\SloBundle\Application\Generation\BurnRateSeverity;
 use Msstc4Symfony\SloBundle\Application\Generation\BurnRateWindow;
 use Msstc4Symfony\SloBundle\Application\Generation\Selector;
 use Msstc4Symfony\SloBundle\Application\Port\RuleFileBuilderInterface;
+use Msstc4Symfony\SloBundle\Domain\ValueObject\Deadline;
 use Msstc4Symfony\SloBundle\Infrastructure\Yaml\DeterministicYaml;
 use Override;
 
@@ -38,9 +39,11 @@ final readonly class RuleGroupsBuilder implements RuleFileBuilderInterface
     private const SLOW = 'slow';
 
     /**
-     * Group key => [name suffix, evaluation interval].
+     * Group key => name suffix.
      */
-    private const GROUPS = [self::FAST => ['', '1m'], self::SLOW => ['-window', '5m']];
+    private const GROUPS = [self::FAST => '', self::SLOW => '-window'];
+
+    private const SLOW_INTERVAL = '5m';
 
     public function __construct(
         private PromQlBuilder $promQl,
@@ -57,7 +60,7 @@ final readonly class RuleGroupsBuilder implements RuleFileBuilderInterface
             $record = $this->record(...);
             $fast = [];
             // First in the 1m group: every window of this objective sums it, including the ones recorded just below.
-            $unfinished = $this->promQl->stepUnfinishedRuns($selector, $objective, self::GROUPS[self::FAST][1]);
+            $unfinished = $this->promQl->stepUnfinishedRuns($selector, $objective, $this->fastInterval());
             if ($unfinished !== null) {
                 $fast[] = $record($labels, PromQlBuilder::UNFINISHED_RUNS_RECORD, $unfinished);
             }
@@ -124,14 +127,25 @@ final readonly class RuleGroupsBuilder implements RuleFileBuilderInterface
 
         $groups = [];
         foreach ($bySlo as $name => $byKey) {
-            foreach (self::GROUPS as $key => [$suffix, $interval]) {
+            foreach (self::GROUPS as $key => $suffix) {
                 if (($byKey[$key] ?? []) !== []) {
+                    $interval = $key === self::FAST ? $this->fastInterval() : self::SLOW_INTERVAL;
                     $groups[] = ['name' => 'slo-' . $name . $suffix, 'interval' => $interval, 'rules' => $byKey[$key]];
                 }
             }
         }
 
         return $this->yaml->dump(['groups' => $groups]);
+    }
+
+    /**
+     * The unfinished-runs record is evaluated once per step, so the group interval is the step the runtime cut-off uses.
+     *
+     * @return non-empty-string
+     */
+    private function fastInterval(): string
+    {
+        return PromQlRenderer::milliseconds(Deadline::UNFINISHED_RUN_STEP_MILLISECONDS);
     }
 
     /**

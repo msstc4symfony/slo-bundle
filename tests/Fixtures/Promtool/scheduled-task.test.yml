@@ -113,8 +113,8 @@ tests:
           - labels: '{application="shop",objective="availability",revision="e16395ab",slo="cleanup.run",window="30d"}'
             value: 1
 
-  # The run starts at 10m and succeeds at 15m, after its 2m deadline: the listener writes no SLO event for it, the
-  # step record counted it as unfinished at 12m, so it is one bad event out of one, not two.
+  # The run starts at 10m and succeeds at 15m, longer than its 2m deadline plus the 1m step: the step record counted
+  # it as unfinished at 12m and the run writes no SLO event of its own, so it is one bad event out of one, not two.
   - name: run finishing after its deadline counts once, as unfinished
     interval: 1m
     input_series:
@@ -140,6 +140,42 @@ tests:
           - labels: '{application="shop",objective="availability",revision="e16395ab",slo="cleanup.run",window="30d"}'
             value: 1
           - labels: '{application="shop",objective="latency",revision="2a2eb2b1",slo="cleanup.run",window="30d"}'
+            value: 1
+
+  # The run starts at 10m and succeeds just before the 13m scrape, within its deadline plus one step: the step record
+  # counted it as unfinished at 12m and the run also writes its own events (availability good, latency bad). The band
+  # of about (d - scrape interval, d + 1m] is counted twice, towards bad; no run is lost.
+  - name: run finishing within one step after its deadline also keeps its own event
+    interval: 1m
+    input_series:
+      - series: 'symfony_slo_scheduled_task_started_total{application="shop",component="worker",task="App\\Task\\CleanupTask::__invoke"}'
+        values: '100x9 101x60'
+      - series: 'symfony_slo_scheduled_task_finished_total{application="shop",component="worker",task="App\\Task\\CleanupTask::__invoke",outcome="success"}'
+        values: '100x12 101x60'
+      - series: 'symfony_slo_events_total{application="shop",component="worker",slo="cleanup.run",objective="availability",revision="e16395ab",result="good"}'
+        values: '100x12 101x60'
+      - series: 'symfony_slo_events_total{application="shop",component="worker",slo="cleanup.run",objective="latency",revision="2a2eb2b1",result="bad"}'
+        values: '100x12 101x60'
+    promql_expr_test:
+      # increase() extrapolates the events counter, so the two halves are read exactly.
+      - expr: sum by (objective) (sum_over_time(slo:unfinished_runs:step{slo="cleanup.run"}[30m]))
+        eval_time: 30m
+        exp_samples:
+          - labels: '{objective="availability"}'
+            value: 1
+          - labels: '{objective="latency"}'
+            value: 1
+      - expr: sum by (objective, result) (symfony_slo_events_total{slo="cleanup.run"} - symfony_slo_events_total{slo="cleanup.run"} offset 25m)
+        eval_time: 30m
+        exp_samples:
+          - labels: '{objective="availability",result="good"}'
+            value: 1
+          - labels: '{objective="latency",result="bad"}'
+            value: 1
+      - expr: slo:error_ratio:rate30m{slo="cleanup.run",objective="latency"}
+        eval_time: 30m
+        exp_samples:
+          - labels: 'slo:error_ratio:rate30m{application="shop",objective="latency",revision="2a2eb2b1",slo="cleanup.run",window="30d"}'
             value: 1
 
   - name: task that always dies reads 100 % bad and covers its window

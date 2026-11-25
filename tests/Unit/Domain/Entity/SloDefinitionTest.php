@@ -154,13 +154,15 @@ final class SloDefinitionTest extends TestCase
         self::assertFalse($implicit->sameSemanticsAs($this->task([$latency], Deadline::fromString('3m'))));
     }
 
-    public function testRunPastItsDeadlineIsOnlyAStrictlyLongerDuration(): void
+    public function testRunCountsAsUnfinishedOnlyWhenLongerThanItsDeadlinePlusOneStep(): void
     {
         $task = $this->task([$this->availability()], Deadline::fromString('2s'));
 
-        self::assertFalse($task->isPastRunDeadline(2.0));
-        self::assertTrue($task->isPastRunDeadline(2.001));
-        self::assertFalse($this->definition()->isPastRunDeadline(1000.0));
+        self::assertSame(60_000, Deadline::UNFINISHED_RUN_STEP_MILLISECONDS);
+        self::assertFalse($task->countsAsUnfinished(3.0));
+        self::assertFalse($task->countsAsUnfinished(62.0));
+        self::assertTrue($task->countsAsUnfinished(62.001));
+        self::assertFalse($this->definition()->countsAsUnfinished(1000.0));
     }
 
     public function testWithPointAndWithWindowKeepTheDeadline(): void

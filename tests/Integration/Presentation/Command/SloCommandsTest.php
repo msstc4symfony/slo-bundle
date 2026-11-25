@@ -264,6 +264,9 @@ final class SloCommandsTest extends TestCase
         return $tester->getDisplay();
     }
 
+    /**
+     * @param Closure(ValidateCommand, ListCommand): void $test
+     */
     private function withKernel(RoutedTestKernel|SchedulerTestKernel $kernel, Closure $test): void
     {
         $kernel->boot();

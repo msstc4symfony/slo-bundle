@@ -147,20 +147,22 @@ final class EventClassifierTest extends TestCase
         self::assertSame(EventResult::Good, $this->classify($notGood, ObjectiveKind::Latency, $expected));
     }
 
-    public function testScheduledTaskRunPastItsDeadlineIsNoEventBecauseTheRulesCountItAsUnfinished(): void
+    public function testScheduledTaskRunLongerThanItsDeadlinePlusOneStepIsNoEventBecauseTheRulesCountedIt(): void
     {
         $implicit = $this->slo(PointType::ScheduledTask, Classification::defaults(), false, '2s');
         $explicit = $this->slo(PointType::ScheduledTask, Classification::defaults(), false, '2s', Deadline::fromString('10s'));
 
         foreach ([ObjectiveKind::Availability, ObjectiveKind::Latency, ObjectiveKind::Combined] as $kind) {
             foreach ([Outcome::Success, Outcome::Error, Outcome::ExpectedFailure] as $outcome) {
-                self::assertNull($this->classify($implicit, $kind, Observation::outcome(PointType::ScheduledTask, $outcome, 2.5)));
-                self::assertNull($this->classify($explicit, $kind, Observation::outcome(PointType::ScheduledTask, $outcome, 10.5)));
+                self::assertNull($this->classify($implicit, $kind, Observation::outcome(PointType::ScheduledTask, $outcome, 62.5)));
+                self::assertNull($this->classify($explicit, $kind, Observation::outcome(PointType::ScheduledTask, $outcome, 70.5)));
             }
         }
-        self::assertSame(EventResult::Good, $this->classify($implicit, ObjectiveKind::Latency, Observation::outcome(PointType::ScheduledTask, Outcome::Success, 2.0)));
-        self::assertSame(EventResult::Bad, $this->classify($explicit, ObjectiveKind::Availability, Observation::outcome(PointType::ScheduledTask, Outcome::Error, 9.0)));
-        self::assertSame(EventResult::Bad, $this->classify($this->slo(PointType::LogicAction, Classification::defaults(), false, '2s'), ObjectiveKind::Latency, Observation::outcome(PointType::LogicAction, Outcome::Success, 2.5)));
+        $withinStep = Observation::outcome(PointType::ScheduledTask, Outcome::Success, 62.0);
+        self::assertSame(EventResult::Good, $this->classify($implicit, ObjectiveKind::Availability, $withinStep));
+        self::assertSame(EventResult::Bad, $this->classify($implicit, ObjectiveKind::Latency, $withinStep));
+        self::assertSame(EventResult::Bad, $this->classify($explicit, ObjectiveKind::Availability, Observation::outcome(PointType::ScheduledTask, Outcome::Error, 69.0)));
+        self::assertSame(EventResult::Bad, $this->classify($this->slo(PointType::LogicAction, Classification::defaults(), false, '2s'), ObjectiveKind::Latency, Observation::outcome(PointType::LogicAction, Outcome::Success, 62.5)));
     }
 
     private function classify(SloDefinition $slo, ObjectiveKind $kind, Observation $observation): ?EventResult

@@ -11,6 +11,12 @@ use InvalidArgumentException;
  */
 final readonly class Deadline
 {
+    /**
+     * Evaluation step of the generated unfinished-runs record: a run longer than its deadline plus one step was
+     * certainly recorded as unfinished, a shorter late run may not have been.
+     */
+    public const UNFINISHED_RUN_STEP_MILLISECONDS = 60_000;
+
     private const PATTERN = '/^(?:([0-9]{1,9})ms|([0-9]{1,9})(?:\.([0-9]{1,12}))?s|([0-9]{1,6})m|([0-9]{1,5})h)$/D';
 
     /** Same bound as LatencyThreshold, so a threshold is always a valid deadline. */

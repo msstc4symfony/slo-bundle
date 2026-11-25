@@ -174,13 +174,15 @@ final readonly class SloDefinition
     }
 
     /**
-     * The generated rules count such a run as unfinished (a bad event), so its own outcome is no event.
+     * Longer than the run deadline plus one unfinished-runs step: the generated rules certainly counted the run as
+     * unfinished (a bad event), so its own outcome is no event. A shorter late run keeps its event and may count twice.
      */
-    public function isPastRunDeadline(float $durationSeconds): bool
+    public function countsAsUnfinished(float $durationSeconds): bool
     {
         $deadline = $this->runDeadline();
 
-        return $deadline instanceof Deadline && $durationSeconds > $deadline->seconds();
+        return $deadline instanceof Deadline
+            && $durationSeconds > ($deadline->milliseconds + Deadline::UNFINISHED_RUN_STEP_MILLISECONDS) / 1000;
     }
 
     public function sameSemanticsAs(self $other): bool
