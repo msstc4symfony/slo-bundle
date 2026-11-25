@@ -79,6 +79,21 @@ final class GenerationFixture
         );
     }
 
+    /**
+     * One scheduled-task SLO on a service task and a command task, on a 3d window so promtool can cover it.
+     */
+    public static function multiPointTaskCatalog(): CompiledSloCatalog
+    {
+        return CatalogFixture::build(
+            static function (CatalogAssembler $assembler): void {
+                $slo = new Slo('nightly.jobs', [new Availability(99)], window: '3d', deadline: '2m');
+                $assembler->declare(PointId::of(PointType::ScheduledTask, 'App\Task\NightlyTask::__invoke'), $slo);
+                $assembler->declare(PointId::of(PointType::ScheduledTask, 'command:app:nightly'), $slo);
+            },
+            new CatalogExtras(scheduledTasks: ['App\Task\NightlyTask::__invoke', 'command:app:nightly']),
+        );
+    }
+
     public static function routes(): InMemoryRouteCatalog
     {
         return new InMemoryRouteCatalog([

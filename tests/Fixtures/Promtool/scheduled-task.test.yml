@@ -1,5 +1,7 @@
-# Unfinished runs of the cleanup.run scheduled task (deadline 2m from its 120s latency objective): runs started in
-# [t-2m-r, t-2m] minus runs finished in [t-2m-r, t] count as bad events of every objective (review focus 1 and 2).
+# Unfinished runs of scheduled tasks: cleanup.run (deadline 2m, from its 120s latency) and partners.sync (deadline
+# 10m). Runs started in [t-d-r, t-d] minus runs finished in [t-d-r, t] are bad events of every objective (review focus
+# 1 and 2). Counters start at 100 as after a restart of Prometheus, so increase() extrapolates; the unfinished runs
+# come from instant counter values and are exact.
 rule_files:
   - ../Generated/prometheus/slo-recording.rules.yml
   - ../Generated/prometheus/slo-alerts.rules.yml
@@ -7,47 +9,125 @@ rule_files:
 evaluation_interval: 1m
 
 tests:
-  - name: healthy run spanning scrapes is not unfinished
+  # A run every 10m from 10m, finished 1m later. The spec's literal increase(started[5m] offset 2m) -
+  # increase(finished[5m] offset 2m) counts a run started before t-2m and finished after it as unfinished, and three
+  # extrapolated increases over windows of different length leave a remainder for every healthy run.
+  - name: healthy runs, deadline shorter than the range
     interval: 1m
     input_series:
       - series: 'symfony_slo_scheduled_task_started_total{application="shop",component="worker",task="App\\Task\\CleanupTask::__invoke"}'
-        values: '0x9 1x60'
+        values: '100x9 101x9 102x9 103x9 104x9 105x9 106x9'
       - series: 'symfony_slo_scheduled_task_finished_total{application="shop",component="worker",task="App\\Task\\CleanupTask::__invoke",outcome="success"}'
-        values: '0x10 1x60'
+        values: '100x10 101x9 102x9 103x9 104x9 105x9 106x9'
       - series: 'symfony_slo_events_total{application="shop",component="worker",slo="cleanup.run",objective="availability",revision="e16395ab",result="good"}'
-        values: '0x10 1x60'
-    # The spec's literal increase(started[5m] offset 2m) - increase(finished[5m] offset 2m) counts this run, started
-    # before t-2m and finished after it, as unfinished: the error ratio would read 0.5 at 12m.
+        values: '100x10 101x9 102x9 103x9 104x9 105x9 106x9'
+      - series: 'symfony_slo_events_total{application="shop",component="worker",slo="cleanup.run",objective="latency",revision="2a2eb2b1",result="good"}'
+        values: '100x10 101x9 102x9 103x9 104x9 105x9 106x9'
     promql_expr_test:
-      - expr: slo:error_ratio:rate5m{slo="cleanup.run",objective="availability"} < bool 0.01
-        eval_time: 12m
+      - expr: slo:error_ratio:rate5m{slo="cleanup.run"}
+        eval_time: 62m
         exp_samples:
-          - labels: '{application="shop",objective="availability",revision="e16395ab",slo="cleanup.run",window="30d"}'
-            value: 1
-      - expr: slo:error_ratio:rate5m{slo="cleanup.run",objective="availability"} < bool 0.01
-        eval_time: 13m
+          - labels: 'slo:error_ratio:rate5m{application="shop",objective="availability",revision="e16395ab",slo="cleanup.run",window="30d"}'
+            value: 0
+          - labels: 'slo:error_ratio:rate5m{application="shop",objective="latency",revision="2a2eb2b1",slo="cleanup.run",window="30d"}'
+            value: 0
+      - expr: slo:error_ratio:rate30m{slo="cleanup.run"}
+        eval_time: 62m
         exp_samples:
-          - labels: '{application="shop",objective="availability",revision="e16395ab",slo="cleanup.run",window="30d"}'
-            value: 1
+          - labels: 'slo:error_ratio:rate30m{application="shop",objective="availability",revision="e16395ab",slo="cleanup.run",window="30d"}'
+            value: 0
+          - labels: 'slo:error_ratio:rate30m{application="shop",objective="latency",revision="2a2eb2b1",slo="cleanup.run",window="30d"}'
+            value: 0
+      - expr: slo:error_ratio:rate1h{slo="cleanup.run"}
+        eval_time: 62m
+        exp_samples:
+          - labels: 'slo:error_ratio:rate1h{application="shop",objective="availability",revision="e16395ab",slo="cleanup.run",window="30d"}'
+            value: 0
+          - labels: 'slo:error_ratio:rate1h{application="shop",objective="latency",revision="2a2eb2b1",slo="cleanup.run",window="30d"}'
+            value: 0
+      - expr: slo:error_ratio:rate6h{slo="cleanup.run"}
+        eval_time: 62m
+        exp_samples:
+          - labels: 'slo:error_ratio:rate6h{application="shop",objective="availability",revision="e16395ab",slo="cleanup.run",window="30d"}'
+            value: 0
+          - labels: 'slo:error_ratio:rate6h{application="shop",objective="latency",revision="2a2eb2b1",slo="cleanup.run",window="30d"}'
+            value: 0
+
+  # A run every 10m from 10m that takes 5m: it spans several scrapes and the start of the deadline-shifted window.
+  - name: healthy runs, deadline longer than the range
+    interval: 1m
+    input_series:
+      - series: 'symfony_slo_scheduled_task_started_total{application="shop",component="worker",task="command:app:sync-partners"}'
+        values: '100x9 101x9 102x9 103x9 104x9 105x9 106x9'
+      - series: 'symfony_slo_scheduled_task_finished_total{application="shop",component="worker",task="command:app:sync-partners",outcome="success"}'
+        values: '100x14 101x9 102x9 103x9 104x9 105x9 106x9'
+      - series: 'symfony_slo_events_total{application="shop",component="worker",slo="partners.sync",objective="availability",revision="e16395ab",result="good"}'
+        values: '100x14 101x9 102x9 103x9 104x9 105x9 106x9'
+    promql_expr_test:
+      - expr: slo:error_ratio:rate5m{slo="partners.sync"}
+        eval_time: 57m
+        exp_samples:
+          - labels: 'slo:error_ratio:rate5m{application="shop",objective="availability",revision="e16395ab",slo="partners.sync",window="30d"}'
+            value: 0
+      - expr: slo:error_ratio:rate30m{slo="partners.sync"}
+        eval_time: 57m
+        exp_samples:
+          - labels: 'slo:error_ratio:rate30m{application="shop",objective="availability",revision="e16395ab",slo="partners.sync",window="30d"}'
+            value: 0
+      - expr: slo:error_ratio:rate1h{slo="partners.sync"}
+        eval_time: 57m
+        exp_samples:
+          - labels: 'slo:error_ratio:rate1h{application="shop",objective="availability",revision="e16395ab",slo="partners.sync",window="30d"}'
+            value: 0
+      - expr: slo:error_ratio:rate6h{slo="partners.sync"}
+        eval_time: 57m
+        exp_samples:
+          - labels: 'slo:error_ratio:rate6h{application="shop",objective="availability",revision="e16395ab",slo="partners.sync",window="30d"}'
+            value: 0
 
   - name: killed run is bad without any finished event
     interval: 1m
     input_series:
       - series: 'symfony_slo_scheduled_task_started_total{application="shop",component="worker",task="App\\Task\\CleanupTask::__invoke"}'
+        values: '100x9 101x60'
+      - series: 'symfony_slo_scheduled_task_finished_total{application="shop",component="worker",task="App\\Task\\CleanupTask::__invoke",outcome="success"}'
+        values: '100x70'
+      - series: 'symfony_slo_events_total{application="shop",component="worker",slo="cleanup.run",objective="availability",revision="e16395ab",result="good"}'
+        values: '100x70'
+      - series: 'symfony_slo_events_total{application="shop",component="worker",slo="cleanup.run",objective="latency",revision="2a2eb2b1",result="good"}'
+        values: '100x70'
+    promql_expr_test:
+      - expr: slo:error_ratio:rate5m{slo="cleanup.run"}
+        eval_time: 11m
+        exp_samples: []
+      - expr: slo:error_ratio:rate5m{slo="cleanup.run"}
+        eval_time: 13m
+        exp_samples:
+          - labels: 'slo:error_ratio:rate5m{application="shop",objective="availability",revision="e16395ab",slo="cleanup.run",window="30d"}'
+            value: 1
+          - labels: 'slo:error_ratio:rate5m{application="shop",objective="latency",revision="2a2eb2b1",slo="cleanup.run",window="30d"}'
+            value: 1
+      - expr: slo:events:rate5m{slo="cleanup.run",objective="availability"} * 300
+        eval_time: 13m
+        exp_samples:
+          - labels: '{application="shop",objective="availability",revision="e16395ab",slo="cleanup.run",window="30d"}'
+            value: 1
+
+  - name: task that always dies reads 100 % bad and covers its window
+    interval: 1m
+    input_series:
+      - series: 'symfony_slo_scheduled_task_started_total{application="shop",component="worker",task="App\\Task\\CleanupTask::__invoke"}'
         values: '0x9 1x60'
     promql_expr_test:
-      - expr: slo:error_ratio:rate30m{slo="cleanup.run",objective="availability"}
+      - expr: slo:error_ratio:rate30m{slo="cleanup.run"}
         eval_time: 20m
         exp_samples:
           - labels: 'slo:error_ratio:rate30m{application="shop",objective="availability",revision="e16395ab",slo="cleanup.run",window="30d"}'
             value: 1
-      - expr: slo:error_ratio:rate30m{slo="cleanup.run",objective="latency"}
-        eval_time: 20m
-        exp_samples:
           - labels: 'slo:error_ratio:rate30m{application="shop",objective="latency",revision="2a2eb2b1",slo="cleanup.run",window="30d"}'
             value: 1
-      - expr: slo:events:rate30m{slo="cleanup.run",objective="availability"} > bool 0
-        eval_time: 20m
+      - expr: slo:window:coverage_ratio{slo="cleanup.run",objective="availability"} > bool 0
+        eval_time: 1h
         exp_samples:
           - labels: '{application="shop",objective="availability",revision="e16395ab",slo="cleanup.run",window="30d"}'
             value: 1
@@ -56,31 +136,60 @@ tests:
     interval: 1m
     input_series:
       - series: 'symfony_slo_scheduled_task_started_total{application="shop",component="worker",task="App\\Task\\CleanupTask::__invoke"}'
-        values: '0x9 1x60'
+        values: '100x9 101x9 102x60'
+      - series: 'symfony_slo_scheduled_task_finished_total{application="shop",component="worker",task="App\\Task\\CleanupTask::__invoke",outcome="success"}'
+        values: '100x10 101x60'
+      - series: 'symfony_slo_events_total{application="shop",component="worker",slo="cleanup.run",objective="availability",revision="e16395ab",result="good"}'
+        values: '100x10 101x60'
     promql_expr_test:
+      - expr: slo:error_ratio:rate30m{slo="cleanup.run",objective="availability"}
+        eval_time: 21m
+        exp_samples:
+          - labels: 'slo:error_ratio:rate30m{application="shop",objective="availability",revision="e16395ab",slo="cleanup.run",window="30d"}'
+            value: 0
       - expr: slo:error_ratio:rate5m{slo="cleanup.run"}
-        eval_time: 11m
+        eval_time: 21m
         exp_samples: []
+
+  # The target is down from 20m to 25m: no run series at t means no unfinished runs, before and after the gap.
+  - name: scrape gap
+    interval: 1m
+    input_series:
+      - series: 'symfony_slo_scheduled_task_started_total{application="shop",component="worker",task="App\\Task\\CleanupTask::__invoke"}'
+        values: '100x9 101x9 stale _x4 101x40'
+      - series: 'symfony_slo_scheduled_task_finished_total{application="shop",component="worker",task="App\\Task\\CleanupTask::__invoke",outcome="success"}'
+        values: '100x10 101x8 stale _x4 101x40'
+      - series: 'symfony_slo_events_total{application="shop",component="worker",slo="cleanup.run",objective="availability",revision="e16395ab",result="good"}'
+        values: '100x10 101x8 stale _x4 101x40'
+    promql_expr_test:
+      - expr: slo:error_ratio:rate30m{slo="cleanup.run",objective="availability"}
+        eval_time: 22m
+        exp_samples: []
+      - expr: slo:error_ratio:rate30m{slo="cleanup.run",objective="availability"}
+        eval_time: 27m
+        exp_samples:
+          - labels: 'slo:error_ratio:rate30m{application="shop",objective="availability",revision="e16395ab",slo="cleanup.run",window="30d"}'
+            value: 0
+      - expr: slo:error_ratio:rate30m{slo="cleanup.run",objective="availability"}
+        eval_time: 33m
+        exp_samples:
+          - labels: 'slo:error_ratio:rate30m{application="shop",objective="availability",revision="e16395ab",slo="cleanup.run",window="30d"}'
+            value: 0
 
   - name: retried attempt is not unfinished
     interval: 1m
     input_series:
       - series: 'symfony_slo_scheduled_task_started_total{application="shop",component="worker",task="App\\Task\\CleanupTask::__invoke"}'
-        values: '0x9 2x60'
+        values: '100x9 102x60'
       - series: 'symfony_slo_scheduled_task_finished_total{application="shop",component="worker",task="App\\Task\\CleanupTask::__invoke",outcome="retried"}'
-        values: '0x10 1x60'
+        values: '100x10 101x60'
       - series: 'symfony_slo_scheduled_task_finished_total{application="shop",component="worker",task="App\\Task\\CleanupTask::__invoke",outcome="error"}'
         values: '0x10 1x60'
       - series: 'symfony_slo_events_total{application="shop",component="worker",slo="cleanup.run",objective="availability",revision="e16395ab",result="bad"}'
-        values: '0x10 1x60'
+        values: '100x10 101x60'
     promql_expr_test:
       - expr: slo:error_ratio:rate5m{slo="cleanup.run",objective="availability"}
         eval_time: 13m
         exp_samples:
           - labels: 'slo:error_ratio:rate5m{application="shop",objective="availability",revision="e16395ab",slo="cleanup.run",window="30d"}'
-            value: 1
-      - expr: slo:events:rate5m{slo="cleanup.run",objective="availability"} * 300 < bool 1.1
-        eval_time: 13m
-        exp_samples:
-          - labels: '{application="shop",objective="availability",revision="e16395ab",slo="cleanup.run",window="30d"}'
             value: 1

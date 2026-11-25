@@ -36,6 +36,9 @@ final readonly class PromQlBuilder
 
     private const HOUR = 3600;
 
+    /** A range Sloth fills in, such as `{{.window}}`. */
+    private const TEMPLATE = '/^\{\{\.[a-z]+\}\}$/Di';
+
     /**
      * @param non-empty-string $range
      */
@@ -107,8 +110,11 @@ final readonly class PromQlBuilder
     }
 
     /**
-     * Runs started in [t-d-r, t-d] minus runs finished in [t-d-r, t], d the run deadline (ruling R1): a run still
-     * within its deadline is not counted, nor is a healthy run that straddles t-d. Retried attempts finish too.
+     * Runs started in [t-d-r, t-d] minus runs finished in [t-d-r, t], d the run deadline (ruling R1), from instant
+     * counter values: increase() extrapolates each window by its own factor and would leave a remainder for every
+     * healthy run. Absent while the started series is absent at t (scrape gap, target down). A Sloth `{{.window}}`
+     * cannot be added to d, so the window start is the last 1m subquery step at or before t-r: started and finished
+     * share that edge, so the windows stay aligned.
      *
      * @param non-empty-string $range
      *
@@ -117,25 +123,23 @@ final readonly class PromQlBuilder
     public function unfinishedRuns(Selector $selector, BoundObjective $objective, string $range): ?string
     {
         $deadline = $objective->definition->runDeadline();
-        if (!$deadline instanceof Deadline) {
+        $runs = $this->runSeries($selector, $objective);
+        if (!$deadline instanceof Deadline || $runs === null) {
             return null;
         }
 
-        $tasks = array_map(static fn (PointId $point): string => $point->id, $objective->definition->points());
-        sort($tasks, SORT_STRING);
-        $matchers = [
-            ...$this->base($selector),
-            \count($tasks) === 1 ? Matcher::equals('task', $tasks[0]) : Matcher::regex('task', PromQlRenderer::alternation($tasks)),
-        ];
-        $started = self::NAMESPACE . SloMetric::SCHEDULED_TASK_STARTED->value . $this->matchers($matchers);
-        $finished = self::NAMESPACE . SloMetric::SCHEDULED_TASK_FINISHED->value . $this->matchers($matchers);
         $offset = PromQlRenderer::milliseconds($deadline->milliseconds);
+        $windowStart = preg_match(self::TEMPLATE, $range) === 1
+            ? static fn (string $series): string => \sprintf('(last_over_time(sum(%s offset %s)[1m:1m] offset %s) or vector(0))', $series, $offset, $range)
+            : static fn (string $series): string => \sprintf('(sum(%s offset %s) or vector(0))', $series, PromQlRenderer::milliseconds(PromQlRenderer::seconds($range) * 1000 + $deadline->milliseconds));
 
         return \sprintf(
-            'clamp_min((%s or vector(0)) - (%s or vector(0)) - (%s or vector(0)), 0)',
-            $this->sum('increase', $started, $range, $offset),
-            $this->sum('increase', $finished, $range),
-            $this->sum('increase', $finished, $offset, $range),
+            '(clamp_min(((sum(%1$s offset %3$s) or vector(0)) - %4$s) - ((sum(%2$s) or vector(0)) - %5$s), 0) and on() sum(%1$s))',
+            $runs['started'],
+            $runs['finished'],
+            $offset,
+            $windowStart($runs['started']),
+            $windowStart($runs['finished']),
         );
     }
 
@@ -155,15 +159,22 @@ final readonly class PromQlBuilder
 
     /**
      * Share of the window since the first sample (1h resolution), so long-window alerts wait for a full window.
-     * The subquery looks one step past the window, so data older than the window reaches 1.
+     * The subquery looks one step past the window, so data older than the window reaches 1. Started runs of a
+     * scheduled task are data too: a task that never finishes has no event series.
      */
     public function coverageRatio(Selector $selector, BoundObjective $objective): string
     {
         $seconds = $objective->definition->window()->seconds();
 
+        $data = \sprintf('sum(%s)', $this->series($selector, $objective)['total']);
+        $runs = $this->runSeries($selector, $objective);
+        if ($runs !== null) {
+            $data .= \sprintf(' or sum(%s)', $runs['started']);
+        }
+
         return \sprintf(
-            'clamp((time() - min_over_time(timestamp(sum(%s))[%dh:1h])) / %d, 0, 1)',
-            $this->series($selector, $objective)['total'],
+            'clamp((time() - min_over_time(timestamp(%s)[%dh:1h])) / %d, 0, 1)',
+            $data,
             intdiv($seconds, self::HOUR) + 1,
             $seconds,
         );
@@ -174,7 +185,13 @@ final readonly class PromQlBuilder
      */
     public function noEvents(Selector $selector, BoundObjective $objective, int $hours): string
     {
-        return \sprintf('(%s or vector(0)) == 0', $this->sum('increase', $this->series($selector, $objective)['total'], $hours . 'h'));
+        $events = \sprintf('(%s or vector(0))', $this->sum('increase', $this->series($selector, $objective)['total'], $hours . 'h'));
+        $runs = $this->runSeries($selector, $objective);
+        if ($runs !== null) {
+            $events = \sprintf('(%s + (%s or vector(0)))', $events, $this->sum('increase', $runs['started'], $hours . 'h'));
+        }
+
+        return $events . ' == 0';
     }
 
     /**
@@ -283,6 +300,30 @@ final readonly class PromQlBuilder
         return $base;
     }
 
+    /**
+     * Started and finished run counters of the SLO's tasks, summed over `outcome`; null off scheduled tasks.
+     *
+     * @return array{started: non-empty-string, finished: non-empty-string}|null
+     */
+    private function runSeries(Selector $selector, BoundObjective $objective): ?array
+    {
+        if (!$this->isScheduledTask($objective)) {
+            return null;
+        }
+
+        $tasks = array_map(static fn (PointId $point): string => $point->id, $objective->definition->points());
+        sort($tasks, SORT_STRING);
+        $matchers = $this->matchers([
+            ...$this->base($selector),
+            \count($tasks) === 1 ? Matcher::equals('task', $tasks[0]) : Matcher::regex('task', PromQlRenderer::alternation($tasks)),
+        ]);
+
+        return [
+            'started' => self::NAMESPACE . SloMetric::SCHEDULED_TASK_STARTED->value . $matchers,
+            'finished' => self::NAMESPACE . SloMetric::SCHEDULED_TASK_FINISHED->value . $matchers,
+        ];
+    }
+
     private function isScheduledTask(BoundObjective $objective): bool
     {
         return $objective->definition->pointType() === PointType::ScheduledTask;
@@ -310,11 +351,10 @@ final readonly class PromQlBuilder
      * @param 'rate'|'increase' $function
      * @param non-empty-string $selector
      * @param non-empty-string $range
-     * @param non-empty-string|null $offset
      */
-    private function sum(string $function, string $selector, string $range, ?string $offset = null): string
+    private function sum(string $function, string $selector, string $range): string
     {
-        return \sprintf('sum(%s(%s[%s]%s))', $function, $selector, $range, $offset === null ? '' : ' offset ' . $offset);
+        return \sprintf('sum(%s(%s[%s]))', $function, $selector, $range);
     }
 
     /**

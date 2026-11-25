@@ -381,10 +381,21 @@
 ## Незавершённые запуски в правилах (1.2, Task 5)
 
 - Буквальная формула спеки `started[w] offset d - finished[w] offset d` считает незавершённым любой здоровый запуск,
-  пересекающий `t-d` (promtool-кейс `healthy run spanning scrapes`, с ней error ratio = 0.5 на 12m). Используется R1:
-  `started[r] offset d - finished[r] - finished[d] offset r`.
-- Total задачи — `(total + U) or (U > 0)`, а не `(total or vector(0)) + U` из брифа: со вторым `slo:events:rate*` задачи без
-  единой серии = 0 вместо NoData и падает `no-data.test.yml`. Убитая задача без событий всё равно даёт 100 % bad (U > 0).
-- `increase` без экстраполяции к началу, когда первое значение счётчика 0 (Prometheus `durationToZero`): поэтому в
-  promtool-кейсах `0x9 1x60` increase ровно 1, а не 1.25.
+  пересекающий `t-d`. Используется R1: старты в `[t-d-r, t-d]` минус финиши в `[t-d-r, t]`.
+- **U считается по мгновенным значениям счётчиков, не по `increase()`** (fix round 1): три `increase` по окнам разной длины
+  экстраполируются каждый своим множителем (~окно/(окно−scrape)), и один здоровый запуск оставлял остаток (≈0.14 при d=10m,
+  r=5m); при T=0 ratio = U/U = 1. Форма: `(clamp_min((S offset d - S offset (d+r)) - (F - F offset (d+r)), 0) and on() sum(S))`,
+  каждый член `sum(...) or vector(0)`, `d+r` — литерал (`PromQlRenderer::milliseconds`, напр. `43210m` для 30d+10m).
+- `and on() sum(started)`: при отсутствии started-серии в момент t (scrape gap, stale) U отсутствует, а с ним и ratio задачи.
+- Sloth: `d + {{.window}}` не выразим, левый край окна — `last_over_time(sum(X offset d)[1m:1m] offset {{.window}})` для
+  started и finished: оба края сдвинуты на один и тот же шаг сабквери (выравнивание по минуте), окна R1 остаются согласованными.
+- **Известная цена**: отсутствующий старый момент (`t-d-r` раньше истории Prometheus — retention короче окна SLO, свежий
+  Prometheus, gap длиннее lookback 5m ровно на `t-d-r`) заменяется 0, и U = все незавершённые за жизнь счётчика (убитые давно
+  запуски). Сброс счётчиков (flush Redis-хранилища metrics-bundle, рестарт без персистентности) даёт отрицательную разницу →
+  clamp 0 до тех пор, пока `t-d-r` не уйдёт за сброс: убитые в этом интервале запуски теряются.
+- Total задачи — `(total + U) or (U > 0)`: без серий вообще — NoData (`no-data.test.yml`), убитая задача без событий — 100 % bad.
+- Coverage и `SloNoEvents` задачи считают started-серию данными (`sum(total) or sum(started)` в `timestamp`, `+ increase(started)`):
+  иначе у вечно падающей задачи нет coverage и ticket не срабатывает (promtool `scheduled-task-multi-point.test.yml`, 3d).
+- `increase` не экстраполирует к началу окна, если первое значение счётчика 0 (`durationToZero`); promtool-кейсы поэтому
+  стартуют с 100 — иначе экстраполяция не проверяется вовсе.
 - Recording-записи B несут метку `revision` — `exp_samples` в promtool должны её содержать.

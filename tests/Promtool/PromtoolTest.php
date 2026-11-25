@@ -49,17 +49,18 @@ final class PromtoolTest extends TestCase
     public function testRulesWithTheNoEventsAlertPassCheckRules(): void
     {
         $output = GenerationFixture::action(GenerationFixture::catalog())(GenerationFixture::input(6));
-        $paths = array_map(function (GeneratedFile $file): string {
-            $path = $this->scratch . '/' . $file->relativePath;
-            (new Filesystem())->dumpFile($path, $file->contents);
-            chmod($path, 0o644);
 
-            return $file->relativePath;
-        }, $output->files->files);
-        chmod($this->scratch, 0o755);
-        chmod($this->scratch . '/prometheus', 0o755);
+        $this->promtool($this->scratch, ['check', 'rules', ...$this->dump($output->files->files)]);
+    }
 
-        $this->promtool($this->scratch, ['check', 'rules', ...$paths]);
+    public function testATaskSloOnSeveralPointsCountsTheUnfinishedRunsOfEveryTask(): void
+    {
+        $output = GenerationFixture::action(GenerationFixture::multiPointTaskCatalog())(GenerationFixture::input());
+        $this->dump($output->files->files);
+        (new Filesystem())->copy(self::FIXTURES . '/Promtool/scheduled-task-multi-point.test.yml', $this->scratch . '/scheduled-task-multi-point.test.yml');
+        chmod($this->scratch . '/scheduled-task-multi-point.test.yml', 0o644);
+
+        $this->promtool($this->scratch, ['test', 'rules', 'scheduled-task-multi-point.test.yml']);
     }
 
     public function testGeneratedSlothSpecsPassSlothValidate(): void
@@ -99,6 +100,26 @@ final class PromtoolTest extends TestCase
     public function testRuleUnitTests(string $file): void
     {
         $this->promtool(self::FIXTURES, ['test', 'rules', 'Promtool/' . $file]);
+    }
+
+    /**
+     * @param list<GeneratedFile> $files
+     *
+     * @return list<non-empty-string> the relative paths
+     */
+    private function dump(array $files): array
+    {
+        $paths = [];
+        foreach ($files as $file) {
+            $path = $this->scratch . '/' . $file->relativePath;
+            (new Filesystem())->dumpFile($path, $file->contents);
+            chmod($path, 0o644);
+            $paths[] = $file->relativePath;
+        }
+        chmod($this->scratch, 0o755);
+        chmod($this->scratch . '/prometheus', 0o755);
+
+        return $paths;
     }
 
     private function assertDockerIsAvailable(): void

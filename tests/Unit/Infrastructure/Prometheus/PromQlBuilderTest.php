@@ -11,6 +11,7 @@ use Msstc4Symfony\SloBundle\Application\Binding\Binding;
 use Msstc4Symfony\SloBundle\Application\Binding\Matcher;
 use Msstc4Symfony\SloBundle\Application\Binding\SeriesBinding;
 use Msstc4Symfony\SloBundle\Application\Binding\SeriesKind;
+use Msstc4Symfony\SloBundle\Application\Discovery\CatalogAssembler;
 use Msstc4Symfony\SloBundle\Application\Generation\BoundObjective;
 use Msstc4Symfony\SloBundle\Application\Generation\Selector;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
@@ -142,15 +143,29 @@ final class PromQlBuilderTest extends TestCase
         );
     }
 
-    public function testUnfinishedRunsOfAScheduledTask(): void
+    public function testUnfinishedRunsOfAScheduledTaskReadInstantCounterValues(): void
     {
-        $run = 'application="shop",component=~"web|worker",task="App\\\\Task\\\\CleanupTask::__invoke"';
+        $started = 'symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\\\Task\\\\CleanupTask::__invoke"}';
+        $finished = 'symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\\\Task\\\\CleanupTask::__invoke"}';
 
         self::assertSame(
-            'clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{' . $run . '}[5m] offset 2m)) or vector(0))'
-            . ' - (sum(increase(symfony_slo_scheduled_task_finished_total{' . $run . '}[5m])) or vector(0))'
-            . ' - (sum(increase(symfony_slo_scheduled_task_finished_total{' . $run . '}[2m] offset 5m)) or vector(0)), 0)',
+            '(clamp_min(((sum(' . $started . ' offset 2m) or vector(0)) - (sum(' . $started . ' offset 7m) or vector(0)))'
+            . ' - ((sum(' . $finished . ') or vector(0)) - (sum(' . $finished . ' offset 7m) or vector(0))), 0)'
+            . ' and on() sum(' . $started . '))',
             (new PromQlBuilder())->unfinishedRuns(GenerationFixture::input()->selector, $this->objective('cleanup.run', 'latency'), '5m'),
+        );
+    }
+
+    public function testASlothWindowStartsAtTheLastSubqueryStepBeforeIt(): void
+    {
+        $started = 'symfony_slo_scheduled_task_started_total{application="shop",task="command:app:sync-partners"}';
+        $finished = 'symfony_slo_scheduled_task_finished_total{application="shop",task="command:app:sync-partners"}';
+
+        self::assertSame(
+            '(clamp_min(((sum(' . $started . ' offset 10m) or vector(0)) - (last_over_time(sum(' . $started . ' offset 10m)[1m:1m] offset {{.window}}) or vector(0)))'
+            . ' - ((sum(' . $finished . ') or vector(0)) - (last_over_time(sum(' . $finished . ' offset 10m)[1m:1m] offset {{.window}}) or vector(0))), 0)'
+            . ' and on() sum(' . $started . '))',
+            (new PromQlBuilder())->unfinishedRuns(new Selector('shop', []), $this->objective('partners.sync', 'availability'), '{{.window}}'),
         );
     }
 
@@ -174,21 +189,38 @@ final class PromQlBuilderTest extends TestCase
         }
     }
 
-    public function testTheDeclaredDeadlineOffsetsTheStartsOfACommandTask(): void
+    public function testTheWindowStartIsTheDeadlinePlusTheRange(): void
     {
-        $unfinished = (new PromQlBuilder())->unfinishedRuns(new Selector('shop', []), $this->objective('partners.sync', 'availability'), '1h');
+        $builder = new PromQlBuilder();
+        $objective = $this->objective('partners.sync', 'availability');
+
+        foreach (['1h' => '70m', '30d' => '43210m'] as $range => $windowStart) {
+            $unfinished = $builder->unfinishedRuns(new Selector('shop', []), $objective, $range);
+            self::assertNotNull($unfinished);
+            self::assertSame(2, substr_count($unfinished, 'task="command:app:sync-partners"} offset ' . $windowStart . ')'));
+        }
+    }
+
+    public function testCoverageAndNoEventsOfATaskCountStartedRunsAsData(): void
+    {
+        $builder = new PromQlBuilder();
+        $objective = $this->objective('partners.sync', 'availability');
+        $total = \sprintf('symfony_slo_events_total{application="shop",slo="partners.sync",objective="availability",revision="%s"}', $objective->revision->value);
+        $started = 'symfony_slo_scheduled_task_started_total{application="shop",task="command:app:sync-partners"}';
 
         self::assertSame(
-            'clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",task="command:app:sync-partners"}[1h] offset 10m)) or vector(0))'
-            . ' - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",task="command:app:sync-partners"}[1h])) or vector(0))'
-            . ' - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",task="command:app:sync-partners"}[10m] offset 1h)) or vector(0)), 0)',
-            $unfinished,
+            'clamp((time() - min_over_time(timestamp(sum(' . $total . ') or sum(' . $started . '))[721h:1h])) / 2592000, 0, 1)',
+            $builder->coverageRatio(new Selector('shop', []), $objective),
+        );
+        self::assertSame(
+            '((sum(increase(' . $total . '[6h])) or vector(0)) + (sum(increase(' . $started . '[6h])) or vector(0))) == 0',
+            $builder->noEvents(new Selector('shop', []), $objective, 6),
         );
     }
 
     public function testATaskSloOnSeveralPointsMatchesEveryTask(): void
     {
-        $definition = CatalogFixture::build(static function ($assembler): void {
+        $definition = CatalogFixture::build(static function (CatalogAssembler $assembler): void {
             $slo = new Slo('nightly', [new Availability(99)], deadline: '90s');
             $assembler->declare(PointId::of(PointType::ScheduledTask, 'App\Task\A::__invoke'), $slo);
             $assembler->declare(PointId::of(PointType::ScheduledTask, 'command:app:b'), $slo);
@@ -199,7 +231,7 @@ final class PromQlBuilderTest extends TestCase
 
         self::assertNotNull($unfinished);
         self::assertStringContainsString(
-            'symfony_slo_scheduled_task_started_total{application="shop",task=~"App\\\\\\\\Task\\\\\\\\A\\\\:\\\\:__invoke|command\\\\:app\\\\:b"}[5m] offset 90s',
+            'symfony_slo_scheduled_task_started_total{application="shop",task=~"App\\\\\\\\Task\\\\\\\\A\\\\:\\\\:__invoke|command\\\\:app\\\\:b"} offset 90s)',
             $unfinished,
         );
     }

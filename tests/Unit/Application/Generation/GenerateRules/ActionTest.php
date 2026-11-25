@@ -146,7 +146,7 @@ final class ActionTest extends TestCase
                 self::assertIsString($rule['record']);
                 self::assertIsString($rule['labels']['slo']);
                 $task = \in_array($rule['labels']['slo'], ['cleanup.run', 'partners.sync'], true);
-                $reads = str_starts_with($rule['record'], 'slo:events:rate') || str_starts_with($rule['record'], 'slo:error_ratio:rate') || $rule['record'] === 'slo:sli:ratio';
+                $reads = str_starts_with($rule['record'], 'slo:events:rate') || str_starts_with($rule['record'], 'slo:error_ratio:rate') || \in_array($rule['record'], ['slo:sli:ratio', 'slo:window:coverage_ratio'], true);
                 self::assertSame($task && $reads, str_contains($rule['expr'], 'symfony_slo_scheduled_task_started_total'), $rule['record'] . ' of ' . $rule['labels']['slo']);
             }
         }
