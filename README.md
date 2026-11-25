@@ -129,7 +129,8 @@ Events come from the metrics-bundle measurement observers, with the duration met
   An uncaught exception is classified by the resulting status (500 by default), once.
 - Messenger: one event per final worker outcome of an envelope (`handled`, or `failed` after the last retry);
   retries are events only with `countAttempts: true`, anything consumed from a failure transport
-  (`messenger:failed:retry`) never is. Batch handlers (`BatchHandlerInterface`) are counted per envelope like any async message.
+  (`messenger:failed:retry`) never is. Batch handlers (`BatchHandlerInterface`) are counted per envelope like any
+  async message.
   Synchronously handled messages are not measured (`slo:coverage` reports them as `unsupported`, `slo:validate` warns
   about an SLO on a message that is not consumed by a worker: routed nowhere or only to `sync://`). A handler counts as
   worker-consumed when it is bound with `fromTransport` to a worker transport (not `sync://`, not a failure transport),
@@ -141,25 +142,33 @@ Events come from the metrics-bundle measurement observers, with the duration met
   unrouted message still looks synchronous), and a producer that targets a transport only through `#[AsMessage]` on
   messages it does not handle or a `TransportNamesStamp` (the transport looks receive-only, so the app's unrouted
   handlers look worker-consumed). For both, bind the handler with `#[AsMessageHandler(fromTransport: '<transport>')]`
-  or add an explicit `routing` entry. Hand-built schedules (`RecurringMessage` in a schedule provider) are not detected either: the schedule is built
-  at runtime, so such a message is not recognised as worker-consumed through its `scheduler_<name>` transport, which a
-  separate `messenger:consume scheduler_<name>` worker reads; its classification falls back to the routing and
-  receive-only rules above. Bind its handler with `#[AsMessageHandler(fromTransport: 'scheduler_<name>')]`. Tasks
-  declared with `#[AsCronTask]` / `#[AsPeriodicTask]` are supported directly, see the next bullet. `#[Slo]` on a handler is an SLO on the envelope of its
+  or add an explicit `routing` entry. Hand-built schedules (`RecurringMessage` in a schedule provider) are not
+  detected either: the schedule is built at runtime, so such a message is not recognised as worker-consumed through
+  its `scheduler_<name>` transport, which a separate `messenger:consume scheduler_<name>` worker reads; its
+  classification falls back to the routing and receive-only rules above. Bind its handler with
+  `#[AsMessageHandler(fromTransport: 'scheduler_<name>')]`. Tasks declared with `#[AsCronTask]` / `#[AsPeriodicTask]`
+  are supported directly, see the next bullet. `#[Slo]` on a handler is an SLO on the envelope of its
   message; a message with several handlers gets a validation warning. The handler must take a concrete message class:
   events are matched by the dispatched message's class, so `#[Slo]` on a handler of an interface or abstract class is a
   compilation error.
 - Operations: one event per finished handle, see [Operations API](#operations-api).
-- Scheduled tasks: Scheduler tasks declared with `#[AsCronTask]` / `#[AsPeriodicTask]` (the `scheduler.task` tag), as the
-  point `<service id>::<method>` (method from the attribute, default `__invoke`) or `command:<command name>` for console
-  commands. One event per final run on a worker (`symfony/scheduler` and `symfony/messenger` installed): a retried
-  attempt is not an event, anything consumed from a failure transport is not eligible, and the consuming transport is
-  not filtered. A `ServiceCallMessage` / `RunCommandMessage` the application dispatches itself counts under the same
-  point. A failing command task is always an error (`RunCommandMessageHandler` wraps whatever the command threw); for a
-  service task the handler's exception is classified like an operation's. The duration comes from the bundle's own
-  `hrtime` timer around the run, so it can differ from the Messenger histogram by the listener overhead. Runs that never
-  finish are counted through the run metrics, see [Generation](#generation-and-gitops-provisioning). Aliases and
-  abbreviations of a command name are not matched: use the name the task is dispatched with.
+- Scheduled tasks: Scheduler tasks declared with `#[AsCronTask]` / `#[AsPeriodicTask]` (the `scheduler.task` tag), as
+  the point `<service id>::<method>` (method from the attribute, default `__invoke`) or `command:<command name>` for
+  console commands. One event per final run on a worker (`symfony/scheduler` and `symfony/messenger` installed): a
+  retried attempt is not an event, anything consumed from a failure transport is not eligible, and the consuming
+  transport is not filtered. A `ServiceCallMessage` / `RunCommandMessage` the application dispatches itself counts
+  under the same point. A failing command task is always an error (`RunCommandMessageHandler` wraps whatever the
+  command threw); for a service task the handler's exception is classified like an operation's. The duration comes
+  from the bundle's own `hrtime` timer around the run, so it can differ from the Messenger histogram by the listener
+  overhead. Runs that never finish are counted through the run metrics, see
+  [Generation](#generation-and-gitops-provisioning). A run that finishes after its deadline is no event of its own
+  (per SLO, when the SLOs of a point have different deadlines): the rules already counted it once, as unfinished.
+  Aliases and abbreviations of a command name are not matched: use the name the task is dispatched with. Limits:
+  - the task's transport must be consumed by a worker: a task with `transports: 'sync'` (or another `sync://`
+    transport) runs inside the `RedispatchMessage` handler without worker events and is not measured, although
+    `slo:coverage` reports it as monitored;
+  - a listener below priority -1000 that vetoes the message with `WorkerMessageReceivedEvent::shouldHandle(false)`
+    runs after the start was recorded, so the rules count a false unfinished run.
 - Logic actions: through the [`slo-bridge-logic`](https://github.com/msstc4symfony/slo-bridge-logic) package, see [Bridges](#bridges-and-measurement-points).
 
 ## Classification of events
@@ -182,7 +191,9 @@ Defaults, all overridable per SLO. An *eligible* event enters the denominator; *
 - `countAttempts: true` (Messenger): every attempt is an event - handled is good, failed and retried are bad;
   failure-transport events stay ineligible.
 - Unfinished runs (a scheduled task started and not finished within its deadline) are bad events of every objective of
-  the task SLO, also of latency and `Combined`: they enter both the bad and the total events.
+  the task SLO, also of latency and `Combined`: they enter both the bad and the total events. A run that finishes
+  later writes no event of its own, so it counts once; with the default deadline (the latency threshold) a slow run is
+  bad through this path only.
 - Failure transports are detected at compile time from the framework's failure-transport listener and can be set with
   `defaults.messenger.failure_transports`.
 - Status sets are canonical: `['5xx', '500-599']` is the same set as `['5xx']`.
@@ -359,6 +370,16 @@ Commit the directory, run `slo:generate --check` in CI ("rules are stale" fails 
   first run of a new series; and a hung run hidden by the finish of another run of the same task within `d + 1m` (a
   frequent task with a long deadline). Sloth specs cannot rely on the bundle's records, so they use the same per-series
   form over their own window, and long Sloth windows need series that live for the deadline plus the window.
+- A run that finishes after its deadline counts once, as unfinished: the listener writes no SLO event for it. If the
+  record did not see it (the run finished within the same evaluation step or scrape in which its deadline passed, or
+  the finish of another run masked it), it yields no event at all: lost, never counted twice.
+- Run metrics are also written for runs consumed from a failure transport (`messenger:failed:retry`), so `started` and
+  `finished` stay paired: a retry from the failure transport that hangs or whose worker is killed counts as an
+  unfinished run, one bad event, although failure-transport runs are otherwise not eligible.
+- Long deadlines and pod replacement: the record needs each series alive for `d + 1m`, Sloth's per-series form for
+  `d +` its window; a series that disappears earlier (a pod replaced, a new `instance` label) loses the detection of
+  its runs. With storage shared by several pods (Redis), scrape a single target for the task series or drop
+  `instance` / `pod` from them with relabelling, so a replacement does not start new series.
 - Not a goal: "the task stopped running". A task that is never scheduled writes nothing, so it is neither bad nor
   unfinished; alert on it separately, for example
   `sum(increase(symfony_slo_scheduled_task_started_total{task="command:app:sync-partners"}[2h])) == 0`.

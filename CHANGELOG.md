@@ -29,7 +29,9 @@
   installed) times each `ServiceCallMessage` / `RunCommandMessage` run itself and records the final outcome; a retried
   attempt is no event, a failure is classified on the handler's nested exception (a failing command is always an
   error), and runs on a failure transport are not eligible. A task message the application dispatches itself counts
-  under the task's point too.
+  under the task's point too. A run that finishes after its deadline records no SLO event (per SLO): the rules already
+  counted it once, as unfinished; if they did not see it, it is lost, never counted twice.
+  `SloDefinition::isPastRunDeadline()` tells whether a run duration exceeds `runDeadline()`.
 - Unfinished runs counted as bad events of scheduled-task SLOs in the generated Prometheus rules and Sloth specs: runs
   started in `[t-d-r, t-d]` minus runs finished in `[t-d-r, t]` (`d` the run deadline, `r` the range), clamped at 0,
   are added to the bad and the total events of every objective, so a hung or killed run is bad and a task that always
@@ -44,13 +46,15 @@
   Sloth specs of task SLOs use `increase` queries. The window coverage and the no-events alert of a task SLO count
   started runs as data, so the ticket alert of a task that always dies can fire.
 - Generated Grafana dashboard `slo-scheduled-tasks.json` (Scheduled Tasks): runs started, runs finished by outcome, p95 run
-  duration and started minus finished per task, then the SLO rows of scheduled-task objectives; `slo:generate --check`
+  duration and runs started minus finished over the time range per task, then the SLO rows of scheduled-task objectives; `slo:generate --check`
   reports it as missing until regenerated.
 
 ### Changed
 
 - `slo:coverage --min` now also applies to `scheduled_task` points (like every other kind), so a `--min` gate fails on
   scheduled tasks without an SLO.
+- `SloDefinition::sameSemanticsAs()` and the `slo:validate` conflict report compare the effective run deadline: an
+  explicit deadline equal to the latency threshold is the same declaration as no deadline.
 - The generated `slo-monitoring-coverage` dashboard gains a `scheduled_task` row: `slo:generate --check` reports drift
   after the upgrade; regenerate with `slo:generate`.
 - Compiled catalog dump format 4 (`deadline_ms` per definition, `scheduled_tasks` in the extras): clear the cache on

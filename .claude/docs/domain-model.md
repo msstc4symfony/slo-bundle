@@ -58,9 +58,14 @@
 ## Deadline задач Scheduler (1.2)
 
 - `Deadline` (мс, 1..999 999 999, грамматика `<int>ms|<decimal>s|<int>m|<int>h`) — не входит в ревизию, входит в `sameSemanticsAs`
+  (сравнивается эффективный `runDeadline()`: `deadline: '2m'` при `Latency('120s')` ≡ без deadline; так же `DeclarationDiff`)
   и в дамп каталога (`deadline_ms`, `CatalogDump::FORMAT = 4`). `SloDefinition::deadline()` — объявленный; `runDeadline()` — объявленный,
   иначе порог latency, иначе combined; `null` вне `scheduled_task`. Инварианты сущности: deadline только у `scheduled_task`,
   а у задачи `runDeadline() !== null`; понятные сообщения для пользователя выдаёт `DefinitionFactory` до конструктора.
+- `SloDefinition::isPastRunDeadline(float)` — длительность строго больше `runDeadline()`. Такой запуск правила уже засчитали как
+  незавершённый (bad в момент start + d), поэтому `EventClassifier` делает его наблюдение не eligible для всех целей этого SLO
+  (CR-001, вариант A), а `ScheduledTaskRunListener` вообще не зовёт recorder, если запуск опоздал для всех SLO точки.
+  Следствие: при deadline = порогу latency медленный успешный запуск bad только через U.
 - `slo:validate` сравнивает `runDeadline()` с `generation.prometheus.scrape_interval_seconds` (по умолчанию 60).
 - `Observation::outcome(PointType, Outcome, float, bool $onFailureTransport = false)` принимает `LogicAction|Operation|ScheduledTask`; флаг
   failure-транспорта допустим только у `ScheduledTask` (иначе `InvalidArgumentException`) и делает наблюдение не eligible для любой цели.

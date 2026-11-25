@@ -369,7 +369,7 @@
   `kernel.event_subscriber` в `services.php` ставить нельзя — подписка идёт через автоконфигурацию. Приоритеты проверяет
   `ScheduledTaskRunListenerTest` рефлексией атрибутов.
 - **Kernel-тест задач**: `SchedulerSloTestKernel` маршрутизирует `ServiceCallMessage`/`RunCommandMessage` в `async` (in-memory,
-  `max_retries: 1`, `delay: 0`) и регистрирует `clock`; сбой фикстур — статические флаги `CleanupTask::$failing`,
+  `max_retries: 1`, `delay: 0`) и регистрирует `clock` как `Symfony\Component\Clock\Clock` (глобальные часы, без autowire); сбой фикстур — статические флаги `CleanupTask::$failing`,
   `SyncPartnersCommand::$failing` (сбрасываются в `tearDown`). `task` в экспорте Prometheus экранирует `\` (FQCN) — тест снимает
   экранирование `stripslashes()`.
 - `HardeningKernel` при установленном scheduler тоже включает `scheduler` и `CleanupTask`; `UseThrowingRecorderPass` подменяет
@@ -421,3 +421,23 @@
   `slo:unfinished_runs:step` в 1m-группе перед читателями; цена — потеря шага при пропущенной оценке, отсутствующем моменте или сбросе, финиш
   другого запуска в `d+1m` может скрыть убитый старт, первый запуск новой серии не считается.
 - **Порядок `-1000` / `0` / `0`** проверяется рефлексией атрибутов, а не kernel-тестом.
+
+## Финальный раунд фиксов 1.2 (2026-11-25 UTC)
+
+- **Опоздавший запуск считается один раз (CR-001, вариант A).** Запуск длиннее `runDeadline()` не даёт SLO-события (ни availability,
+  ни latency): step-record уже записал его как незавершённый в start + d. Run-метрики (`finished`, `duration`) пишутся как обычно.
+  Если U его не увидел (финиш в том же шаге/scrape, где истёк deadline, или маскировка финишем другого запуска) — события нет вовсе:
+  потеря, но не двойной счёт. Promtool-кейс `run finishing after its deadline counts once, as unfinished` (1 bad из 1).
+- **Реальный транспорт `scheduler_default` в kernel-тесте**: `Clock::set(new MockClock(...))` управляет и генератором расписания (сервис
+  `clock` = глобальный `Clock`), и `Worker` (он создаёт `new Clock()` сам и спит через него) — первый запуск 60-секундной
+  `CleanupTask` наступает через «минуту» сна воркера мгновенно; `tearDown` возвращает `NativeClock`. `ReportTasks` убран из
+  `SchedulerSloTestKernel`: cron-триггер без `dragonmantank/cron-expression` (его нет в CI) роняет построение `scheduler_default`.
+- **Документированные ограничения (без изменения кода)**: вето `shouldHandle(false)` слушателем ниже -1000 оставляет фантомный старт →
+  ложный незавершённый запуск (CR-002); задача с `transports: 'sync'` выполняется внутри `RedispatchMessage` без worker-событий и не
+  измеряется, хотя coverage считает её monitored (CR-003, unwrap дал бы двойной счёт async-redispatch); зависший повтор из failure
+  transport — незавершённый запуск = bad по R6 (CR-004); долгие deadline + замена пода: step-record нужна жизнь серии d+1m, Sloth —
+  d+окно; совет — один target или relabel `instance` для общего Redis (CR-015).
+- Дашборд «Runs started minus finished over the time range»: `increase(...[$__range])` по задаче вместо сырых счётчиков (CR-008).
+- `isMonitored()` с одним лишь конфликтным именем на точке покрыт тестом (R8); `CompiledSloCatalogTest` строит устаревший дамп
+  формата 3 как текущий минус `deadline_ms`/`scheduled_tasks` (CR-016).
+- PhpStorm MCP `get_inspections` в этом раунде недоступен (инструмента нет в сессии).
