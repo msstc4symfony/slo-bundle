@@ -39,7 +39,8 @@ final readonly class PromQlBuilder
 
     private const HOUR = 3600;
 
-    private const SUBQUERY_STEP_MILLISECONDS = 60_000;
+    /** The Sloth form samples its window edge at the step of the unfinished-runs record. */
+    private const SUBQUERY_STEP_MILLISECONDS = Deadline::UNFINISHED_RUN_STEP_MILLISECONDS;
 
     /** A range Sloth fills in, such as `{{.window}}`. */
     private const TEMPLATE = '/^\{\{\.[a-z]+\}\}$/Di';
@@ -252,8 +253,8 @@ final readonly class PromQlBuilder
      * a series missing at one of the instants (outage, fresh Prometheus, replica churn) or reset within [t-d-r, t]
      * drops out, so detection is lost for that range but never invented. A task that never finished has no finished
      * series: where the started series exists, finished counts as 0. A `{{.window}}` cannot be added to d, so the
-     * window start is the last 1m subquery step τ at or before t-r, the same edge for started and finished; the reset
-     * check reaches 1m further back to cover τ-d.
+     * window start is the last subquery step τ (one unfinished-runs step) at or before t-r, the same edge for started
+     * and finished; the reset check reaches one step further back to cover τ-d.
      *
      * @param non-empty-string $range
      *
@@ -272,8 +273,9 @@ final readonly class PromQlBuilder
         $finishedAt = static fn (string $offset): string => \sprintf('(sum without (outcome) (%2$s%3$s) or (%1$s%3$s * 0))', $started, $finished, $offset);
 
         if (preg_match(self::TEMPLATE, $range) === 1) {
-            $startedAtStart = \sprintf('last_over_time((%s offset %s)[1m:1m] offset %s)', $started, $d, $range);
-            $finishedAtStart = \sprintf('last_over_time(%s[1m:1m] offset %s)', $finishedAt(' offset ' . $d), $range);
+            $step = PromQlRenderer::milliseconds(self::SUBQUERY_STEP_MILLISECONDS);
+            $startedAtStart = \sprintf('last_over_time((%s offset %s)[%s:%s] offset %s)', $started, $d, $step, $step, $range);
+            $finishedAtStart = \sprintf('last_over_time(%s[%s:%s] offset %s)', $finishedAt(' offset ' . $d), $step, $step, $range);
             $reset = \sprintf(
                 'resets(%1$s[%3$s]) > 0 or resets(%1$s[%4$s] offset %3$s) > 0 or resets(%2$s[%3$s]) > 0 or resets(%2$s[%4$s] offset %3$s) > 0',
                 $started,
