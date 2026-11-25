@@ -62,10 +62,11 @@
   и в дамп каталога (`deadline_ms`, `CatalogDump::FORMAT = 4`). `SloDefinition::deadline()` — объявленный; `runDeadline()` — объявленный,
   иначе порог latency, иначе combined; `null` вне `scheduled_task`. Инварианты сущности: deadline только у `scheduled_task`,
   а у задачи `runDeadline() !== null`; понятные сообщения для пользователя выдаёт `DefinitionFactory` до конструктора.
-- `SloDefinition::isPastRunDeadline(float)` — длительность строго больше `runDeadline()`. Такой запуск правила уже засчитали как
-  незавершённый (bad в момент start + d), поэтому `EventClassifier` делает его наблюдение не eligible для всех целей этого SLO
-  (CR-001, вариант A), а `ScheduledTaskRunListener` вообще не зовёт recorder, если запуск опоздал для всех SLO точки.
-  Следствие: при deadline = порогу latency медленный успешный запуск bad только через U.
+- `SloDefinition::countsAsUnfinished(float)` — длительность строго больше `runDeadline() + Deadline::UNFINISHED_RUN_STEP_MILLISECONDS`
+  (1m, шаг записи `slo:unfinished_runs:step`; Domain владеет константой, `RuleGroupsBuilder` берёт из неё interval 1m-группы).
+  Такой запуск правила засчитали как незавершённый наверняка, поэтому `EventClassifier` делает его наблюдение не eligible для всех
+  целей этого SLO; слушатель передаёт в recorder каждый финальный исход. Запуски в полосе ~`(d - scrape, d + 1m]` могут
+  считаться дважды (см. known-issues).
 - `slo:validate` сравнивает `runDeadline()` с `generation.prometheus.scrape_interval_seconds` (по умолчанию 60).
 - `Observation::outcome(PointType, Outcome, float, bool $onFailureTransport = false)` принимает `LogicAction|Operation|ScheduledTask`; флаг
   failure-транспорта допустим только у `ScheduledTask` (иначе `InvalidArgumentException`) и делает наблюдение не eligible для любой цели.

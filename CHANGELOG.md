@@ -29,9 +29,12 @@
   installed) times each `ServiceCallMessage` / `RunCommandMessage` run itself and records the final outcome; a retried
   attempt is no event, a failure is classified on the handler's nested exception (a failing command is always an
   error), and runs on a failure transport are not eligible. A task message the application dispatches itself counts
-  under the task's point too. A run that finishes after its deadline records no SLO event (per SLO): the rules already
-  counted it once, as unfinished; if they did not see it, it is lost, never counted twice.
-  `SloDefinition::isPastRunDeadline()` tells whether a run duration exceeds `runDeadline()`.
+  under the task's point too. A run longer than its deadline plus the 1m unfinished-runs step records no SLO event
+  (per SLO): the rules certainly counted it, as unfinished. A run counts at most once outside a duration band of about
+  `(d - scrape interval, d + 1m]` (about two minutes with a 60 s scrape); within the band it may count twice, towards
+  bad, and it is never lost. An explicit `deadline` above the latency threshold narrows the latency distortion.
+  `SloDefinition::countsAsUnfinished()` applies the cut-off; `Deadline::UNFINISHED_RUN_STEP_MILLISECONDS` is the step
+  shared with the generated rules.
 - Unfinished runs counted as bad events of scheduled-task SLOs in the generated Prometheus rules and Sloth specs: runs
   started in `[t-d-r, t-d]` minus runs finished in `[t-d-r, t]` (`d` the run deadline, `r` the range), clamped at 0,
   are added to the bad and the total events of every objective, so a hung or killed run is bad and a task that always

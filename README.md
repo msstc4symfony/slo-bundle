@@ -161,8 +161,8 @@ Events come from the metrics-bundle measurement observers, with the duration met
   command threw); for a service task the handler's exception is classified like an operation's. The duration comes
   from the bundle's own `hrtime` timer around the run, so it can differ from the Messenger histogram by the listener
   overhead. Runs that never finish are counted through the run metrics, see
-  [Generation](#generation-and-gitops-provisioning). A run that finishes after its deadline is no event of its own
-  (per SLO, when the SLOs of a point have different deadlines): the rules already counted it once, as unfinished.
+  [Generation](#generation-and-gitops-provisioning). A run longer than its deadline plus one minute is no event of
+  its own (per SLO, when the SLOs of a point have different deadlines): the rules already counted it, as unfinished.
   Aliases and abbreviations of a command name are not matched: use the name the task is dispatched with. Limits:
   - the task's transport must be consumed by a worker: a task with `transports: 'sync'` (or another `sync://`
     transport) runs inside the `RedispatchMessage` handler without worker events and is not measured, although
@@ -191,9 +191,9 @@ Defaults, all overridable per SLO. An *eligible* event enters the denominator; *
 - `countAttempts: true` (Messenger): every attempt is an event - handled is good, failed and retried are bad;
   failure-transport events stay ineligible.
 - Unfinished runs (a scheduled task started and not finished within its deadline) are bad events of every objective of
-  the task SLO, also of latency and `Combined`: they enter both the bad and the total events. A run that finishes
-  later writes no event of its own, so it counts once; with the default deadline (the latency threshold) a slow run is
-  bad through this path only.
+  the task SLO, also of latency and `Combined`: they enter both the bad and the total events. Near the deadline a run
+  can be counted twice (its own event and unfinished), never lost, see
+  [Generation](#generation-and-gitops-provisioning).
 - Failure transports are detected at compile time from the framework's failure-transport listener and can be set with
   `defaults.messenger.failure_transports`.
 - Status sets are canonical: `['5xx', '500-599']` is the same set as `['5xx']`.
@@ -364,15 +364,24 @@ Commit the directory, run `slo:generate --check` in CI ("rules are stale" fails 
   `[t - d - 1m, t - d]` minus the runs finished in `[t - d - 1m, t]` (`d` is the run deadline; instant counter values,
   clamped at 0, the label `outcome` ignored), and every window sums the record with `sum_over_time`. They are bad
   events and part of the total, so a task that always dies reads 100 % bad, not NoData; the coverage gate and the
-  `SloNoEvents` alert of a task SLO also treat the started series as data. A run still inside its deadline is never
-  counted. What the formula misses, never inventing a run instead: a step in which a series is missing (outage, failed
-  scrape, pod replacement) or its counters reset (Redis flush), or in which the rule evaluation was skipped; the very
-  first run of a new series; and a hung run hidden by the finish of another run of the same task within `d + 1m` (a
-  frequent task with a long deadline). Sloth specs cannot rely on the bundle's records, so they use the same per-series
-  form over their own window, and long Sloth windows need series that live for the deadline plus the window.
-- A run that finishes after its deadline counts once, as unfinished: the listener writes no SLO event for it. If the
-  record did not see it (the run finished within the same evaluation step or scrape in which its deadline passed, or
-  the finish of another run masked it), it yields no event at all: lost, never counted twice.
+  `SloNoEvents` alert of a task SLO also treat the started series as data. A run that finishes more than one scrape
+  interval before its deadline is never counted as unfinished. What the formula misses, never inventing a run
+  instead: a step in which a series is missing (outage, failed scrape, pod replacement) or its counters reset (Redis
+  flush), or in which the rule evaluation was skipped; the very first run of a new series; and a hung run hidden by the
+  finish of another run of the same task within `d + 1m` (a frequent task with a long deadline). Sloth specs cannot
+  rely on the bundle's records, so they use the same per-series form over their own window, and long Sloth windows
+  need series that live for the deadline plus the window.
+- Runs near the deadline: a run counts at most once outside the band of about `(d - scrape interval, d + 1m]` of
+  duration, where `1m` is the step of `slo:unfinished_runs:step`. A shorter run is its own event only; a longer one
+  was certainly seen by the step record, so the bundle writes no SLO event for it and it counts once, as unfinished. A
+  run inside the band keeps its own event and may also be counted unfinished: twice, towards bad, never lost by the
+  boundary (only the misses listed above can lose it). With the 1m step and Prometheus' default 60 s scrape interval
+  the band is about two minutes wide, from `d - 60s` to `d + 60s`. With the default deadline (the latency threshold)
+  a moderately slow run therefore weighs double on the latency objective; an explicit `deadline` above the latency
+  threshold (for example threshold plus 2m) gives slow runs a single latency-bad event of their own and leaves the
+  unfinished count to runs that really hang.
+- A retried attempt that runs past its deadline is counted unfinished (the run metrics cover every attempt), and the
+  final attempt then records its own event: two events for one logical run.
 - Run metrics are also written for runs consumed from a failure transport (`messenger:failed:retry`), so `started` and
   `finished` stay paired: a retry from the failure transport that hangs or whose worker is killed counts as an
   unfinished run, one bad event, although failure-transport runs are otherwise not eligible.
