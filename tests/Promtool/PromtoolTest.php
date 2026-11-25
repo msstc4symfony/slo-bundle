@@ -65,7 +65,7 @@ final class PromtoolTest extends TestCase
     public function testGeneratedSlothSpecsPassSlothValidate(): void
     {
         $output = GenerationFixture::slothAction(GenerationFixture::catalog())(new SlothInput(new Selector('shop', ['worker', 'web'])));
-        self::assertCount(3, $output->files->files);
+        self::assertCount(5, $output->files->files);
         foreach ($output->files->files as $file) {
             self::assertNotSame('', $file->contents);
             $path = $this->scratch . '/' . $file->relativePath;
@@ -89,6 +89,7 @@ final class PromtoolTest extends TestCase
         yield 'old revision only: no ratio for the new one' => ['revision.test.yml'];
         yield '2 days of a 30d window: warming up, no ticket' => ['warming-up.test.yml'];
         yield 'Strategy A latency reads the Prometheus 3 le="1.0" bucket' => ['latency-bucket.test.yml'];
+        yield 'scheduled task: unfinished runs are bad events, healthy and retried runs are not' => ['scheduled-task.test.yml'];
     }
 
     /**

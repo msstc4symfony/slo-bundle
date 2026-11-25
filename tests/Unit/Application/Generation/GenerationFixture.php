@@ -42,11 +42,16 @@ use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\InMemoryRouteCatalog;
 
 /**
  * The catalog behind the golden files: HTTP availability (A) + latency 200ms (B), Messenger availability and
- * latency 1s (A), an operation (B) on a 3d window.
+ * latency 1s (A), an operation (B) on a 3d window, two scheduled tasks (B): a service task with a 120s latency and a
+ * command task with a 10m deadline.
  */
 final class GenerationFixture
 {
     public const CHECKOUT = 'App\Controller\CheckoutController::pay';
+
+    public const CLEANUP_TASK = 'App\Task\CleanupTask::__invoke';
+
+    public const SYNC_PARTNERS_TASK = 'command:app:sync-partners';
 
     public static function catalog(float $checkoutLatencyTarget = 99.0, float $checkoutAvailabilityTarget = 99.9, bool $logicHistogram = true): CompiledSloCatalog
     {
@@ -55,6 +60,8 @@ final class GenerationFixture
                 $assembler->declare(PointId::of(PointType::HttpRoute, self::CHECKOUT), new Slo('checkout.pay', [new Availability($checkoutAvailabilityTarget), new Latency('200ms', $checkoutLatencyTarget)]));
                 $assembler->declare(PointId::of(PointType::MessengerMessage, 'App\Message\ProcessPayment'), new Slo('payment.process', [new Latency('1s', 99), new Availability(99.5)]));
                 $assembler->declare(PointId::of(PointType::Operation, 'report.export'), new Slo('report.export', [new Availability(99)], window: '3d', strategy: StrategyPreference::Dedicated));
+                $assembler->declare(PointId::of(PointType::ScheduledTask, self::CLEANUP_TASK), new Slo('cleanup.run', [new Availability(99), new Latency('120s', 95)]));
+                $assembler->declare(PointId::of(PointType::ScheduledTask, self::SYNC_PARTNERS_TASK), new Slo('partners.sync', [new Availability(99.5)], deadline: '10m'));
             },
             new CatalogExtras(
                 handlers: [
@@ -67,6 +74,7 @@ final class GenerationFixture
                     'messenger_message_handling_duration_histogram_seconds' => [0.1, 0.5, 1.0, 5.0],
                     ...($logicHistogram ? ['logic_action_duration_histogram_seconds' => [0.1, 0.5, 1.0]] : []),
                 ],
+                scheduledTasks: [self::CLEANUP_TASK, self::SYNC_PARTNERS_TASK],
             ),
         );
     }

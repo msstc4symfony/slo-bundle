@@ -377,3 +377,14 @@
 - Бенчмарк (2026-11-25 UTC, PHP 8.4.17) не изменился относительно d17a1dd: RecordEvent null recorder 5.2 мкс, с reset 5.5, in-memory 10.6,
   холодный запрос 40.7 мкс. Накладные расходы слушателя на сообщения воркера бенчмарк не измеряет.
 
+
+## Незавершённые запуски в правилах (1.2, Task 5)
+
+- Буквальная формула спеки `started[w] offset d - finished[w] offset d` считает незавершённым любой здоровый запуск,
+  пересекающий `t-d` (promtool-кейс `healthy run spanning scrapes`, с ней error ratio = 0.5 на 12m). Используется R1:
+  `started[r] offset d - finished[r] - finished[d] offset r`.
+- Total задачи — `(total + U) or (U > 0)`, а не `(total or vector(0)) + U` из брифа: со вторым `slo:events:rate*` задачи без
+  единой серии = 0 вместо NoData и падает `no-data.test.yml`. Убитая задача без событий всё равно даёт 100 % bad (U > 0).
+- `increase` без экстраполяции к началу, когда первое значение счётчика 0 (Prometheus `durationToZero`): поэтому в
+  promtool-кейсах `0x9 1x60` increase ровно 1, а не 1.25.
+- Recording-записи B несут метку `revision` — `exp_samples` в promtool должны её содержать.

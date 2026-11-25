@@ -1,0 +1,28 @@
+labels:
+  application: shop
+service: shop
+slos:
+  - alerting:
+      labels:
+        application: shop
+        objective: availability
+        slo: partners.sync
+      name: SloPartnersSyncAvailability
+      page_alert:
+        labels:
+          severity: page
+      ticket_alert:
+        labels:
+          severity: ticket
+    description: 'SLO partners.sync availability, target 99.5%'
+    labels:
+      application: shop
+      objective: availability
+      slo: partners.sync
+    name: partners.sync-availability
+    objective: 99.5
+    sli:
+      events:
+        error_query: '((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="partners.sync",objective="availability",revision="e16395ab",result="bad"}[{{.window}}])) or vector(0)) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[{{.window}}] offset 10m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[{{.window}}])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[10m] offset {{.window}})) or vector(0)), 0))'
+        total_query: '((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="partners.sync",objective="availability",revision="e16395ab"}[{{.window}}])) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[{{.window}}] offset 10m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[{{.window}}])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[10m] offset {{.window}})) or vector(0)), 0)) or (clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[{{.window}}] offset 10m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[{{.window}}])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[10m] offset {{.window}})) or vector(0)), 0) > 0))'
+version: prometheus/v1

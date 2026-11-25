@@ -727,7 +727,7 @@
             },
             "id": 15,
             "panels": [],
-            "title": "payment.process / availability",
+            "title": "cleanup.run / availability",
             "type": "row"
         },
         {
@@ -767,7 +767,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:objective:target{application=\"$application\",slo=\"payment.process\",objective=\"availability\"}",
+                    "expr": "slo:objective:target{application=\"$application\",slo=\"cleanup.run\",objective=\"availability\"}",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -795,7 +795,7 @@
                             },
                             {
                                 "color": "green",
-                                "value": 0.995
+                                "value": 0.99
                             }
                         ]
                     },
@@ -828,7 +828,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "last_over_time(slo:sli:ratio{application=\"$application\",slo=\"payment.process\",objective=\"availability\"}[10m])",
+                    "expr": "last_over_time(slo:sli:ratio{application=\"$application\",slo=\"cleanup.run\",objective=\"availability\"}[10m])",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -894,7 +894,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "last_over_time(slo:error_budget:remaining{application=\"$application\",slo=\"payment.process\",objective=\"availability\"}[10m])",
+                    "expr": "last_over_time(slo:error_budget:remaining{application=\"$application\",slo=\"cleanup.run\",objective=\"availability\"}[10m])",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -965,7 +965,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "last_over_time(slo:window:coverage_ratio{application=\"$application\",slo=\"payment.process\",objective=\"availability\"}[10m])",
+                    "expr": "last_over_time(slo:window:coverage_ratio{application=\"$application\",slo=\"cleanup.run\",objective=\"availability\"}[10m])",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -1010,7 +1010,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "(time() + (1 - (last_over_time(slo:window:coverage_ratio{application=\"$application\",slo=\"payment.process\",objective=\"availability\"}[10m]) < 0.999999)) * 2592000) * 1000",
+                    "expr": "(time() + (1 - (last_over_time(slo:window:coverage_ratio{application=\"$application\",slo=\"cleanup.run\",objective=\"availability\"}[10m]) < 0.999999)) * 2592000) * 1000",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -1055,7 +1055,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:error_ratio:rate1h{application=\"$application\",slo=\"payment.process\",objective=\"availability\"} / (1 - slo:objective:target{application=\"$application\",slo=\"payment.process\",objective=\"availability\"})",
+                    "expr": "slo:error_ratio:rate1h{application=\"$application\",slo=\"cleanup.run\",objective=\"availability\"} / (1 - slo:objective:target{application=\"$application\",slo=\"cleanup.run\",objective=\"availability\"})",
                     "legendFormat": "1h",
                     "refId": "A"
                 },
@@ -1064,7 +1064,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:error_ratio:rate6h{application=\"$application\",slo=\"payment.process\",objective=\"availability\"} / (1 - slo:objective:target{application=\"$application\",slo=\"payment.process\",objective=\"availability\"})",
+                    "expr": "slo:error_ratio:rate6h{application=\"$application\",slo=\"cleanup.run\",objective=\"availability\"} / (1 - slo:objective:target{application=\"$application\",slo=\"cleanup.run\",objective=\"availability\"})",
                     "legendFormat": "6h",
                     "refId": "B"
                 }
@@ -1082,7 +1082,7 @@
             },
             "id": 22,
             "panels": [],
-            "title": "payment.process / latency",
+            "title": "cleanup.run / latency",
             "type": "row"
         },
         {
@@ -1122,7 +1122,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:objective:target{application=\"$application\",slo=\"payment.process\",objective=\"latency\"}",
+                    "expr": "slo:objective:target{application=\"$application\",slo=\"cleanup.run\",objective=\"latency\"}",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -1150,7 +1150,7 @@
                             },
                             {
                                 "color": "green",
-                                "value": 0.99
+                                "value": 0.95
                             }
                         ]
                     },
@@ -1183,7 +1183,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "last_over_time(slo:sli:ratio{application=\"$application\",slo=\"payment.process\",objective=\"latency\"}[10m])",
+                    "expr": "last_over_time(slo:sli:ratio{application=\"$application\",slo=\"cleanup.run\",objective=\"latency\"}[10m])",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -1249,7 +1249,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "last_over_time(slo:error_budget:remaining{application=\"$application\",slo=\"payment.process\",objective=\"latency\"}[10m])",
+                    "expr": "last_over_time(slo:error_budget:remaining{application=\"$application\",slo=\"cleanup.run\",objective=\"latency\"}[10m])",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -1320,7 +1320,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "last_over_time(slo:window:coverage_ratio{application=\"$application\",slo=\"payment.process\",objective=\"latency\"}[10m])",
+                    "expr": "last_over_time(slo:window:coverage_ratio{application=\"$application\",slo=\"cleanup.run\",objective=\"latency\"}[10m])",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -1365,7 +1365,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "(time() + (1 - (last_over_time(slo:window:coverage_ratio{application=\"$application\",slo=\"payment.process\",objective=\"latency\"}[10m]) < 0.999999)) * 2592000) * 1000",
+                    "expr": "(time() + (1 - (last_over_time(slo:window:coverage_ratio{application=\"$application\",slo=\"cleanup.run\",objective=\"latency\"}[10m]) < 0.999999)) * 2592000) * 1000",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -1410,7 +1410,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:error_ratio:rate1h{application=\"$application\",slo=\"payment.process\",objective=\"latency\"} / (1 - slo:objective:target{application=\"$application\",slo=\"payment.process\",objective=\"latency\"})",
+                    "expr": "slo:error_ratio:rate1h{application=\"$application\",slo=\"cleanup.run\",objective=\"latency\"} / (1 - slo:objective:target{application=\"$application\",slo=\"cleanup.run\",objective=\"latency\"})",
                     "legendFormat": "1h",
                     "refId": "A"
                 },
@@ -1419,7 +1419,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:error_ratio:rate6h{application=\"$application\",slo=\"payment.process\",objective=\"latency\"} / (1 - slo:objective:target{application=\"$application\",slo=\"payment.process\",objective=\"latency\"})",
+                    "expr": "slo:error_ratio:rate6h{application=\"$application\",slo=\"cleanup.run\",objective=\"latency\"} / (1 - slo:objective:target{application=\"$application\",slo=\"cleanup.run\",objective=\"latency\"})",
                     "legendFormat": "6h",
                     "refId": "B"
                 }
@@ -1437,7 +1437,7 @@
             },
             "id": 29,
             "panels": [],
-            "title": "report.export / availability",
+            "title": "partners.sync / availability",
             "type": "row"
         },
         {
@@ -1477,7 +1477,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "slo:objective:target{application=\"$application\",slo=\"report.export\",objective=\"availability\"}",
+                    "expr": "slo:objective:target{application=\"$application\",slo=\"partners.sync\",objective=\"availability\"}",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -1505,7 +1505,7 @@
                             },
                             {
                                 "color": "green",
-                                "value": 0.99
+                                "value": 0.995
                             }
                         ]
                     },
@@ -1538,7 +1538,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "last_over_time(slo:sli:ratio{application=\"$application\",slo=\"report.export\",objective=\"availability\"}[10m])",
+                    "expr": "last_over_time(slo:sli:ratio{application=\"$application\",slo=\"partners.sync\",objective=\"availability\"}[10m])",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -1604,7 +1604,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "last_over_time(slo:error_budget:remaining{application=\"$application\",slo=\"report.export\",objective=\"availability\"}[10m])",
+                    "expr": "last_over_time(slo:error_budget:remaining{application=\"$application\",slo=\"partners.sync\",objective=\"availability\"}[10m])",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -1675,7 +1675,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "last_over_time(slo:window:coverage_ratio{application=\"$application\",slo=\"report.export\",objective=\"availability\"}[10m])",
+                    "expr": "last_over_time(slo:window:coverage_ratio{application=\"$application\",slo=\"partners.sync\",objective=\"availability\"}[10m])",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -1720,7 +1720,7 @@
                         "type": "prometheus",
                         "uid": "${datasource}"
                     },
-                    "expr": "(time() + (1 - (last_over_time(slo:window:coverage_ratio{application=\"$application\",slo=\"report.export\",objective=\"availability\"}[10m]) < 0.999999)) * 259200) * 1000",
+                    "expr": "(time() + (1 - (last_over_time(slo:window:coverage_ratio{application=\"$application\",slo=\"partners.sync\",objective=\"availability\"}[10m]) < 0.999999)) * 2592000) * 1000",
                     "legendFormat": "",
                     "refId": "A"
                 }
@@ -1747,6 +1747,1071 @@
                 "y": 29
             },
             "id": 35,
+            "options": {
+                "legend": {
+                    "calcs": [],
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "mode": "multi",
+                    "sort": "none"
+                }
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                    },
+                    "expr": "slo:error_ratio:rate1h{application=\"$application\",slo=\"partners.sync\",objective=\"availability\"} / (1 - slo:objective:target{application=\"$application\",slo=\"partners.sync\",objective=\"availability\"})",
+                    "legendFormat": "1h",
+                    "refId": "A"
+                },
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                    },
+                    "expr": "slo:error_ratio:rate6h{application=\"$application\",slo=\"partners.sync\",objective=\"availability\"} / (1 - slo:objective:target{application=\"$application\",slo=\"partners.sync\",objective=\"availability\"})",
+                    "legendFormat": "6h",
+                    "refId": "B"
+                }
+            ],
+            "title": "Burn rate",
+            "type": "timeseries"
+        },
+        {
+            "collapsed": false,
+            "gridPos": {
+                "h": 1,
+                "w": 24,
+                "x": 0,
+                "y": 35
+            },
+            "id": 36,
+            "panels": [],
+            "title": "payment.process / availability",
+            "type": "row"
+        },
+        {
+            "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "noValue": "No data",
+                    "unit": "percentunit"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 6,
+                "w": 3,
+                "x": 0,
+                "y": 36
+            },
+            "id": 37,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "textMode": "auto"
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                    },
+                    "expr": "slo:objective:target{application=\"$application\",slo=\"payment.process\",objective=\"availability\"}",
+                    "legendFormat": "",
+                    "refId": "A"
+                }
+            ],
+            "title": "Target",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "noValue": "No data",
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "red",
+                                "value": null
+                            },
+                            {
+                                "color": "green",
+                                "value": 0.995
+                            }
+                        ]
+                    },
+                    "unit": "percentunit"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 6,
+                "w": 3,
+                "x": 3,
+                "y": 36
+            },
+            "id": 38,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "textMode": "auto"
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                    },
+                    "expr": "last_over_time(slo:sli:ratio{application=\"$application\",slo=\"payment.process\",objective=\"availability\"}[10m])",
+                    "legendFormat": "",
+                    "refId": "A"
+                }
+            ],
+            "title": "SLI",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "max": 1.0,
+                    "min": 0.0,
+                    "noValue": "No data",
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "red",
+                                "value": null
+                            },
+                            {
+                                "color": "orange",
+                                "value": 0.1
+                            },
+                            {
+                                "color": "green",
+                                "value": 0.5
+                            }
+                        ]
+                    },
+                    "unit": "percentunit"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 6,
+                "w": 4,
+                "x": 6,
+                "y": 36
+            },
+            "id": 39,
+            "options": {
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "showThresholdLabels": false,
+                "showThresholdMarkers": true
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                    },
+                    "expr": "last_over_time(slo:error_budget:remaining{application=\"$application\",slo=\"payment.process\",objective=\"availability\"}[10m])",
+                    "legendFormat": "",
+                    "refId": "A"
+                }
+            ],
+            "title": "Error budget remaining",
+            "type": "gauge"
+        },
+        {
+            "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "mappings": [
+                        {
+                            "options": {
+                                "from": 0,
+                                "result": {
+                                    "color": "orange",
+                                    "index": 0,
+                                    "text": "warming up"
+                                },
+                                "to": 0.999999
+                            },
+                            "type": "range"
+                        },
+                        {
+                            "options": {
+                                "from": 1,
+                                "result": {
+                                    "color": "green",
+                                    "index": 1,
+                                    "text": "full window"
+                                },
+                                "to": 1000
+                            },
+                            "type": "range"
+                        }
+                    ],
+                    "noValue": "No data",
+                    "unit": "percentunit"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 6,
+                "w": 3,
+                "x": 10,
+                "y": 36
+            },
+            "id": 40,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "textMode": "auto"
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                    },
+                    "expr": "last_over_time(slo:window:coverage_ratio{application=\"$application\",slo=\"payment.process\",objective=\"availability\"}[10m])",
+                    "legendFormat": "",
+                    "refId": "A"
+                }
+            ],
+            "title": "Window state",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "noValue": "No data",
+                    "unit": "dateTimeAsIso"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 6,
+                "w": 4,
+                "x": 13,
+                "y": 36
+            },
+            "id": 41,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "textMode": "auto"
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                    },
+                    "expr": "(time() + (1 - (last_over_time(slo:window:coverage_ratio{application=\"$application\",slo=\"payment.process\",objective=\"availability\"}[10m]) < 0.999999)) * 2592000) * 1000",
+                    "legendFormat": "",
+                    "refId": "A"
+                }
+            ],
+            "title": "Warming up until",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "noValue": "No data",
+                    "unit": "none"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 6,
+                "w": 7,
+                "x": 17,
+                "y": 36
+            },
+            "id": 42,
+            "options": {
+                "legend": {
+                    "calcs": [],
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "mode": "multi",
+                    "sort": "none"
+                }
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                    },
+                    "expr": "slo:error_ratio:rate1h{application=\"$application\",slo=\"payment.process\",objective=\"availability\"} / (1 - slo:objective:target{application=\"$application\",slo=\"payment.process\",objective=\"availability\"})",
+                    "legendFormat": "1h",
+                    "refId": "A"
+                },
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                    },
+                    "expr": "slo:error_ratio:rate6h{application=\"$application\",slo=\"payment.process\",objective=\"availability\"} / (1 - slo:objective:target{application=\"$application\",slo=\"payment.process\",objective=\"availability\"})",
+                    "legendFormat": "6h",
+                    "refId": "B"
+                }
+            ],
+            "title": "Burn rate",
+            "type": "timeseries"
+        },
+        {
+            "collapsed": false,
+            "gridPos": {
+                "h": 1,
+                "w": 24,
+                "x": 0,
+                "y": 42
+            },
+            "id": 43,
+            "panels": [],
+            "title": "payment.process / latency",
+            "type": "row"
+        },
+        {
+            "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "noValue": "No data",
+                    "unit": "percentunit"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 6,
+                "w": 3,
+                "x": 0,
+                "y": 43
+            },
+            "id": 44,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "textMode": "auto"
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                    },
+                    "expr": "slo:objective:target{application=\"$application\",slo=\"payment.process\",objective=\"latency\"}",
+                    "legendFormat": "",
+                    "refId": "A"
+                }
+            ],
+            "title": "Target",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "noValue": "No data",
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "red",
+                                "value": null
+                            },
+                            {
+                                "color": "green",
+                                "value": 0.99
+                            }
+                        ]
+                    },
+                    "unit": "percentunit"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 6,
+                "w": 3,
+                "x": 3,
+                "y": 43
+            },
+            "id": 45,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "textMode": "auto"
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                    },
+                    "expr": "last_over_time(slo:sli:ratio{application=\"$application\",slo=\"payment.process\",objective=\"latency\"}[10m])",
+                    "legendFormat": "",
+                    "refId": "A"
+                }
+            ],
+            "title": "SLI",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "max": 1.0,
+                    "min": 0.0,
+                    "noValue": "No data",
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "red",
+                                "value": null
+                            },
+                            {
+                                "color": "orange",
+                                "value": 0.1
+                            },
+                            {
+                                "color": "green",
+                                "value": 0.5
+                            }
+                        ]
+                    },
+                    "unit": "percentunit"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 6,
+                "w": 4,
+                "x": 6,
+                "y": 43
+            },
+            "id": 46,
+            "options": {
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "showThresholdLabels": false,
+                "showThresholdMarkers": true
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                    },
+                    "expr": "last_over_time(slo:error_budget:remaining{application=\"$application\",slo=\"payment.process\",objective=\"latency\"}[10m])",
+                    "legendFormat": "",
+                    "refId": "A"
+                }
+            ],
+            "title": "Error budget remaining",
+            "type": "gauge"
+        },
+        {
+            "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "mappings": [
+                        {
+                            "options": {
+                                "from": 0,
+                                "result": {
+                                    "color": "orange",
+                                    "index": 0,
+                                    "text": "warming up"
+                                },
+                                "to": 0.999999
+                            },
+                            "type": "range"
+                        },
+                        {
+                            "options": {
+                                "from": 1,
+                                "result": {
+                                    "color": "green",
+                                    "index": 1,
+                                    "text": "full window"
+                                },
+                                "to": 1000
+                            },
+                            "type": "range"
+                        }
+                    ],
+                    "noValue": "No data",
+                    "unit": "percentunit"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 6,
+                "w": 3,
+                "x": 10,
+                "y": 43
+            },
+            "id": 47,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "textMode": "auto"
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                    },
+                    "expr": "last_over_time(slo:window:coverage_ratio{application=\"$application\",slo=\"payment.process\",objective=\"latency\"}[10m])",
+                    "legendFormat": "",
+                    "refId": "A"
+                }
+            ],
+            "title": "Window state",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "noValue": "No data",
+                    "unit": "dateTimeAsIso"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 6,
+                "w": 4,
+                "x": 13,
+                "y": 43
+            },
+            "id": 48,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "textMode": "auto"
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                    },
+                    "expr": "(time() + (1 - (last_over_time(slo:window:coverage_ratio{application=\"$application\",slo=\"payment.process\",objective=\"latency\"}[10m]) < 0.999999)) * 2592000) * 1000",
+                    "legendFormat": "",
+                    "refId": "A"
+                }
+            ],
+            "title": "Warming up until",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "noValue": "No data",
+                    "unit": "none"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 6,
+                "w": 7,
+                "x": 17,
+                "y": 43
+            },
+            "id": 49,
+            "options": {
+                "legend": {
+                    "calcs": [],
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "tooltip": {
+                    "mode": "multi",
+                    "sort": "none"
+                }
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                    },
+                    "expr": "slo:error_ratio:rate1h{application=\"$application\",slo=\"payment.process\",objective=\"latency\"} / (1 - slo:objective:target{application=\"$application\",slo=\"payment.process\",objective=\"latency\"})",
+                    "legendFormat": "1h",
+                    "refId": "A"
+                },
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                    },
+                    "expr": "slo:error_ratio:rate6h{application=\"$application\",slo=\"payment.process\",objective=\"latency\"} / (1 - slo:objective:target{application=\"$application\",slo=\"payment.process\",objective=\"latency\"})",
+                    "legendFormat": "6h",
+                    "refId": "B"
+                }
+            ],
+            "title": "Burn rate",
+            "type": "timeseries"
+        },
+        {
+            "collapsed": false,
+            "gridPos": {
+                "h": 1,
+                "w": 24,
+                "x": 0,
+                "y": 49
+            },
+            "id": 50,
+            "panels": [],
+            "title": "report.export / availability",
+            "type": "row"
+        },
+        {
+            "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "noValue": "No data",
+                    "unit": "percentunit"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 6,
+                "w": 3,
+                "x": 0,
+                "y": 50
+            },
+            "id": 51,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "textMode": "auto"
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                    },
+                    "expr": "slo:objective:target{application=\"$application\",slo=\"report.export\",objective=\"availability\"}",
+                    "legendFormat": "",
+                    "refId": "A"
+                }
+            ],
+            "title": "Target",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "noValue": "No data",
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "red",
+                                "value": null
+                            },
+                            {
+                                "color": "green",
+                                "value": 0.99
+                            }
+                        ]
+                    },
+                    "unit": "percentunit"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 6,
+                "w": 3,
+                "x": 3,
+                "y": 50
+            },
+            "id": 52,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "textMode": "auto"
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                    },
+                    "expr": "last_over_time(slo:sli:ratio{application=\"$application\",slo=\"report.export\",objective=\"availability\"}[10m])",
+                    "legendFormat": "",
+                    "refId": "A"
+                }
+            ],
+            "title": "SLI",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "max": 1.0,
+                    "min": 0.0,
+                    "noValue": "No data",
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "red",
+                                "value": null
+                            },
+                            {
+                                "color": "orange",
+                                "value": 0.1
+                            },
+                            {
+                                "color": "green",
+                                "value": 0.5
+                            }
+                        ]
+                    },
+                    "unit": "percentunit"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 6,
+                "w": 4,
+                "x": 6,
+                "y": 50
+            },
+            "id": 53,
+            "options": {
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "showThresholdLabels": false,
+                "showThresholdMarkers": true
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                    },
+                    "expr": "last_over_time(slo:error_budget:remaining{application=\"$application\",slo=\"report.export\",objective=\"availability\"}[10m])",
+                    "legendFormat": "",
+                    "refId": "A"
+                }
+            ],
+            "title": "Error budget remaining",
+            "type": "gauge"
+        },
+        {
+            "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "mappings": [
+                        {
+                            "options": {
+                                "from": 0,
+                                "result": {
+                                    "color": "orange",
+                                    "index": 0,
+                                    "text": "warming up"
+                                },
+                                "to": 0.999999
+                            },
+                            "type": "range"
+                        },
+                        {
+                            "options": {
+                                "from": 1,
+                                "result": {
+                                    "color": "green",
+                                    "index": 1,
+                                    "text": "full window"
+                                },
+                                "to": 1000
+                            },
+                            "type": "range"
+                        }
+                    ],
+                    "noValue": "No data",
+                    "unit": "percentunit"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 6,
+                "w": 3,
+                "x": 10,
+                "y": 50
+            },
+            "id": 54,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "textMode": "auto"
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                    },
+                    "expr": "last_over_time(slo:window:coverage_ratio{application=\"$application\",slo=\"report.export\",objective=\"availability\"}[10m])",
+                    "legendFormat": "",
+                    "refId": "A"
+                }
+            ],
+            "title": "Window state",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "noValue": "No data",
+                    "unit": "dateTimeAsIso"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 6,
+                "w": 4,
+                "x": 13,
+                "y": 50
+            },
+            "id": 55,
+            "options": {
+                "colorMode": "value",
+                "graphMode": "none",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "textMode": "auto"
+            },
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "prometheus",
+                        "uid": "${datasource}"
+                    },
+                    "expr": "(time() + (1 - (last_over_time(slo:window:coverage_ratio{application=\"$application\",slo=\"report.export\",objective=\"availability\"}[10m]) < 0.999999)) * 259200) * 1000",
+                    "legendFormat": "",
+                    "refId": "A"
+                }
+            ],
+            "title": "Warming up until",
+            "type": "stat"
+        },
+        {
+            "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "noValue": "No data",
+                    "unit": "none"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 6,
+                "w": 7,
+                "x": 17,
+                "y": 50
+            },
+            "id": 56,
             "options": {
                 "legend": {
                     "calcs": [],

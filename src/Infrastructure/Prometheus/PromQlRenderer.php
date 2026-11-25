@@ -27,6 +27,11 @@ final class PromQlRenderer
 
     private const DURATION_UNITS = ['w' => self::SECONDS_PER_WEEK, 'd' => self::SECONDS_PER_DAY, 'h' => self::SECONDS_PER_HOUR, 'm' => self::SECONDS_PER_MINUTE];
 
+    private const MILLISECOND_UNITS = ['h' => 1000 * self::SECONDS_PER_HOUR, 'm' => 1000 * self::SECONDS_PER_MINUTE, 's' => 1000];
+
+    /** PromQL range units in seconds; a PromQL year is 365 days. */
+    private const RANGE_UNITS = ['y' => 365 * self::SECONDS_PER_DAY, ...self::DURATION_UNITS, 's' => 1];
+
     /**
      * The largest exact unit among w, d and h (PromQL has no month): 1mo → 30d, 2w → 2w, 36h → 36h.
      *
@@ -53,6 +58,45 @@ final class PromQlRenderer
         }
 
         return \sprintf('%ds', $seconds);
+    }
+
+    /**
+     * The largest exact unit among h, m and s, else milliseconds, as Deadline::toString(): 120000 → 2m, 1500 → 1500ms.
+     *
+     * @param positive-int $milliseconds
+     *
+     * @return non-empty-string
+     */
+    public static function milliseconds(int $milliseconds): string
+    {
+        foreach (self::MILLISECOND_UNITS as $unit => $unitMilliseconds) {
+            if ($milliseconds % $unitMilliseconds === 0) {
+                return \sprintf('%d%s', intdiv($milliseconds, $unitMilliseconds), $unit);
+            }
+        }
+
+        return \sprintf('%dms', $milliseconds);
+    }
+
+    /**
+     * Seconds of a single-unit PromQL range (`5m`, `3d`, `2000ms`).
+     *
+     * @return positive-int
+     *
+     * @throws InvalidArgumentException a template, a compound range or a range that is not a whole positive number of seconds
+     */
+    public static function seconds(string $range): int
+    {
+        if (preg_match('/^([0-9]+)(ms|[smhdwy])$/D', $range, $m) === 1) {
+            $seconds = $m[2] === 'ms'
+                ? ((int) $m[1] % 1000 === 0 ? intdiv((int) $m[1], 1000) : 0)
+                : (int) $m[1] * self::RANGE_UNITS[$m[2]];
+            if ($seconds > 0) {
+                return $seconds;
+            }
+        }
+
+        throw new InvalidArgumentException(\sprintf('"%s" is not a PromQL range of whole seconds.', $range));
     }
 
     /**

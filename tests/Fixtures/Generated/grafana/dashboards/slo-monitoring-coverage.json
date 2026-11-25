@@ -16,7 +16,7 @@
             },
             "id": 1,
             "options": {
-                "content": "| Kind | SLO coverage | Measured by a metric |\n| --- | --- | --- |\n| http_route | 50% | 100% |\n| messenger_handler | 50% | 100% |\n| logic_action | 100% | 100% |\n| operation | 100% | 100% |\n| scheduled_task | 100% | 100% |\n\nGenerated from the compiled SLO catalog; it changes only when slo:generate is run.\n",
+                "content": "| Kind | SLO coverage | Measured by a metric |\n| --- | --- | --- |\n| http_route | 50% | 100% |\n| messenger_handler | 50% | 100% |\n| logic_action | 100% | 100% |\n| operation | 100% | 100% |\n| scheduled_task | 100% | 0% |\n\nGenerated from the compiled SLO catalog; it changes only when slo:generate is run.\n",
                 "mode": "markdown"
             },
             "title": "Coverage by kind",
@@ -24,14 +24,14 @@
         },
         {
             "gridPos": {
-                "h": 8,
+                "h": 9,
                 "w": 24,
                 "x": 0,
                 "y": 8
             },
             "id": 2,
             "options": {
-                "content": "| Point | Kind | Status | SLOs | Note |\n| --- | --- | --- | --- | --- |\n| checkout_pay | http_route | monitored | checkout.pay | - |\n| health | http_route | unmonitored | - | no SLO is declared |\n| Msstc4Symfony\\SloBundle\\Test\\Fixtures\\Handler\\AuditPaymentHandler::__invoke | messenger_handler | unmonitored | - | no SLO is declared |\n| Msstc4Symfony\\SloBundle\\Test\\Fixtures\\Handler\\ProcessPaymentHandler::__invoke | messenger_handler | monitored | payment.process | - |\n",
+                "content": "| Point | Kind | Status | SLOs | Note |\n| --- | --- | --- | --- | --- |\n| checkout_pay | http_route | monitored | checkout.pay | - |\n| health | http_route | unmonitored | - | no SLO is declared |\n| Msstc4Symfony\\SloBundle\\Test\\Fixtures\\Handler\\AuditPaymentHandler::__invoke | messenger_handler | unmonitored | - | no SLO is declared |\n| Msstc4Symfony\\SloBundle\\Test\\Fixtures\\Handler\\ProcessPaymentHandler::__invoke | messenger_handler | monitored | payment.process | - |\n| App\\Task\\CleanupTask::__invoke | scheduled_task | monitored | cleanup.run | - |\n| command:app:sync-partners | scheduled_task | monitored | partners.sync | - |\n",
                 "mode": "markdown"
             },
             "title": "Points",

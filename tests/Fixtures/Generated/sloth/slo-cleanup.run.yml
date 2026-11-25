@@ -1,0 +1,51 @@
+labels:
+  application: shop
+service: shop
+slos:
+  - alerting:
+      labels:
+        application: shop
+        objective: availability
+        slo: cleanup.run
+      name: SloCleanupRunAvailability
+      page_alert:
+        labels:
+          severity: page
+      ticket_alert:
+        labels:
+          severity: ticket
+    description: 'SLO cleanup.run availability, target 99%'
+    labels:
+      application: shop
+      objective: availability
+      slo: cleanup.run
+    name: cleanup.run-availability
+    objective: 99.0
+    sli:
+      events:
+        error_query: '((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="cleanup.run",objective="availability",revision="e16395ab",result="bad"}[{{.window}}])) or vector(0)) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[{{.window}}] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[{{.window}}])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset {{.window}})) or vector(0)), 0))'
+        total_query: '((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="cleanup.run",objective="availability",revision="e16395ab"}[{{.window}}])) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[{{.window}}] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[{{.window}}])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset {{.window}})) or vector(0)), 0)) or (clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[{{.window}}] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[{{.window}}])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset {{.window}})) or vector(0)), 0) > 0))'
+  - alerting:
+      labels:
+        application: shop
+        objective: latency
+        slo: cleanup.run
+      name: SloCleanupRunLatency
+      page_alert:
+        labels:
+          severity: page
+      ticket_alert:
+        labels:
+          severity: ticket
+    description: 'SLO cleanup.run latency, target 95%'
+    labels:
+      application: shop
+      objective: latency
+      slo: cleanup.run
+    name: cleanup.run-latency
+    objective: 95.0
+    sli:
+      events:
+        error_query: '((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="cleanup.run",objective="latency",revision="2a2eb2b1",result="bad"}[{{.window}}])) or vector(0)) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[{{.window}}] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[{{.window}}])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset {{.window}})) or vector(0)), 0))'
+        total_query: '((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="cleanup.run",objective="latency",revision="2a2eb2b1"}[{{.window}}])) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[{{.window}}] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[{{.window}}])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset {{.window}})) or vector(0)), 0)) or (clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[{{.window}}] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[{{.window}}])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset {{.window}})) or vector(0)), 0) > 0))'
+version: prometheus/v1

@@ -142,6 +142,100 @@ final class PromQlBuilderTest extends TestCase
         );
     }
 
+    public function testUnfinishedRunsOfAScheduledTask(): void
+    {
+        $run = 'application="shop",component=~"web|worker",task="App\\\\Task\\\\CleanupTask::__invoke"';
+
+        self::assertSame(
+            'clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{' . $run . '}[5m] offset 2m)) or vector(0))'
+            . ' - (sum(increase(symfony_slo_scheduled_task_finished_total{' . $run . '}[5m])) or vector(0))'
+            . ' - (sum(increase(symfony_slo_scheduled_task_finished_total{' . $run . '}[2m] offset 5m)) or vector(0)), 0)',
+            (new PromQlBuilder())->unfinishedRuns(GenerationFixture::input()->selector, $this->objective('cleanup.run', 'latency'), '5m'),
+        );
+    }
+
+    public function testUnfinishedRunsAreAddedToTheBadAndTotalEventsOfEveryTaskObjective(): void
+    {
+        $builder = new PromQlBuilder();
+        $selector = GenerationFixture::input()->selector;
+        foreach (['availability', 'latency'] as $kind) {
+            $objective = $this->objective('cleanup.run', $kind);
+            $increases = [];
+            foreach (['5m', '6h', '30d', '{{.window}}'] as $range) {
+                $increases[$range] = $this->taskIncreases($builder, $selector, $objective, $range);
+            }
+
+            self::assertSame($increases['5m']['bad'] . ' / (' . $increases['5m']['total'] . ' > 0)', $builder->errorRatio($selector, $objective, '5m'));
+            self::assertSame($increases['5m']['total'] . ' / 300', $builder->eventsRate($selector, $objective, '5m'));
+            self::assertSame($increases['6h']['bad'] . ' / 21600', $builder->badRate($selector, $objective, '6h'));
+            self::assertSame('1 - (' . $increases['30d']['bad'] . ' / (' . $increases['30d']['total'] . ' > 0))', $builder->sliRatio($selector, $objective));
+            self::assertSame($increases['{{.window}}']['total'], $builder->eventsIncrease($selector, $objective, '{{.window}}'));
+            self::assertSame($increases['{{.window}}']['bad'], $builder->badIncrease($selector, $objective, '{{.window}}'));
+        }
+    }
+
+    public function testTheDeclaredDeadlineOffsetsTheStartsOfACommandTask(): void
+    {
+        $unfinished = (new PromQlBuilder())->unfinishedRuns(new Selector('shop', []), $this->objective('partners.sync', 'availability'), '1h');
+
+        self::assertSame(
+            'clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",task="command:app:sync-partners"}[1h] offset 10m)) or vector(0))'
+            . ' - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",task="command:app:sync-partners"}[1h])) or vector(0))'
+            . ' - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",task="command:app:sync-partners"}[10m] offset 1h)) or vector(0)), 0)',
+            $unfinished,
+        );
+    }
+
+    public function testATaskSloOnSeveralPointsMatchesEveryTask(): void
+    {
+        $definition = CatalogFixture::build(static function ($assembler): void {
+            $slo = new Slo('nightly', [new Availability(99)], deadline: '90s');
+            $assembler->declare(PointId::of(PointType::ScheduledTask, 'App\Task\A::__invoke'), $slo);
+            $assembler->declare(PointId::of(PointType::ScheduledTask, 'command:app:b'), $slo);
+        })->all()[0];
+        $objective = new BoundObjective($definition, $definition->objectives()[0], Binding::dedicated(), Revision::fromHex('0123abcd'));
+
+        $unfinished = (new PromQlBuilder())->unfinishedRuns(new Selector('shop', []), $objective, '5m');
+
+        self::assertNotNull($unfinished);
+        self::assertStringContainsString(
+            'symfony_slo_scheduled_task_started_total{application="shop",task=~"App\\\\\\\\Task\\\\\\\\A\\\\:\\\\:__invoke|command\\\\:app\\\\:b"}[5m] offset 90s',
+            $unfinished,
+        );
+    }
+
+    public function testOtherPointTypesHaveNoUnfinishedRuns(): void
+    {
+        $builder = new PromQlBuilder();
+        $objective = $this->objective('report.export', 'availability');
+
+        self::assertNull($builder->unfinishedRuns(GenerationFixture::input()->selector, $objective, '5m'));
+        $total = \sprintf('symfony_slo_events_total{application="shop",component=~"web|worker",slo="report.export",objective="availability",revision="%s"}', $objective->revision->value);
+        self::assertSame('sum(increase(' . $total . '[{{.window}}]))', $builder->eventsIncrease(GenerationFixture::input()->selector, $objective, '{{.window}}'));
+        self::assertSame('(sum(increase(' . substr($total, 0, -1) . ',result="bad"}[{{.window}}])) or vector(0))', $builder->badIncrease(GenerationFixture::input()->selector, $objective, '{{.window}}'));
+    }
+
+    /**
+     * The expected bad and total increases of a task objective: events plus unfinished runs, the total falling back
+     * to the unfinished runs alone.
+     *
+     * @param non-empty-string $range
+     *
+     * @return array{bad: non-empty-string, total: non-empty-string}
+     */
+    private function taskIncreases(PromQlBuilder $builder, Selector $selector, BoundObjective $objective, string $range): array
+    {
+        $unfinished = $builder->unfinishedRuns($selector, $objective, $range);
+        self::assertNotNull($unfinished);
+        $total = \sprintf('symfony_slo_events_total{application="shop",component=~"web|worker",slo="%s",objective="%s",revision="%s"}', $objective->definition->name()->value, $objective->objective->kind->value, $objective->revision->value);
+        $bad = substr($total, 0, -1) . ',result="bad"}';
+
+        return [
+            'bad' => '((sum(increase(' . $bad . '[' . $range . '])) or vector(0)) + ' . $unfinished . ')',
+            'total' => '((sum(increase(' . $total . '[' . $range . '])) + ' . $unfinished . ') or (' . $unfinished . ' > 0))',
+        ];
+    }
+
     private function objective(string $slo, string $kind): BoundObjective
     {
         $catalog = GenerationFixture::catalog();

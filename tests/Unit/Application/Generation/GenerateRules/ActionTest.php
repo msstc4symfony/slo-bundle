@@ -103,8 +103,11 @@ final class ActionTest extends TestCase
             }, $group['rules']);
         }
 
-        self::assertSame(['slo-checkout.pay', 'slo-checkout.pay-window', 'slo-payment.process', 'slo-payment.process-window', 'slo-report.export', 'slo-report.export-window'], array_keys($groups));
-        self::assertSame(['1m', '5m', '1m', '5m', '1m', '5m'], $intervals);
+        self::assertSame([
+            'slo-checkout.pay', 'slo-checkout.pay-window', 'slo-cleanup.run', 'slo-cleanup.run-window', 'slo-partners.sync', 'slo-partners.sync-window',
+            'slo-payment.process', 'slo-payment.process-window', 'slo-report.export', 'slo-report.export-window',
+        ], array_keys($groups));
+        self::assertSame(['1m', '5m', '1m', '5m', '1m', '5m', '1m', '5m', '1m', '5m'], $intervals);
         $fast = static fn (string $objective, string $strategy): array => array_map(static fn (string $record): string => $record . ' ' . $objective . ' ' . $strategy, [
             'slo:events:rate5m', 'slo:error_ratio:rate5m', 'slo:events:rate30m', 'slo:error_ratio:rate30m',
             'slo:events:rate1h', 'slo:error_ratio:rate1h', 'slo:events:rate6h', 'slo:error_ratio:rate6h', 'slo:objective:target',
@@ -118,9 +121,33 @@ final class ActionTest extends TestCase
         self::assertSame([...$slow('availability', 'A'), ...$slow('latency', 'A')], $groups['slo-payment.process-window']);
         self::assertSame($fast('availability', 'B'), $groups['slo-report.export']);
         self::assertSame($slow('availability', 'B'), $groups['slo-report.export-window']);
+        self::assertSame([...$fast('availability', 'B'), ...$fast('latency', 'B')], $groups['slo-cleanup.run']);
+        self::assertSame($slow('availability', 'B'), $groups['slo-partners.sync-window']);
         foreach ($groups as $name => $rules) {
             foreach ($rules as $rule) {
                 self::assertSame(str_ends_with($name, '-window'), PromQlBuilder::isSlowRecord(explode(' ', $rule)[0]), $name . ': ' . $rule);
+            }
+        }
+    }
+
+    public function testOnlyScheduledTaskObjectivesCountUnfinishedRuns(): void
+    {
+        $recording = Yaml::parse($this->recording(GenerationFixture::action(GenerationFixture::catalog())(GenerationFixture::input())));
+        self::assertIsArray($recording);
+        self::assertIsArray($recording['groups']);
+
+        foreach ($recording['groups'] as $group) {
+            self::assertIsArray($group);
+            self::assertIsArray($group['rules']);
+            foreach ($group['rules'] as $rule) {
+                self::assertIsArray($rule);
+                self::assertIsArray($rule['labels']);
+                self::assertIsString($rule['expr']);
+                self::assertIsString($rule['record']);
+                self::assertIsString($rule['labels']['slo']);
+                $task = \in_array($rule['labels']['slo'], ['cleanup.run', 'partners.sync'], true);
+                $reads = str_starts_with($rule['record'], 'slo:events:rate') || str_starts_with($rule['record'], 'slo:error_ratio:rate') || $rule['record'] === 'slo:sli:ratio';
+                self::assertSame($task && $reads, str_contains($rule['expr'], 'symfony_slo_scheduled_task_started_total'), $rule['record'] . ' of ' . $rule['labels']['slo']);
             }
         }
     }
@@ -131,7 +158,7 @@ final class ActionTest extends TestCase
         $with = $this->alerts(GenerationFixture::action(GenerationFixture::catalog())(GenerationFixture::input(6)));
 
         self::assertStringNotContainsString('SloNoEvents', $without);
-        self::assertSame(5, substr_count($with, 'alert: SloNoEvents'));
+        self::assertSame(8, substr_count($with, 'alert: SloNoEvents'));
         self::assertStringContainsString('[6h]', $with);
         self::assertStringContainsString('recorded no events in 6h', $with);
     }

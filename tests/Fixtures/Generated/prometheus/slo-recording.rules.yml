@@ -216,6 +216,354 @@ groups:
           window: 30d
         record: 'slo:window:coverage_ratio'
   - interval: 1m
+    name: slo-cleanup.run
+    rules:
+      - expr: '((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="cleanup.run",objective="availability",revision="e16395ab"}[5m])) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[5m] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[5m])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 5m)) or vector(0)), 0)) or (clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[5m] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[5m])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 5m)) or vector(0)), 0) > 0)) / 300'
+        labels:
+          application: shop
+          objective: availability
+          revision: e16395ab
+          slo: cleanup.run
+          window: 30d
+        record: 'slo:events:rate5m'
+      - expr: '((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="cleanup.run",objective="availability",revision="e16395ab",result="bad"}[5m])) or vector(0)) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[5m] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[5m])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 5m)) or vector(0)), 0)) / (((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="cleanup.run",objective="availability",revision="e16395ab"}[5m])) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[5m] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[5m])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 5m)) or vector(0)), 0)) or (clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[5m] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[5m])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 5m)) or vector(0)), 0) > 0)) > 0)'
+        labels:
+          application: shop
+          objective: availability
+          revision: e16395ab
+          slo: cleanup.run
+          window: 30d
+        record: 'slo:error_ratio:rate5m'
+      - expr: '((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="cleanup.run",objective="availability",revision="e16395ab"}[30m])) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[30m] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[30m])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 30m)) or vector(0)), 0)) or (clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[30m] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[30m])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 30m)) or vector(0)), 0) > 0)) / 1800'
+        labels:
+          application: shop
+          objective: availability
+          revision: e16395ab
+          slo: cleanup.run
+          window: 30d
+        record: 'slo:events:rate30m'
+      - expr: '((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="cleanup.run",objective="availability",revision="e16395ab",result="bad"}[30m])) or vector(0)) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[30m] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[30m])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 30m)) or vector(0)), 0)) / (((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="cleanup.run",objective="availability",revision="e16395ab"}[30m])) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[30m] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[30m])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 30m)) or vector(0)), 0)) or (clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[30m] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[30m])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 30m)) or vector(0)), 0) > 0)) > 0)'
+        labels:
+          application: shop
+          objective: availability
+          revision: e16395ab
+          slo: cleanup.run
+          window: 30d
+        record: 'slo:error_ratio:rate30m'
+      - expr: '((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="cleanup.run",objective="availability",revision="e16395ab"}[1h])) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[1h] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[1h])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 1h)) or vector(0)), 0)) or (clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[1h] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[1h])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 1h)) or vector(0)), 0) > 0)) / 3600'
+        labels:
+          application: shop
+          objective: availability
+          revision: e16395ab
+          slo: cleanup.run
+          window: 30d
+        record: 'slo:events:rate1h'
+      - expr: '((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="cleanup.run",objective="availability",revision="e16395ab",result="bad"}[1h])) or vector(0)) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[1h] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[1h])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 1h)) or vector(0)), 0)) / (((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="cleanup.run",objective="availability",revision="e16395ab"}[1h])) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[1h] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[1h])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 1h)) or vector(0)), 0)) or (clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[1h] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[1h])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 1h)) or vector(0)), 0) > 0)) > 0)'
+        labels:
+          application: shop
+          objective: availability
+          revision: e16395ab
+          slo: cleanup.run
+          window: 30d
+        record: 'slo:error_ratio:rate1h'
+      - expr: '((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="cleanup.run",objective="availability",revision="e16395ab"}[6h])) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[6h] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[6h])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 6h)) or vector(0)), 0)) or (clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[6h] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[6h])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 6h)) or vector(0)), 0) > 0)) / 21600'
+        labels:
+          application: shop
+          objective: availability
+          revision: e16395ab
+          slo: cleanup.run
+          window: 30d
+        record: 'slo:events:rate6h'
+      - expr: '((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="cleanup.run",objective="availability",revision="e16395ab",result="bad"}[6h])) or vector(0)) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[6h] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[6h])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 6h)) or vector(0)), 0)) / (((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="cleanup.run",objective="availability",revision="e16395ab"}[6h])) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[6h] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[6h])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 6h)) or vector(0)), 0)) or (clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[6h] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[6h])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 6h)) or vector(0)), 0) > 0)) > 0)'
+        labels:
+          application: shop
+          objective: availability
+          revision: e16395ab
+          slo: cleanup.run
+          window: 30d
+        record: 'slo:error_ratio:rate6h'
+      - expr: vector(0.99)
+        labels:
+          application: shop
+          objective: availability
+          revision: e16395ab
+          slo: cleanup.run
+          window: 30d
+        record: 'slo:objective:target'
+      - expr: '((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="cleanup.run",objective="latency",revision="2a2eb2b1"}[5m])) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[5m] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[5m])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 5m)) or vector(0)), 0)) or (clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[5m] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[5m])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 5m)) or vector(0)), 0) > 0)) / 300'
+        labels:
+          application: shop
+          objective: latency
+          revision: 2a2eb2b1
+          slo: cleanup.run
+          window: 30d
+        record: 'slo:events:rate5m'
+      - expr: '((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="cleanup.run",objective="latency",revision="2a2eb2b1",result="bad"}[5m])) or vector(0)) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[5m] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[5m])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 5m)) or vector(0)), 0)) / (((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="cleanup.run",objective="latency",revision="2a2eb2b1"}[5m])) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[5m] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[5m])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 5m)) or vector(0)), 0)) or (clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[5m] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[5m])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 5m)) or vector(0)), 0) > 0)) > 0)'
+        labels:
+          application: shop
+          objective: latency
+          revision: 2a2eb2b1
+          slo: cleanup.run
+          window: 30d
+        record: 'slo:error_ratio:rate5m'
+      - expr: '((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="cleanup.run",objective="latency",revision="2a2eb2b1"}[30m])) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[30m] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[30m])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 30m)) or vector(0)), 0)) or (clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[30m] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[30m])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 30m)) or vector(0)), 0) > 0)) / 1800'
+        labels:
+          application: shop
+          objective: latency
+          revision: 2a2eb2b1
+          slo: cleanup.run
+          window: 30d
+        record: 'slo:events:rate30m'
+      - expr: '((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="cleanup.run",objective="latency",revision="2a2eb2b1",result="bad"}[30m])) or vector(0)) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[30m] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[30m])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 30m)) or vector(0)), 0)) / (((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="cleanup.run",objective="latency",revision="2a2eb2b1"}[30m])) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[30m] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[30m])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 30m)) or vector(0)), 0)) or (clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[30m] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[30m])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 30m)) or vector(0)), 0) > 0)) > 0)'
+        labels:
+          application: shop
+          objective: latency
+          revision: 2a2eb2b1
+          slo: cleanup.run
+          window: 30d
+        record: 'slo:error_ratio:rate30m'
+      - expr: '((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="cleanup.run",objective="latency",revision="2a2eb2b1"}[1h])) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[1h] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[1h])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 1h)) or vector(0)), 0)) or (clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[1h] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[1h])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 1h)) or vector(0)), 0) > 0)) / 3600'
+        labels:
+          application: shop
+          objective: latency
+          revision: 2a2eb2b1
+          slo: cleanup.run
+          window: 30d
+        record: 'slo:events:rate1h'
+      - expr: '((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="cleanup.run",objective="latency",revision="2a2eb2b1",result="bad"}[1h])) or vector(0)) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[1h] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[1h])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 1h)) or vector(0)), 0)) / (((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="cleanup.run",objective="latency",revision="2a2eb2b1"}[1h])) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[1h] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[1h])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 1h)) or vector(0)), 0)) or (clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[1h] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[1h])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 1h)) or vector(0)), 0) > 0)) > 0)'
+        labels:
+          application: shop
+          objective: latency
+          revision: 2a2eb2b1
+          slo: cleanup.run
+          window: 30d
+        record: 'slo:error_ratio:rate1h'
+      - expr: '((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="cleanup.run",objective="latency",revision="2a2eb2b1"}[6h])) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[6h] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[6h])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 6h)) or vector(0)), 0)) or (clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[6h] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[6h])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 6h)) or vector(0)), 0) > 0)) / 21600'
+        labels:
+          application: shop
+          objective: latency
+          revision: 2a2eb2b1
+          slo: cleanup.run
+          window: 30d
+        record: 'slo:events:rate6h'
+      - expr: '((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="cleanup.run",objective="latency",revision="2a2eb2b1",result="bad"}[6h])) or vector(0)) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[6h] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[6h])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 6h)) or vector(0)), 0)) / (((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="cleanup.run",objective="latency",revision="2a2eb2b1"}[6h])) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[6h] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[6h])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 6h)) or vector(0)), 0)) or (clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[6h] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[6h])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 6h)) or vector(0)), 0) > 0)) > 0)'
+        labels:
+          application: shop
+          objective: latency
+          revision: 2a2eb2b1
+          slo: cleanup.run
+          window: 30d
+        record: 'slo:error_ratio:rate6h'
+      - expr: vector(0.95)
+        labels:
+          application: shop
+          objective: latency
+          revision: 2a2eb2b1
+          slo: cleanup.run
+          window: 30d
+        record: 'slo:objective:target'
+  - interval: 5m
+    name: slo-cleanup.run-window
+    rules:
+      - expr: '((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="cleanup.run",objective="availability",revision="e16395ab"}[3d])) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[3d] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[3d])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 3d)) or vector(0)), 0)) or (clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[3d] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[3d])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 3d)) or vector(0)), 0) > 0)) / 259200'
+        labels:
+          application: shop
+          objective: availability
+          revision: e16395ab
+          slo: cleanup.run
+          window: 30d
+        record: 'slo:events:rate3d'
+      - expr: '((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="cleanup.run",objective="availability",revision="e16395ab",result="bad"}[3d])) or vector(0)) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[3d] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[3d])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 3d)) or vector(0)), 0)) / (((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="cleanup.run",objective="availability",revision="e16395ab"}[3d])) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[3d] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[3d])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 3d)) or vector(0)), 0)) or (clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[3d] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[3d])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 3d)) or vector(0)), 0) > 0)) > 0)'
+        labels:
+          application: shop
+          objective: availability
+          revision: e16395ab
+          slo: cleanup.run
+          window: 30d
+        record: 'slo:error_ratio:rate3d'
+      - expr: '1 - (((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="cleanup.run",objective="availability",revision="e16395ab",result="bad"}[30d])) or vector(0)) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[30d] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[30d])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 30d)) or vector(0)), 0)) / (((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="cleanup.run",objective="availability",revision="e16395ab"}[30d])) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[30d] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[30d])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 30d)) or vector(0)), 0)) or (clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[30d] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[30d])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 30d)) or vector(0)), 0) > 0)) > 0))'
+        labels:
+          application: shop
+          objective: availability
+          revision: e16395ab
+          slo: cleanup.run
+          window: 30d
+        record: 'slo:sli:ratio'
+      - expr: '1 - (1 - slo:sli:ratio{application="shop",slo="cleanup.run",objective="availability"}) / 0.01'
+        labels:
+          application: shop
+          objective: availability
+          revision: e16395ab
+          slo: cleanup.run
+          window: 30d
+        record: 'slo:error_budget:remaining'
+      - expr: 'clamp((time() - min_over_time(timestamp(sum(symfony_slo_events_total{application="shop",component=~"web|worker",slo="cleanup.run",objective="availability",revision="e16395ab"}))[721h:1h])) / 2592000, 0, 1)'
+        labels:
+          application: shop
+          objective: availability
+          revision: e16395ab
+          slo: cleanup.run
+          window: 30d
+        record: 'slo:window:coverage_ratio'
+      - expr: '((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="cleanup.run",objective="latency",revision="2a2eb2b1"}[3d])) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[3d] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[3d])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 3d)) or vector(0)), 0)) or (clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[3d] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[3d])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 3d)) or vector(0)), 0) > 0)) / 259200'
+        labels:
+          application: shop
+          objective: latency
+          revision: 2a2eb2b1
+          slo: cleanup.run
+          window: 30d
+        record: 'slo:events:rate3d'
+      - expr: '((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="cleanup.run",objective="latency",revision="2a2eb2b1",result="bad"}[3d])) or vector(0)) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[3d] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[3d])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 3d)) or vector(0)), 0)) / (((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="cleanup.run",objective="latency",revision="2a2eb2b1"}[3d])) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[3d] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[3d])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 3d)) or vector(0)), 0)) or (clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[3d] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[3d])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 3d)) or vector(0)), 0) > 0)) > 0)'
+        labels:
+          application: shop
+          objective: latency
+          revision: 2a2eb2b1
+          slo: cleanup.run
+          window: 30d
+        record: 'slo:error_ratio:rate3d'
+      - expr: '1 - (((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="cleanup.run",objective="latency",revision="2a2eb2b1",result="bad"}[30d])) or vector(0)) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[30d] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[30d])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 30d)) or vector(0)), 0)) / (((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="cleanup.run",objective="latency",revision="2a2eb2b1"}[30d])) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[30d] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[30d])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 30d)) or vector(0)), 0)) or (clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[30d] offset 2m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[30d])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\Task\\CleanupTask::__invoke"}[2m] offset 30d)) or vector(0)), 0) > 0)) > 0))'
+        labels:
+          application: shop
+          objective: latency
+          revision: 2a2eb2b1
+          slo: cleanup.run
+          window: 30d
+        record: 'slo:sli:ratio'
+      - expr: '1 - (1 - slo:sli:ratio{application="shop",slo="cleanup.run",objective="latency"}) / 0.05'
+        labels:
+          application: shop
+          objective: latency
+          revision: 2a2eb2b1
+          slo: cleanup.run
+          window: 30d
+        record: 'slo:error_budget:remaining'
+      - expr: 'clamp((time() - min_over_time(timestamp(sum(symfony_slo_events_total{application="shop",component=~"web|worker",slo="cleanup.run",objective="latency",revision="2a2eb2b1"}))[721h:1h])) / 2592000, 0, 1)'
+        labels:
+          application: shop
+          objective: latency
+          revision: 2a2eb2b1
+          slo: cleanup.run
+          window: 30d
+        record: 'slo:window:coverage_ratio'
+  - interval: 1m
+    name: slo-partners.sync
+    rules:
+      - expr: '((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="partners.sync",objective="availability",revision="e16395ab"}[5m])) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[5m] offset 10m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[5m])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[10m] offset 5m)) or vector(0)), 0)) or (clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[5m] offset 10m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[5m])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[10m] offset 5m)) or vector(0)), 0) > 0)) / 300'
+        labels:
+          application: shop
+          objective: availability
+          revision: e16395ab
+          slo: partners.sync
+          window: 30d
+        record: 'slo:events:rate5m'
+      - expr: '((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="partners.sync",objective="availability",revision="e16395ab",result="bad"}[5m])) or vector(0)) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[5m] offset 10m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[5m])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[10m] offset 5m)) or vector(0)), 0)) / (((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="partners.sync",objective="availability",revision="e16395ab"}[5m])) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[5m] offset 10m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[5m])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[10m] offset 5m)) or vector(0)), 0)) or (clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[5m] offset 10m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[5m])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[10m] offset 5m)) or vector(0)), 0) > 0)) > 0)'
+        labels:
+          application: shop
+          objective: availability
+          revision: e16395ab
+          slo: partners.sync
+          window: 30d
+        record: 'slo:error_ratio:rate5m'
+      - expr: '((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="partners.sync",objective="availability",revision="e16395ab"}[30m])) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[30m] offset 10m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[30m])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[10m] offset 30m)) or vector(0)), 0)) or (clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[30m] offset 10m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[30m])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[10m] offset 30m)) or vector(0)), 0) > 0)) / 1800'
+        labels:
+          application: shop
+          objective: availability
+          revision: e16395ab
+          slo: partners.sync
+          window: 30d
+        record: 'slo:events:rate30m'
+      - expr: '((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="partners.sync",objective="availability",revision="e16395ab",result="bad"}[30m])) or vector(0)) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[30m] offset 10m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[30m])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[10m] offset 30m)) or vector(0)), 0)) / (((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="partners.sync",objective="availability",revision="e16395ab"}[30m])) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[30m] offset 10m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[30m])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[10m] offset 30m)) or vector(0)), 0)) or (clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[30m] offset 10m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[30m])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[10m] offset 30m)) or vector(0)), 0) > 0)) > 0)'
+        labels:
+          application: shop
+          objective: availability
+          revision: e16395ab
+          slo: partners.sync
+          window: 30d
+        record: 'slo:error_ratio:rate30m'
+      - expr: '((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="partners.sync",objective="availability",revision="e16395ab"}[1h])) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[1h] offset 10m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[1h])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[10m] offset 1h)) or vector(0)), 0)) or (clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[1h] offset 10m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[1h])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[10m] offset 1h)) or vector(0)), 0) > 0)) / 3600'
+        labels:
+          application: shop
+          objective: availability
+          revision: e16395ab
+          slo: partners.sync
+          window: 30d
+        record: 'slo:events:rate1h'
+      - expr: '((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="partners.sync",objective="availability",revision="e16395ab",result="bad"}[1h])) or vector(0)) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[1h] offset 10m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[1h])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[10m] offset 1h)) or vector(0)), 0)) / (((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="partners.sync",objective="availability",revision="e16395ab"}[1h])) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[1h] offset 10m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[1h])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[10m] offset 1h)) or vector(0)), 0)) or (clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[1h] offset 10m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[1h])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[10m] offset 1h)) or vector(0)), 0) > 0)) > 0)'
+        labels:
+          application: shop
+          objective: availability
+          revision: e16395ab
+          slo: partners.sync
+          window: 30d
+        record: 'slo:error_ratio:rate1h'
+      - expr: '((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="partners.sync",objective="availability",revision="e16395ab"}[6h])) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[6h] offset 10m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[6h])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[10m] offset 6h)) or vector(0)), 0)) or (clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[6h] offset 10m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[6h])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[10m] offset 6h)) or vector(0)), 0) > 0)) / 21600'
+        labels:
+          application: shop
+          objective: availability
+          revision: e16395ab
+          slo: partners.sync
+          window: 30d
+        record: 'slo:events:rate6h'
+      - expr: '((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="partners.sync",objective="availability",revision="e16395ab",result="bad"}[6h])) or vector(0)) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[6h] offset 10m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[6h])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[10m] offset 6h)) or vector(0)), 0)) / (((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="partners.sync",objective="availability",revision="e16395ab"}[6h])) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[6h] offset 10m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[6h])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[10m] offset 6h)) or vector(0)), 0)) or (clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[6h] offset 10m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[6h])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[10m] offset 6h)) or vector(0)), 0) > 0)) > 0)'
+        labels:
+          application: shop
+          objective: availability
+          revision: e16395ab
+          slo: partners.sync
+          window: 30d
+        record: 'slo:error_ratio:rate6h'
+      - expr: vector(0.995)
+        labels:
+          application: shop
+          objective: availability
+          revision: e16395ab
+          slo: partners.sync
+          window: 30d
+        record: 'slo:objective:target'
+  - interval: 5m
+    name: slo-partners.sync-window
+    rules:
+      - expr: '((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="partners.sync",objective="availability",revision="e16395ab"}[3d])) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[3d] offset 10m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[3d])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[10m] offset 3d)) or vector(0)), 0)) or (clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[3d] offset 10m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[3d])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[10m] offset 3d)) or vector(0)), 0) > 0)) / 259200'
+        labels:
+          application: shop
+          objective: availability
+          revision: e16395ab
+          slo: partners.sync
+          window: 30d
+        record: 'slo:events:rate3d'
+      - expr: '((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="partners.sync",objective="availability",revision="e16395ab",result="bad"}[3d])) or vector(0)) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[3d] offset 10m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[3d])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[10m] offset 3d)) or vector(0)), 0)) / (((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="partners.sync",objective="availability",revision="e16395ab"}[3d])) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[3d] offset 10m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[3d])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[10m] offset 3d)) or vector(0)), 0)) or (clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[3d] offset 10m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[3d])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[10m] offset 3d)) or vector(0)), 0) > 0)) > 0)'
+        labels:
+          application: shop
+          objective: availability
+          revision: e16395ab
+          slo: partners.sync
+          window: 30d
+        record: 'slo:error_ratio:rate3d'
+      - expr: '1 - (((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="partners.sync",objective="availability",revision="e16395ab",result="bad"}[30d])) or vector(0)) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[30d] offset 10m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[30d])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[10m] offset 30d)) or vector(0)), 0)) / (((sum(increase(symfony_slo_events_total{application="shop",component=~"web|worker",slo="partners.sync",objective="availability",revision="e16395ab"}[30d])) + clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[30d] offset 10m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[30d])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[10m] offset 30d)) or vector(0)), 0)) or (clamp_min((sum(increase(symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[30d] offset 10m)) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[30d])) or vector(0)) - (sum(increase(symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="command:app:sync-partners"}[10m] offset 30d)) or vector(0)), 0) > 0)) > 0))'
+        labels:
+          application: shop
+          objective: availability
+          revision: e16395ab
+          slo: partners.sync
+          window: 30d
+        record: 'slo:sli:ratio'
+      - expr: '1 - (1 - slo:sli:ratio{application="shop",slo="partners.sync",objective="availability"}) / 0.005'
+        labels:
+          application: shop
+          objective: availability
+          revision: e16395ab
+          slo: partners.sync
+          window: 30d
+        record: 'slo:error_budget:remaining'
+      - expr: 'clamp((time() - min_over_time(timestamp(sum(symfony_slo_events_total{application="shop",component=~"web|worker",slo="partners.sync",objective="availability",revision="e16395ab"}))[721h:1h])) / 2592000, 0, 1)'
+        labels:
+          application: shop
+          objective: availability
+          revision: e16395ab
+          slo: partners.sync
+          window: 30d
+        record: 'slo:window:coverage_ratio'
+  - interval: 1m
     name: slo-payment.process
     rules:
       - expr: 'sum(rate(symfony_messenger_message_handled{application="shop",component=~"web|worker",message="ProcessPayment",status=~"handled|failed",transport!~"failed"}[5m]))'

@@ -260,6 +260,10 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
   `last_over_time(...[10m])`, чтобы запоздавшая оценка не давала дыр;
   пороги — готовые числа `factor × (1 - target)`; `SloNoEvents` (severity ticket) = `(sum(increase(<total>[Nh])) or vector(0)) == 0`.
   Аннотация только `summary` (имя, objective, target, окно), без runbook.
+- Scheduled task (всегда B): `U(r) = clamp_min((started[r] offset d or 0) - (finished[r] or 0) - (finished[d] offset r or 0), 0)`
+  (`PromQlBuilder::unfinishedRuns`, `d` = `runDeadline()` через `PromQlRenderer::milliseconds`, селектор `<base>,task=` /
+  `task=~` для нескольких точек). Bad = `(bad or 0) + U`, total = `(total + U) or (U > 0)`; всё в форме `increase`, rate =
+  increase / `PromQlRenderer::seconds(r)`. Sloth для задач — `badIncrease`/`eventsIncrease` над `{{.window}}`.
 
 ## Спецификации Sloth (Task 14)
 

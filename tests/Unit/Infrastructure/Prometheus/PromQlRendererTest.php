@@ -55,6 +55,42 @@ final class PromQlRendererTest extends TestCase
         self::assertSame($promQl, PromQlRenderer::duration($seconds));
     }
 
+    /**
+     * @param positive-int $milliseconds
+     */
+    #[TestWith([120000, '2m'])]
+    #[TestWith([1500, '1500ms'])]
+    #[TestWith([3_600_000, '1h'])]
+    #[TestWith([30_000, '30s'])]
+    public function testMillisecondsUseTheLargestExactUnitLikeADeadline(int $milliseconds, string $promQl): void
+    {
+        self::assertSame($promQl, PromQlRenderer::milliseconds($milliseconds));
+    }
+
+    #[TestWith(['5m', 300])]
+    #[TestWith(['3d', 259200])]
+    #[TestWith(['2w', 1209600])]
+    #[TestWith(['1y', 31536000])]
+    #[TestWith(['90s', 90])]
+    #[TestWith(['2000ms', 2])]
+    #[TestWith(['6h', 21600])]
+    public function testSecondsOfAPromQlRange(string $range, int $seconds): void
+    {
+        self::assertSame($seconds, PromQlRenderer::seconds($range));
+    }
+
+    #[TestWith(['{{.window}}'])]
+    #[TestWith(['1500ms'])]
+    #[TestWith(['0m'])]
+    #[TestWith(['5'])]
+    #[TestWith(['1h30m'])]
+    public function testSecondsRejectsAnythingButAWholeNumberOfSeconds(string $range): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        PromQlRenderer::seconds($range);
+    }
+
     #[TestWith([14.4, '14.4'])]
     #[TestWith([0.001, '0.001'])]
     #[TestWith([1.0, '1'])]

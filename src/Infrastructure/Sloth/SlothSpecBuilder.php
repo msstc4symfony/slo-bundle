@@ -8,6 +8,7 @@ use Msstc4Symfony\SloBundle\Application\Generation\BoundObjective;
 use Msstc4Symfony\SloBundle\Application\Generation\BurnRateSeverity;
 use Msstc4Symfony\SloBundle\Application\Generation\Selector;
 use Msstc4Symfony\SloBundle\Application\Port\SlothSpecBuilderInterface;
+use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
 use Msstc4Symfony\SloBundle\Infrastructure\Prometheus\PromQlBuilder;
 use Msstc4Symfony\SloBundle\Infrastructure\Yaml\DeterministicYaml;
 use Override;
@@ -15,6 +16,7 @@ use Override;
 /**
  * Sloth `prometheus/v1` spec: one SLO per objective, queries are the bundle's bad/total selectors over Sloth's
  * `{{.window}}` template. The SLO window is not part of the spec: Sloth takes it from its own period configuration.
+ * Scheduled-task queries are increases, because their unfinished runs cannot be divided by a templated window.
  *
  * Shapes: SlothLabels are the labels of a Sloth SLO and its alerts; SlothSloShape is one entry of the `slos` list;
  * SlothSpecShape is the `prometheus/v1` spec document.
@@ -87,6 +89,7 @@ final readonly class SlothSpecBuilder implements SlothSpecBuilderInterface
         $name = $objective->definition->name()->value;
         $kind = $objective->objective->kind->value;
         $labels = ['application' => $selector->application, 'objective' => $kind, 'slo' => $name];
+        $increase = $objective->definition->pointType() === PointType::ScheduledTask;
 
         return [
             'name' => $name . '-' . $kind,
@@ -94,8 +97,8 @@ final readonly class SlothSpecBuilder implements SlothSpecBuilderInterface
             'description' => \sprintf('SLO %s %s, target %s%%', $name, $kind, $objective->objective->target->percent),
             'labels' => $labels,
             'sli' => ['events' => [
-                'error_query' => $this->promQl->badRate($selector, $objective, self::WINDOW),
-                'total_query' => $this->promQl->eventsRate($selector, $objective, self::WINDOW),
+                'error_query' => $increase ? $this->promQl->badIncrease($selector, $objective, self::WINDOW) : $this->promQl->badRate($selector, $objective, self::WINDOW),
+                'total_query' => $increase ? $this->promQl->eventsIncrease($selector, $objective, self::WINDOW) : $this->promQl->eventsRate($selector, $objective, self::WINDOW),
             ]],
             'alerting' => [
                 'name' => 'Slo' . $this->pascal($name) . ucfirst($kind),

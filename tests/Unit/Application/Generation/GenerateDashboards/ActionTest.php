@@ -106,10 +106,13 @@ final class ActionTest extends TestCase
         $panels = $dashboard->views('panels');
 
         self::assertSame(
-            ['checkout.pay / availability', 'checkout.pay / latency', 'payment.process / availability', 'payment.process / latency', 'report.export / availability'],
+            [
+                'checkout.pay / availability', 'checkout.pay / latency', 'cleanup.run / availability', 'cleanup.run / latency', 'partners.sync / availability',
+                'payment.process / availability', 'payment.process / latency', 'report.export / availability',
+            ],
             array_values(array_map(static fn (JsonView $panel): mixed => $panel->get('title'), array_filter($panels, static fn (JsonView $panel): bool => $panel->get('type') === 'row'))),
         );
-        self::assertCount(5 + 5 * 6, $panels);
+        self::assertCount(8 + 8 * 6, $panels);
 
         $byTitle = [];
         $width = 0;

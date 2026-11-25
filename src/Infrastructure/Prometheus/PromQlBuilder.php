@@ -9,10 +9,15 @@ use Msstc4Symfony\SloBundle\Application\Binding\SeriesBinding;
 use Msstc4Symfony\SloBundle\Application\Binding\SeriesKind;
 use Msstc4Symfony\SloBundle\Application\Generation\BoundObjective;
 use Msstc4Symfony\SloBundle\Application\Generation\Selector;
+use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
+use Msstc4Symfony\SloBundle\Domain\ValueObject\Deadline;
+use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
+use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\SloMetric;
 
 /**
  * PromQL over the exported series: Strategy A reads metrics-bundle series, Strategy B the dedicated counter of the
  * current revision. Every ratio divides by `(total > 0)`, so no events yield no value instead of 100 %.
+ * Scheduled-task objectives add the unfinished runs to their bad and total events, in increase form.
  *
  * @phpstan-type SeriesShape array{total: non-empty-string, bad: non-empty-string|null, bucket: non-empty-string|null}
  *
@@ -36,6 +41,10 @@ final readonly class PromQlBuilder
      */
     public function eventsRate(Selector $selector, BoundObjective $objective, string $range): string
     {
+        if ($this->isScheduledTask($objective)) {
+            return \sprintf('%s / %d', $this->eventsIncrease($selector, $objective, $range), PromQlRenderer::seconds($range));
+        }
+
         return $this->sum('rate', $this->series($selector, $objective)['total'], $range);
     }
 
@@ -44,6 +53,10 @@ final readonly class PromQlBuilder
      */
     public function badRate(Selector $selector, BoundObjective $objective, string $range): string
     {
+        if ($this->isScheduledTask($objective)) {
+            return \sprintf('%s / %d', $this->badIncrease($selector, $objective, $range), PromQlRenderer::seconds($range));
+        }
+
         return $this->bad($this->series($selector, $objective), 'rate', $range);
     }
 
@@ -52,6 +65,10 @@ final readonly class PromQlBuilder
      */
     public function errorRatio(Selector $selector, BoundObjective $objective, string $range): string
     {
+        if ($this->isScheduledTask($objective)) {
+            return \sprintf('%s / (%s > 0)', $this->badIncrease($selector, $objective, $range), $this->eventsIncrease($selector, $objective, $range));
+        }
+
         $series = $this->series($selector, $objective);
 
         return \sprintf('%s / (%s > 0)', $this->bad($series, 'rate', $range), $this->sum('rate', $series['total'], $range));
@@ -59,10 +76,67 @@ final readonly class PromQlBuilder
 
     public function sliRatio(Selector $selector, BoundObjective $objective): string
     {
-        $series = $this->series($selector, $objective);
         $window = PromQlRenderer::window($objective->definition->window());
 
-        return \sprintf('1 - (%s / (%s > 0))', $this->bad($series, 'increase', $window), $this->sum('increase', $series['total'], $window));
+        return \sprintf('1 - (%s / (%s > 0))', $this->badIncrease($selector, $objective, $window), $this->eventsIncrease($selector, $objective, $window));
+    }
+
+    /**
+     * Events over the range. A scheduled task adds its unfinished runs; before its first event the unfinished runs
+     * alone are the total, so a task that always dies reads 100 % bad, and no runs at all still read NoData.
+     *
+     * @param non-empty-string $range
+     */
+    public function eventsIncrease(Selector $selector, BoundObjective $objective, string $range): string
+    {
+        $total = $this->sum('increase', $this->series($selector, $objective)['total'], $range);
+        $unfinished = $this->unfinishedRuns($selector, $objective, $range);
+
+        return $unfinished === null ? $total : \sprintf('((%1$s + %2$s) or (%2$s > 0))', $total, $unfinished);
+    }
+
+    /**
+     * @param non-empty-string $range
+     */
+    public function badIncrease(Selector $selector, BoundObjective $objective, string $range): string
+    {
+        $bad = $this->bad($this->series($selector, $objective), 'increase', $range);
+        $unfinished = $this->unfinishedRuns($selector, $objective, $range);
+
+        return $unfinished === null ? $bad : \sprintf('(%s + %s)', $bad, $unfinished);
+    }
+
+    /**
+     * Runs started in [t-d-r, t-d] minus runs finished in [t-d-r, t], d the run deadline (ruling R1): a run still
+     * within its deadline is not counted, nor is a healthy run that straddles t-d. Retried attempts finish too.
+     *
+     * @param non-empty-string $range
+     *
+     * @return non-empty-string|null null off scheduled tasks
+     */
+    public function unfinishedRuns(Selector $selector, BoundObjective $objective, string $range): ?string
+    {
+        $deadline = $objective->definition->runDeadline();
+        if (!$deadline instanceof Deadline) {
+            return null;
+        }
+
+        $tasks = array_map(static fn (PointId $point): string => $point->id, $objective->definition->points());
+        sort($tasks, SORT_STRING);
+        $matchers = [
+            ...$this->base($selector),
+            \count($tasks) === 1 ? Matcher::equals('task', $tasks[0]) : Matcher::regex('task', PromQlRenderer::alternation($tasks)),
+        ];
+        $started = self::NAMESPACE . SloMetric::SCHEDULED_TASK_STARTED->value . $this->matchers($matchers);
+        $finished = self::NAMESPACE . SloMetric::SCHEDULED_TASK_FINISHED->value . $this->matchers($matchers);
+        $offset = PromQlRenderer::milliseconds($deadline->milliseconds);
+
+        return \sprintf(
+            'clamp_min((%s or vector(0)) - (%s or vector(0)) - (%s or vector(0)), 0)',
+            $this->sum('increase', $started, $range, $offset),
+            $this->sum('increase', $finished, $range),
+            $this->sum('increase', $finished, $offset, $range),
+        );
     }
 
     /**
@@ -156,10 +230,7 @@ final readonly class PromQlBuilder
      */
     private function series(Selector $selector, BoundObjective $objective): array
     {
-        $base = [Matcher::equals('application', $selector->application)];
-        if ($selector->components !== []) {
-            $base[] = Matcher::regex('component', PromQlRenderer::alternation($selector->components));
-        }
+        $base = $this->base($selector);
 
         $series = $objective->binding->series;
         if (!$series instanceof SeriesBinding) {
@@ -200,6 +271,24 @@ final readonly class PromQlBuilder
     }
 
     /**
+     * @return non-empty-list<Matcher>
+     */
+    private function base(Selector $selector): array
+    {
+        $base = [Matcher::equals('application', $selector->application)];
+        if ($selector->components !== []) {
+            $base[] = Matcher::regex('component', PromQlRenderer::alternation($selector->components));
+        }
+
+        return $base;
+    }
+
+    private function isScheduledTask(BoundObjective $objective): bool
+    {
+        return $objective->definition->pointType() === PointType::ScheduledTask;
+    }
+
+    /**
      * @param SeriesShape $series
      * @param 'rate'|'increase' $function
      * @param non-empty-string $range
@@ -221,10 +310,11 @@ final readonly class PromQlBuilder
      * @param 'rate'|'increase' $function
      * @param non-empty-string $selector
      * @param non-empty-string $range
+     * @param non-empty-string|null $offset
      */
-    private function sum(string $function, string $selector, string $range): string
+    private function sum(string $function, string $selector, string $range, ?string $offset = null): string
     {
-        return \sprintf('sum(%s(%s[%s]))', $function, $selector, $range);
+        return \sprintf('sum(%s(%s[%s]%s))', $function, $selector, $range, $offset === null ? '' : ' offset ' . $offset);
     }
 
     /**

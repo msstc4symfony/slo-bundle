@@ -39,6 +39,66 @@ groups:
           severity: ticket
           slo: checkout.pay
   - interval: 1m
+    name: slo-cleanup.run
+    rules:
+      - alert: SloErrorBudgetBurn
+        annotations:
+          summary: 'SLO cleanup.run availability burns its error budget fast (target 99%, window 30d)'
+        expr: '(slo:error_ratio:rate1h{application="shop",slo="cleanup.run",objective="availability"} > 0.144 and slo:error_ratio:rate5m{application="shop",slo="cleanup.run",objective="availability"} > 0.144) or (slo:error_ratio:rate6h{application="shop",slo="cleanup.run",objective="availability"} > 0.06 and slo:error_ratio:rate30m{application="shop",slo="cleanup.run",objective="availability"} > 0.06)'
+        labels:
+          application: shop
+          objective: availability
+          severity: page
+          slo: cleanup.run
+      - alert: SloErrorBudgetBurn
+        annotations:
+          summary: 'SLO cleanup.run availability burns its error budget (target 99%, window 30d)'
+        expr: '(last_over_time(slo:error_ratio:rate3d{application="shop",slo="cleanup.run",objective="availability"}[10m]) > 0.01 and slo:error_ratio:rate6h{application="shop",slo="cleanup.run",objective="availability"} > 0.01) and on() (last_over_time(slo:window:coverage_ratio{application="shop",slo="cleanup.run",objective="availability"}[10m]) >= 1)'
+        labels:
+          application: shop
+          objective: availability
+          severity: ticket
+          slo: cleanup.run
+      - alert: SloErrorBudgetBurn
+        annotations:
+          summary: 'SLO cleanup.run latency burns its error budget fast (target 95%, window 30d)'
+        expr: '(slo:error_ratio:rate1h{application="shop",slo="cleanup.run",objective="latency"} > 0.72 and slo:error_ratio:rate5m{application="shop",slo="cleanup.run",objective="latency"} > 0.72) or (slo:error_ratio:rate6h{application="shop",slo="cleanup.run",objective="latency"} > 0.3 and slo:error_ratio:rate30m{application="shop",slo="cleanup.run",objective="latency"} > 0.3)'
+        labels:
+          application: shop
+          objective: latency
+          severity: page
+          slo: cleanup.run
+      - alert: SloErrorBudgetBurn
+        annotations:
+          summary: 'SLO cleanup.run latency burns its error budget (target 95%, window 30d)'
+        expr: '(last_over_time(slo:error_ratio:rate3d{application="shop",slo="cleanup.run",objective="latency"}[10m]) > 0.05 and slo:error_ratio:rate6h{application="shop",slo="cleanup.run",objective="latency"} > 0.05) and on() (last_over_time(slo:window:coverage_ratio{application="shop",slo="cleanup.run",objective="latency"}[10m]) >= 1)'
+        labels:
+          application: shop
+          objective: latency
+          severity: ticket
+          slo: cleanup.run
+  - interval: 1m
+    name: slo-partners.sync
+    rules:
+      - alert: SloErrorBudgetBurn
+        annotations:
+          summary: 'SLO partners.sync availability burns its error budget fast (target 99.5%, window 30d)'
+        expr: '(slo:error_ratio:rate1h{application="shop",slo="partners.sync",objective="availability"} > 0.072 and slo:error_ratio:rate5m{application="shop",slo="partners.sync",objective="availability"} > 0.072) or (slo:error_ratio:rate6h{application="shop",slo="partners.sync",objective="availability"} > 0.03 and slo:error_ratio:rate30m{application="shop",slo="partners.sync",objective="availability"} > 0.03)'
+        labels:
+          application: shop
+          objective: availability
+          severity: page
+          slo: partners.sync
+      - alert: SloErrorBudgetBurn
+        annotations:
+          summary: 'SLO partners.sync availability burns its error budget (target 99.5%, window 30d)'
+        expr: '(last_over_time(slo:error_ratio:rate3d{application="shop",slo="partners.sync",objective="availability"}[10m]) > 0.005 and slo:error_ratio:rate6h{application="shop",slo="partners.sync",objective="availability"} > 0.005) and on() (last_over_time(slo:window:coverage_ratio{application="shop",slo="partners.sync",objective="availability"}[10m]) >= 1)'
+        labels:
+          application: shop
+          objective: availability
+          severity: ticket
+          slo: partners.sync
+  - interval: 1m
     name: slo-payment.process
     rules:
       - alert: SloErrorBudgetBurn

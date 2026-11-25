@@ -30,6 +30,11 @@
   attempt is no event, a failure is classified on the handler's nested exception (a failing command is always an
   error), and runs on a failure transport are not eligible. A task message the application dispatches itself counts
   under the task's point too.
+- Unfinished runs counted as bad events of scheduled-task SLOs in the generated Prometheus rules and Sloth specs: runs
+  started in `[t-d-r, t-d]` minus runs finished in `[t-d-r, t]` (`d` the run deadline, `r` the range), clamped at 0,
+  are added to the bad and the total events of every objective, so a hung or killed run is bad and a task that always
+  dies reads 100 % bad instead of NoData. A run still within its deadline is not counted; a frequent task with a long
+  deadline can hide a hung run behind later runs that finished. Sloth specs of task SLOs use `increase` queries.
 
 ### Changed
 
