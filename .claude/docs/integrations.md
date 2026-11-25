@@ -103,3 +103,22 @@
   командная — `scheduled_task:command:<name>`. `#[Slo]` класса применяется ко всем задачам класса, `#[Slo]` метода — только к своей;
   у команд — только класс (R9). Повторяемые атрибуты (несколько расписаний одного метода) = одна точка, `apply()` один раз.
 - Без `symfony/scheduler` тегов нет → `scheduledTasks === []`. `symfony/scheduler` только в `require-dev` `composer-ci.json`.
+
+## Запуски задач Scheduler в воркере (1.2, Task 4)
+
+- `Infrastructure\Scheduler\ScheduledTaskRunListener` слушает события воркера Messenger через `#[AsEventListener]` (Rector
+  переписывает `EventSubscriberInterface` в атрибуты, как в metrics-bundle): received -1000 (после чужих `shouldHandle()`),
+  handled 0, failed 0 (после `SendFailedMessageForRetryListener` на 100, который ставит `willRetry()`). Регистрируется в
+  `services.php` только при `class_exists(ServiceCallMessage)` и `class_exists(WorkerMessageReceivedEvent)`; подписка — через
+  автоконфигурацию FrameworkBundle (в голом `TestContainer` слушатель есть, но тегов слушателя нет).
+- Точка сообщения — `ScheduledTaskMessage::pointOf()`: `ServiceCallMessage` → `<serviceId>::<method>`, `RunCommandMessage` →
+  `StringInput($input)->getFirstArgument()` (снимает кавычки `'app:foo'` от `ArrayInput`); `RedispatchMessage` и прочее → null.
+  `StringInput` не падает на незакрытой кавычке (`'x` → токен `'x`), исключение парсера практически недостижимо.
+- Старт хранится в `WeakMap` по объекту сообщения (`Envelope::with()` его сохраняет; in-memory транспорт повторяет тот же объект).
+  Исход без старта (после `reset()`, `shouldHandle(false)`) ничего не пишет. Длительность — свой `MonotonicClockInterface`.
+- Каждая попытка пишет `slo_scheduled_task_started_total` / `finished_total{outcome}` / `duration_seconds{outcome}` через
+  `MetricsScheduledTaskRunWriter` (metrics-bundle добавляет префикс `symfony_`); повтор — `outcome="retried"`, без события SLO.
+  Финальный сбой классифицируется по `HandlerFailedException::getPrevious()`; `RunCommandFailedException` всегда `error`.
+  Запуски на failure-транспорте пишут метрики запуска, событие SLO — с флагом `onFailureTransport` (не eligible).
+- Fail-open: каждый обработчик и запись метрик/события в своём `try`, предупреждение `Scheduled task run was not recorded.`
+  (`task` = id точки) или `Scheduled task exception could not be classified, it counts as an error.` в канал `slo_bundle`.

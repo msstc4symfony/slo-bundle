@@ -30,6 +30,7 @@ use Msstc4Symfony\SloBundle\Application\Port\PrecomputedRevisionsInterface;
 use Msstc4Symfony\SloBundle\Application\Port\RouteCatalogInterface;
 use Msstc4Symfony\SloBundle\Application\Port\RoutePointIndexInterface;
 use Msstc4Symfony\SloBundle\Application\Port\RuleFileBuilderInterface;
+use Msstc4Symfony\SloBundle\Application\Port\ScheduledTaskRunWriterInterface;
 use Msstc4Symfony\SloBundle\Application\Port\SeriesCatalogInterface;
 use Msstc4Symfony\SloBundle\Application\Port\SlothSpecBuilderInterface;
 use Msstc4Symfony\SloBundle\Domain\Repository\SloCatalogInterface;
@@ -47,12 +48,14 @@ use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\HttpSloObserver;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MessengerSloObserver;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MetricsBundleSeriesCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MetricsEventWriter;
+use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MetricsScheduledTaskRunWriter;
 use Msstc4Symfony\SloBundle\Infrastructure\Prometheus\PromQlBuilder;
 use Msstc4Symfony\SloBundle\Infrastructure\Prometheus\RuleGroupsBuilder;
 use Msstc4Symfony\SloBundle\Infrastructure\RouteIndex\RouteIndexBuilder;
 use Msstc4Symfony\SloBundle\Infrastructure\RouteIndex\RouteIndexFile;
 use Msstc4Symfony\SloBundle\Infrastructure\RouteIndex\RouteIndexStoreInterface;
 use Msstc4Symfony\SloBundle\Infrastructure\RouteIndex\WarmedRevisions;
+use Msstc4Symfony\SloBundle\Infrastructure\Scheduler\ScheduledTaskRunListener;
 use Msstc4Symfony\SloBundle\Infrastructure\Sloth\SlothSpecBuilder;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RoutePointIndex;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouterRouteCatalog;
@@ -64,6 +67,8 @@ use Msstc4Symfony\SloBundle\Presentation\Command\GenerateCommand;
 use Msstc4Symfony\SloBundle\Presentation\Command\ListCommand;
 use Msstc4Symfony\SloBundle\Presentation\Command\ValidateCommand;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
+use Symfony\Component\Messenger\Event\WorkerMessageReceivedEvent;
+use Symfony\Component\Scheduler\Messenger\ServiceCallMessage;
 
 use function Symfony\Component\DependencyInjection\Loader\Configurator\abstract_arg;
 use function Symfony\Component\DependencyInjection\Loader\Configurator\param;
@@ -125,6 +130,16 @@ return static function (ContainerConfigurator $container): void {
 
     $services->set(HrtimeClock::class);
     $services->alias(MonotonicClockInterface::class, HrtimeClock::class);
+
+    $services->set(MetricsScheduledTaskRunWriter::class);
+    $services->alias(ScheduledTaskRunWriterInterface::class, MetricsScheduledTaskRunWriter::class);
+    if (class_exists(ServiceCallMessage::class) && class_exists(WorkerMessageReceivedEvent::class)) {
+        // Listens through #[AsEventListener], picked up by autoconfiguration.
+        $services->set(ScheduledTaskRunListener::class)
+            ->arg('$logger', service(FailSafeLogger::class))
+            ->tag('kernel.reset', ['method' => 'reset'])
+        ;
+    }
 
     $services->set(OperationMonitor::class)
         ->arg('$logger', service(FailSafeLogger::class))

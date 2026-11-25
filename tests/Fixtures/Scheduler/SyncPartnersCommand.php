@@ -19,6 +19,8 @@ use Symfony\Component\Scheduler\Attribute\AsPeriodicTask;
 #[Slo('partners.sync', [new Availability(99.5)], deadline: '10m')]
 final class SyncPartnersCommand extends Command
 {
+    public static bool $failing = false;
+
     #[Override]
     protected function configure(): void
     {
@@ -28,6 +30,6 @@ final class SyncPartnersCommand extends Command
     #[Override]
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        return Command::SUCCESS;
+        return self::$failing ? Command::FAILURE : Command::SUCCESS;
     }
 }

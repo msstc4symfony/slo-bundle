@@ -362,3 +362,18 @@
 - CI-lock собирается с `symfony/scheduler` 8.1.10 при framework-bundle/console 7.4.23 — смешанная пара; `getDefaultName()`
   читает только наш `CommandName` (pass 8.1 его не вызывает), расхождение возможно лишь у команды без `#[AsCommand]` с
   переопределённым `getDefaultName()` на console 7.4.
+
+## Worker-слушатель Scheduler (1.2, Task 4)
+
+- **Rector превращает `EventSubscriberInterface` в `#[AsEventListener]`** (Symfony-набор): `getSubscribedEvents()` исчезает, тег
+  `kernel.event_subscriber` в `services.php` ставить нельзя — подписка идёт через автоконфигурацию. Приоритеты проверяет
+  `ScheduledTaskRunListenerTest` рефлексией атрибутов.
+- **Kernel-тест задач**: `SchedulerSloTestKernel` маршрутизирует `ServiceCallMessage`/`RunCommandMessage` в `async` (in-memory,
+  `max_retries: 1`, `delay: 0`) и регистрирует `clock`; сбой фикстур — статические флаги `CleanupTask::$failing`,
+  `SyncPartnersCommand::$failing` (сбрасываются в `tearDown`). `task` в экспорте Prometheus экранирует `\` (FQCN) — тест снимает
+  экранирование `stripslashes()`.
+- `HardeningKernel` при установленном scheduler тоже включает `scheduler` и `CleanupTask`; `UseThrowingRecorderPass` подменяет
+  recorder и у `MetricsScheduledTaskRunWriter`.
+- Бенчмарк (2026-11-25 UTC, PHP 8.4.17) не изменился относительно d17a1dd: RecordEvent null recorder 5.2 мкс, с reset 5.5, in-memory 10.6,
+  холодный запрос 40.7 мкс. Накладные расходы слушателя на сообщения воркера бенчмарк не измеряет.
+

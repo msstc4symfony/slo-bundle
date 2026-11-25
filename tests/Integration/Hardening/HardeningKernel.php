@@ -10,19 +10,22 @@ use Msstc4Symfony\SloBundle\SloBundle;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Runtime\ChargeCard;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Runtime\ChargeCardHandler;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Runtime\CheckoutController;
+use Msstc4Symfony\SloBundle\Test\Fixtures\Scheduler\CleanupTask;
 use Override;
 use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
 use Symfony\Bundle\MonologBundle\MonologBundle;
+use Symfony\Component\Clock\NativeClock;
 use Symfony\Component\DependencyInjection\Compiler\PassConfig;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\HttpKernel\Kernel;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
+use Symfony\Component\Scheduler\Messenger\ServiceCallMessage;
 
 /**
- * HTTP, Messenger (when installed) and operation points on in-memory storage; the environment "failing_storage" makes the SLO writer's recorder throw,
+ * HTTP, Messenger and Scheduler (when installed) and operation points on in-memory storage; the environment "failing_storage" makes the SLO writer's recorder throw,
  * "failing_storage_and_log" also makes every log record of the slo_bundle channel throw.
  */
 final class HardeningKernel extends Kernel
@@ -78,6 +81,7 @@ final class HardeningKernel extends Kernel
             'php_errors' => ['log' => false],
         ];
         $messenger = interface_exists(MessageBusInterface::class);
+        $scheduler = $messenger && class_exists(ServiceCallMessage::class);
         if ($messenger) {
             $framework['messenger'] = [
                 'failure_transport' => self::FAILED,
@@ -85,8 +89,11 @@ final class HardeningKernel extends Kernel
                     self::ASYNC => ['dsn' => 'in-memory://', 'retry_strategy' => ['max_retries' => 0, 'delay' => 0]],
                     self::FAILED => 'in-memory://',
                 ],
-                'routing' => [ChargeCard::class => self::ASYNC],
+                'routing' => $scheduler ? [ChargeCard::class => self::ASYNC, ServiceCallMessage::class => self::ASYNC] : [ChargeCard::class => self::ASYNC],
             ];
+        }
+        if ($scheduler) {
+            $framework['scheduler'] = true;
         }
         $container->extension('framework', $framework);
         $handlers = ['capture' => ['type' => 'service', 'id' => TestHandler::class]];
@@ -112,6 +119,11 @@ final class HardeningKernel extends Kernel
         $services->set(CheckoutController::class)->autowire()->autoconfigure()->tag('controller.service_arguments');
         if ($messenger) {
             $services->set(ChargeCardHandler::class)->autowire()->autoconfigure();
+        }
+        if ($scheduler) {
+            $services->set(CleanupTask::class)->autowire()->autoconfigure();
+            // FrameworkBundle drops "clock" when symfony/clock is only a dev dependency of the root package, as it is here.
+            $services->set('clock', NativeClock::class);
         }
     }
 

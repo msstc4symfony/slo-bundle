@@ -20,6 +20,16 @@
   is a compile error only when its class declares `#[Slo]` or `#[IgnoreMonitoring]`. `symfony/scheduler` is suggested.
 - Coverage kind `scheduled_task` in `slo:coverage` (an additive value of the JSON `kind` enum and of the per-kind
   percent maps) with `coverage.scheduled_tasks.required_percent` (default 0, applied when `--min` is not given).
+- Per-task run metrics of Scheduler tasks consumed by a Messenger worker, written for every attempt of a task with an
+  SLO: `symfony_slo_scheduled_task_started_total{task}`, `symfony_slo_scheduled_task_finished_total{task,outcome}` and
+  the histogram `symfony_slo_scheduled_task_duration_seconds{task,outcome}` (buckets 0.005, 0.01, 0.025, 0.05, 0.1,
+  0.25, 0.5, 1, 2.5, 5, 10, 30, 60, 180, 300, 600, 1800, 3600 s). `task` is the point id, `outcome` one of `success`,
+  `error`, `expected_failure`, `retried`.
+- SLO events of scheduled tasks: a worker listener (registered when symfony/scheduler and symfony/messenger are
+  installed) times each `ServiceCallMessage` / `RunCommandMessage` run itself and records the final outcome; a retried
+  attempt is no event, a failure is classified on the handler's nested exception (a failing command is always an
+  error), and runs on a failure transport are not eligible. A task message the application dispatches itself counts
+  under the task's point too.
 
 ### Changed
 
