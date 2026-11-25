@@ -67,6 +67,25 @@ final class CommandNameTest extends TestCase
         self::assertSame('app:legacy', CommandName::resolve($this->container(LegacyNamedCommand::class, []), 'task'));
     }
 
+    #[RequiresMethod(Command::class, 'getDefaultName')]
+    public function testInheritedDefaultNameIsNotCalledSoNoDeprecationIsTriggered(): void
+    {
+        $deprecations = [];
+        set_error_handler(static function (int $level, string $message) use (&$deprecations): bool {
+            $deprecations[] = $message;
+
+            return true;
+        }, E_USER_DEPRECATED);
+
+        try {
+            self::assertNull(CommandName::resolve($this->container(NamelessCommand::class, []), 'task'));
+        } finally {
+            restore_error_handler();
+        }
+
+        self::assertSame([], $deprecations);
+    }
+
     /**
      * @param class-string $class
      * @param array<string, string> $tag

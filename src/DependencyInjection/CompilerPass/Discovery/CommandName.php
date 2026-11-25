@@ -6,7 +6,9 @@ namespace Msstc4Symfony\SloBundle\DependencyInjection\CompilerPass\Discovery;
 
 use Msstc4Symfony\SloBundle\Application\Discovery\ScheduledTaskPoint;
 use ReflectionClass;
+use ReflectionMethod;
 use Symfony\Component\Console\Attribute\AsCommand;
+use Symfony\Component\Console\Command\Command;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 
 /**
@@ -63,7 +65,8 @@ final class CommandName
         if ($attribute !== null) {
             return $attribute->newInstance()->name;
         }
-        if (!method_exists($class->name, 'getDefaultName')) {
+        // Symfony 8 removed getDefaultName(); 7.4's own implementation only triggers a deprecation (as AddConsoleCommandPass).
+        if (!method_exists($class->name, 'getDefaultName') || (new ReflectionMethod($class->name, 'getDefaultName'))->class === Command::class) {
             return null;
         }
         $name = $class->name::getDefaultName();

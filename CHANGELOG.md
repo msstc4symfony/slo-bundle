@@ -19,10 +19,14 @@
   method. Repeated task attributes on one class or method share one point. A command task whose name cannot be resolved
   is a compile error only when its class declares `#[Slo]` or `#[IgnoreMonitoring]`. `symfony/scheduler` is suggested.
 - Coverage kind `scheduled_task` in `slo:coverage` (an additive value of the JSON `kind` enum and of the per-kind
-  percent maps) with `coverage.scheduled_tasks.required_percent` (default 0, existing gates unchanged).
+  percent maps) with `coverage.scheduled_tasks.required_percent` (default 0, applied when `--min` is not given).
 
 ### Changed
 
+- `slo:coverage --min` now also applies to `scheduled_task` points (like every other kind), so a `--min` gate fails on
+  scheduled tasks without an SLO.
+- The generated `slo-monitoring-coverage` dashboard gains a `scheduled_task` row: `slo:generate --check` reports drift
+  after the upgrade; regenerate with `slo:generate`.
 - Compiled catalog dump format 4 (`deadline_ms` per definition, `scheduled_tasks` in the extras): clear the cache on
   upgrade, as any deploy does.
 
