@@ -77,6 +77,7 @@ final readonly class Action
             $objectives,
             $points,
             $sharedPoints,
+            $definition->runDeadline()?->toString(),
         );
     }
 

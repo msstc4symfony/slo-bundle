@@ -8,6 +8,15 @@
   needs an arm for it.
 - `Observation::outcome()` accepts `scheduled_task` and a fourth `$onFailureTransport` argument; such observations are
   not eligible for any objective.
+- `#[Slo(deadline: ...)]` (`<int>ms`, `<decimal>s`, `<int>m`, `<int>h`; scheduled tasks only): how long a run may take
+  before it counts as unfinished; required when the SLO has neither a latency nor a combined objective, otherwise the
+  threshold is the deadline. `Deadline` value object and `SloDefinition::deadline()` / `runDeadline()`.
+- `generation.prometheus.scrape_interval_seconds` (default 60): `slo:validate` reports a scheduled-task deadline below it
+  as an error. `slo:list` shows the deadline of task SLOs (`deadline` key in JSON).
+
+### Changed
+
+- Compiled catalog dump format 4 (`deadline_ms` per definition): clear the cache on upgrade, as any deploy does.
 
 ## [1.1.0] - 2026-11-23
 

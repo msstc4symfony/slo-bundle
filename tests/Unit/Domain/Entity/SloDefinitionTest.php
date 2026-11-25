@@ -10,6 +10,7 @@ use Msstc4Symfony\SloBundle\Domain\Enum\ObjectiveKind;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
 use Msstc4Symfony\SloBundle\Domain\Enum\StrategyPreference;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Classification;
+use Msstc4Symfony\SloBundle\Domain\ValueObject\Deadline;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\LatencyThreshold;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Objective;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
@@ -102,6 +103,55 @@ final class SloDefinitionTest extends TestCase
         $this->definition(pointType: PointType::Operation, points: [PointId::of(PointType::Operation, 'a')], objectives: [$latency]);
     }
 
+    public function testScheduledTaskWithoutAnyDeadlineSourceIsRejected(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/deadline/');
+        $this->task([$this->availability()]);
+    }
+
+    public function testRunDeadlineIsTheDeclaredOneThenTheLatencyThenTheCombinedThreshold(): void
+    {
+        $latency = Objective::latency(LatencyThreshold::fromString('5s'), Target::fromPercent(95.0));
+        $combined = Objective::combined(LatencyThreshold::fromString('7s'), Target::fromPercent(95.0));
+
+        self::assertSame(120_000, $this->task([$this->availability()], Deadline::fromString('2m'))->runDeadline()?->milliseconds);
+        self::assertSame(5000, $this->task([$this->availability(), $latency])->runDeadline()?->milliseconds);
+        self::assertSame(7000, $this->task([$combined])->runDeadline()?->milliseconds);
+        self::assertSame(600_000, $this->task([$this->availability(), $latency], Deadline::fromString('10m'))->runDeadline()?->milliseconds);
+        self::assertNull($this->task([$latency])->deadline());
+        self::assertSame(600_000, $this->task([$latency], Deadline::fromString('10m'))->deadline()?->milliseconds);
+    }
+
+    public function testRunDeadlineIsNullOutsideScheduledTasks(): void
+    {
+        self::assertNull($this->definition()->runDeadline());
+        self::assertNull($this->definition()->deadline());
+    }
+
+    public function testDeadlineOnAnotherPointTypeIsRejected(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/deadline applies to scheduled_task points only/');
+        $this->definition(pointType: PointType::Operation, points: [PointId::of(PointType::Operation, 'a')], deadline: Deadline::fromString('10m'));
+    }
+
+    public function testDeadlineDecidesSemanticEquality(): void
+    {
+        $five = $this->task([$this->availability()], Deadline::fromString('5m'));
+
+        self::assertTrue($five->sameSemanticsAs($this->task([$this->availability()], Deadline::fromString('300s'))));
+        self::assertFalse($five->sameSemanticsAs($this->task([$this->availability()], Deadline::fromString('10m'))));
+    }
+
+    public function testWithPointAndWithWindowKeepTheDeadline(): void
+    {
+        $task = $this->task([$this->availability()], Deadline::fromString('5m'));
+
+        self::assertSame(300_000, $task->withPoint(PointId::of(PointType::ScheduledTask, 'b'))->deadline()?->milliseconds);
+        self::assertSame(300_000, $task->withWindow(Window::fromString('7d'))->deadline()?->milliseconds);
+    }
+
     /**
      * @return iterable<string, array{PointType, Classification, non-empty-string}>
      */
@@ -159,6 +209,19 @@ final class SloDefinitionTest extends TestCase
     }
 
     /**
+     * @param non-empty-list<Objective> $objectives
+     */
+    private function task(array $objectives, ?Deadline $deadline = null): SloDefinition
+    {
+        return $this->definition(
+            pointType: PointType::ScheduledTask,
+            points: [PointId::of(PointType::ScheduledTask, 'a')],
+            objectives: $objectives,
+            deadline: $deadline,
+        );
+    }
+
+    /**
      * @param list<int|string> $bad
      * @param list<int|string> $ineligible
      */
@@ -198,6 +261,7 @@ final class SloDefinitionTest extends TestCase
         ?Window $window = null,
         ?Classification $classification = null,
         StrategyPreference $strategy = StrategyPreference::Auto,
+        ?Deadline $deadline = null,
     ): SloDefinition {
         return new SloDefinition(
             SloName::fromString($name),
@@ -207,6 +271,7 @@ final class SloDefinitionTest extends TestCase
             $window ?? Window::fromString('30d'),
             $classification ?? Classification::defaults(),
             $strategy,
+            $deadline,
         );
     }
 }

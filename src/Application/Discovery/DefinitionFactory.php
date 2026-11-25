@@ -13,6 +13,7 @@ use Msstc4Symfony\SloBundle\Application\Attribute\Slo;
 use Msstc4Symfony\SloBundle\Domain\Entity\SloDefinition;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Classification;
+use Msstc4Symfony\SloBundle\Domain\ValueObject\Deadline;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\LatencyThreshold;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Objective;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
@@ -60,6 +61,7 @@ final readonly class DefinitionFactory
         $window = $this->attempt(fn (): Window => Window::fromString($slo->window ?? $this->defaultWindow), $fail);
         $objectives = $this->objectives($slo, $point->type, $fail, $option);
         $classification = $this->classification($slo, $point->type, $fail, $option);
+        $deadline = $this->deadline($slo, $point->type, $fail, $option);
 
         if ($failed || !$name instanceof SloName || !$window instanceof Window || !$classification instanceof Classification) {
             return null;
@@ -71,9 +73,37 @@ final readonly class DefinitionFactory
         }
 
         return $this->attempt(
-            static fn (): SloDefinition => new SloDefinition($name, $point->type, [$point], $objectives, $window, $classification, $slo->strategy),
+            static fn (): SloDefinition => new SloDefinition($name, $point->type, [$point], $objectives, $window, $classification, $slo->strategy, $deadline),
             $fail,
         );
+    }
+
+    /**
+     * @param Closure(string): void $fail
+     * @param Closure(string): void $option
+     */
+    private function deadline(Slo $slo, PointType $type, Closure $fail, Closure $option): ?Deadline
+    {
+        if ($type !== PointType::ScheduledTask) {
+            if ($slo->deadline !== null) {
+                $option('deadline applies to scheduled_task points only.');
+            }
+
+            return null;
+        }
+
+        if ($slo->deadline === null) {
+            if (array_filter($slo->objectives, static fn (object $o): bool => $o instanceof Latency || $o instanceof Combined) === []) {
+                $option('scheduled_task SLOs need a deadline or a latency objective.');
+            }
+
+            return null;
+        }
+
+        $declared = $slo->deadline;
+        $deadline = $this->attempt(static fn (): Deadline => Deadline::fromString($declared), $fail);
+
+        return $deadline instanceof Deadline ? $deadline : null;
     }
 
     /**

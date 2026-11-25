@@ -46,7 +46,7 @@ use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
  *         selector: array{application: string|null, components: list<string>},
  *         output_dir: non-empty-string,
  *         grafana: array{datasource_uid: non-empty-string, folder: non-empty-string},
- *         prometheus: array{rules: bool, alerts: bool, no_events_alert_hours: positive-int|null},
+ *         prometheus: array{rules: bool, alerts: bool, no_events_alert_hours: positive-int|null, scrape_interval_seconds: positive-int},
  *         sloth: bool,
  *         alertmanager: array{enabled: bool, receivers: array{page: non-empty-string, ticket: non-empty-string}},
  *     },
@@ -295,6 +295,7 @@ final class SloBundle extends AbstractBundle
                         ->booleanNode('rules')->defaultTrue()->end()
                         ->booleanNode('alerts')->defaultTrue()->end()
                         ->integerNode('no_events_alert_hours')->defaultNull()->min(1)->end()
+                        ->integerNode('scrape_interval_seconds')->defaultValue(60)->min(1)->end()
                     ->end()
                 ->end()
                 ->booleanNode('sloth')->defaultFalse()->end()

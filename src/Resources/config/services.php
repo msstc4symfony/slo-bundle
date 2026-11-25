@@ -136,6 +136,7 @@ return static function (ContainerConfigurator $container): void {
     $services->set(ValidateAction::class)
         ->arg('$prometheusRules', param('msstc4symfony_slo.generation.prometheus.rules'))
         ->arg('$prometheusAlerts', param('msstc4symfony_slo.generation.prometheus.alerts'))
+        ->arg('$scrapeIntervalSeconds', param('msstc4symfony_slo.generation.prometheus.scrape_interval_seconds'))
     ;
     $services->set(CoverageAction::class);
     $services->set(CoverageCommand::class)

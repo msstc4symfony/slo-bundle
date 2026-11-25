@@ -27,6 +27,7 @@ final readonly class Slo
         public ?bool $expectedFailureIsGood = null,
         public ?bool $countAttempts = null,
         public StrategyPreference $strategy = StrategyPreference::Auto,
+        public ?string $deadline = null,
     ) {
     }
 }

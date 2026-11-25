@@ -75,6 +75,44 @@ final class DefinitionFactoryTest extends TestCase
         self::assertFalse($messengerOverride->classification()->countAttempts);
     }
 
+    public function testScheduledTaskTakesADeclaredDeadline(): void
+    {
+        $slo = $this->create(new Slo('t', [new Availability(99)], deadline: '10m'), PointType::ScheduledTask);
+
+        self::assertSame(600_000, $slo->deadline()?->milliseconds);
+        self::assertSame(600_000, $slo->runDeadline()?->milliseconds);
+    }
+
+    public function testDeadlineOnAnotherPointTypeIsAnError(): void
+    {
+        self::assertNull($this->factory()->fromAttribute(new Slo('t', [new Availability(99)], deadline: '10m'), PointId::of(PointType::HttpRoute, 'App::create'), $this->errors));
+        self::assertSame(['http_route:App::create: SLO "t": deadline applies to scheduled_task points only.'], $this->errors->messages());
+    }
+
+    public function testInvalidDeadlineIsReportedWithThePoint(): void
+    {
+        $point = PointId::of(PointType::ScheduledTask, 'App\\T::__invoke');
+
+        self::assertNull($this->factory()->fromAttribute(new Slo('t', [new Availability(99)], deadline: 'soon'), $point, $this->errors));
+        self::assertSame(['scheduled_task:App\\T::__invoke: Invalid deadline "soon": expected <int>ms, <decimal>s, <int>m or <int>h.'], $this->errors->messages());
+    }
+
+    public function testAvailabilityOnlyTaskWithoutDeadlineIsAnError(): void
+    {
+        $point = PointId::of(PointType::ScheduledTask, 'App\\T::__invoke');
+
+        self::assertNull($this->factory()->fromAttribute(new Slo('t', [new Availability(99)]), $point, $this->errors));
+        self::assertSame(['scheduled_task:App\\T::__invoke: SLO "t": scheduled_task SLOs need a deadline or a latency objective.'], $this->errors->messages());
+    }
+
+    public function testTaskWithALatencyObjectiveNeedsNoDeadline(): void
+    {
+        $slo = $this->create(new Slo('t', [new Availability(99), new Latency('30s', 95)]), PointType::ScheduledTask);
+
+        self::assertNull($slo->deadline());
+        self::assertSame(30_000, $slo->runDeadline()?->milliseconds);
+    }
+
     public function testEveryProblemOfOneDeclarationIsReported(): void
     {
         $slo = new Slo(

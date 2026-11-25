@@ -9,6 +9,8 @@ use Msstc4Symfony\SloBundle\Domain\Enum\ObjectiveKind;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
 use Msstc4Symfony\SloBundle\Domain\Enum\StrategyPreference;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Classification;
+use Msstc4Symfony\SloBundle\Domain\ValueObject\Deadline;
+use Msstc4Symfony\SloBundle\Domain\ValueObject\LatencyThreshold;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Objective;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\SloName;
@@ -28,6 +30,7 @@ final readonly class SloDefinition
         private Window $window,
         private Classification $classification,
         private StrategyPreference $strategy,
+        private ?Deadline $deadline = null,
     ) {
         $this->assertNotEmpty($points, 'point', $name);
         $this->assertNotEmpty($objectives, 'objective', $name);
@@ -55,6 +58,7 @@ final readonly class SloDefinition
         }
 
         $this->assertNeutralClassification($name, $pointType, $classification);
+        $this->assertDeadline($name, $pointType);
     }
 
     public function name(): SloName
@@ -98,6 +102,33 @@ final readonly class SloDefinition
         return $this->strategy;
     }
 
+    public function deadline(): ?Deadline
+    {
+        return $this->deadline;
+    }
+
+    /**
+     * The declared deadline, else the latency threshold, else the combined threshold; null off scheduled tasks.
+     */
+    public function runDeadline(): ?Deadline
+    {
+        if ($this->pointType !== PointType::ScheduledTask) {
+            return null;
+        }
+        if ($this->deadline instanceof Deadline) {
+            return $this->deadline;
+        }
+
+        foreach ([ObjectiveKind::Latency, ObjectiveKind::Combined] as $kind) {
+            $threshold = $this->objective($kind)?->threshold;
+            if ($threshold instanceof LatencyThreshold) {
+                return Deadline::fromThreshold($threshold);
+            }
+        }
+
+        return null;
+    }
+
     public function objective(ObjectiveKind $kind): ?Objective
     {
         foreach ($this->objectives as $objective) {
@@ -119,6 +150,7 @@ final readonly class SloDefinition
             $this->window,
             $this->classification,
             $this->strategy,
+            $this->deadline,
         );
     }
 
@@ -137,6 +169,7 @@ final readonly class SloDefinition
             $window,
             $this->classification,
             $this->strategy,
+            $this->deadline,
         );
     }
 
@@ -146,6 +179,7 @@ final readonly class SloDefinition
             && $this->pointType === $other->pointType
             && $this->window->seconds() === $other->window->seconds()
             && $this->strategy === $other->strategy
+            && $this->deadline?->milliseconds === $other->deadline?->milliseconds
             && $this->classification->equals($other->classification)
             && $this->sameObjectivesAs($other);
     }
@@ -174,6 +208,20 @@ final readonly class SloDefinition
         $irrelevant = $classification->inapplicableFieldsFor($pointType);
         if ($irrelevant !== []) {
             throw new InvalidArgumentException(\sprintf('SLO "%s": %s must keep the default on %s points.', $name->value, implode(', ', $irrelevant), $pointType->value));
+        }
+    }
+
+    private function assertDeadline(SloName $name, PointType $pointType): void
+    {
+        if ($pointType !== PointType::ScheduledTask) {
+            if ($this->deadline instanceof Deadline) {
+                throw new InvalidArgumentException(\sprintf('SLO "%s": deadline applies to scheduled_task points only.', $name->value));
+            }
+
+            return;
+        }
+        if (!$this->runDeadline() instanceof Deadline) {
+            throw new InvalidArgumentException(\sprintf('SLO "%s": scheduled_task SLOs need a deadline or a latency objective.', $name->value));
         }
     }
 

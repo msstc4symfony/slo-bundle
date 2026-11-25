@@ -79,7 +79,7 @@ final class ListCommand extends Command
                 $this->lines($row->objectives, static fn (ObjectiveRow $o): string => $o->kind),
                 $this->lines($row->objectives, static fn (ObjectiveRow $o): string => $o->target . '%'),
                 $this->lines($row->objectives, static fn (ObjectiveRow $o): string => $o->threshold ?? '-'),
-                $row->window,
+                $row->deadline === null ? $row->window : $row->window . ' deadline ' . $row->deadline,
                 $this->lines($row->objectives, static fn (ObjectiveRow $o): string => $o->revision),
                 $this->lines($row->objectives, static fn (ObjectiveRow $o): string => $o->strategy ?? '-'),
                 $row->pointType,
@@ -121,6 +121,7 @@ final class ListCommand extends Command
             'status' => $row->status,
             'point_type' => $row->pointType,
             'window' => $row->window,
+            'deadline' => $row->deadline,
             'objectives' => array_map(static fn (ObjectiveRow $o): array => [
                 'kind' => $o->kind,
                 'target' => $o->target,

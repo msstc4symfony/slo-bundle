@@ -47,6 +47,19 @@ final class ActionTest extends TestCase
         self::assertSame([], $rows[0]->sharedPoints);
     }
 
+    public function testTaskRowCarriesTheRunDeadline(): void
+    {
+        $catalog = CatalogFixture::build(function ($assembler): void {
+            $assembler->declare(PointId::of(PointType::ScheduledTask, 'App\\Cleanup::__invoke'), new Slo('cleanup.run', [new Availability(99)], deadline: '120s'));
+            $assembler->declare(PointId::of(PointType::ScheduledTask, 'App\\Report::__invoke'), new Slo('report.run', [new Latency('5s', 99)]));
+            $assembler->declare($this->http('A::ok'), new Slo('a.ok', [new Availability(99)]));
+        });
+
+        $rows = (new Action($catalog, $catalog, new InMemoryRouteCatalog(), new RevisionResolver(new RevisionCalculator(), $catalog), new MetricBindingResolver(new InMemoryRouteCatalog(), $catalog, new MetricsBundleSeriesCatalog())))()->rows;
+
+        self::assertSame(['a.ok' => null, 'cleanup.run' => '2m', 'report.run' => '5s'], array_column(array_map(static fn (Row $r): array => [$r->name, $r->deadline], $rows), 1, 0));
+    }
+
     public function testConflictsProduceOneDuplicateRowPerDeclaration(): void
     {
         $catalog = CatalogFixture::build(function ($assembler): void {

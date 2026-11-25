@@ -38,6 +38,7 @@ final class SloBundleConfigurationTest extends TestCase
             'generation.prometheus.rules' => true,
             'generation.prometheus.alerts' => true,
             'generation.prometheus.no_events_alert_hours' => null,
+            'generation.prometheus.scrape_interval_seconds' => 60,
             'generation.sloth' => false,
             'generation.alertmanager.enabled' => false,
             'generation.alertmanager.receivers.page' => 'slo-page',
@@ -215,6 +216,11 @@ final class SloBundleConfigurationTest extends TestCase
     public function testDefaultStatusesOtherThanIntegersAndStringsAreRejected(): void
     {
         $this->assertRejected(['defaults' => ['http' => ['bad_statuses' => [5.5]]]]);
+    }
+
+    public function testNonPositiveScrapeIntervalIsRejected(): void
+    {
+        $this->assertRejected(['generation' => ['prometheus' => ['scrape_interval_seconds' => 0]]]);
     }
 
     public function testEmptyWindowIsRejected(): void

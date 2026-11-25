@@ -36,6 +36,7 @@ final class CatalogDumpTest extends TestCase
         $assembler->declare($update, new Slo('payment.create', [new Availability(99.95), new Latency('200ms', 99, true), new Combined('1.5s', 95)], window: '1mo', badStatuses: ['5xx', 429], ineligibleStatuses: ['400-404']));
         $assembler->declare($create, new Slo('payment.conflict', [new Availability(99.9)]));
         $assembler->declare($update, new Slo('payment.conflict', [new Availability(99.5)]));
+        $assembler->declare(PointId::of(PointType::ScheduledTask, 'App\Task\Cleanup::__invoke'), new Slo('cleanup.run', [new Availability(99)], deadline: '2m'));
         $assembler->declare(PointId::of(PointType::MessengerMessage, 'App\Message\Pay'), new Slo('payment.process', [new Availability(99)], countAttempts: true, strategy: StrategyPreference::Dedicated));
         $assembler->ignore(PointId::of(PointType::HttpRoute, 'App\Controller::health'), 'probe');
 
@@ -58,8 +59,10 @@ final class CatalogDumpTest extends TestCase
 
         self::assertEquals($contents, $restored);
         self::assertSame($dump, CatalogDump::toArray($restored, new MetricsBundleSeriesCatalog()));
-        self::assertSame(['payment.create', 'payment.process'], array_column($dump['definitions'], 'name'));
-        self::assertSame(['App\Controller::create', 'App\Controller::update'], array_map(static fn (PointId $p): string => $p->id, $restored->definitions[0]->points()));
+        self::assertSame(['cleanup.run', 'payment.create', 'payment.process'], array_column($dump['definitions'], 'name'));
+        self::assertSame([120_000, null, null], array_column($dump['definitions'], 'deadline_ms'));
+        self::assertSame(120_000, $restored->definitions[0]->deadline()?->milliseconds);
+        self::assertSame(['App\Controller::create', 'App\Controller::update'], array_map(static fn (PointId $p): string => $p->id, $restored->definitions[1]->points()));
         self::assertSame(['payment.conflict'], array_keys($restored->conflicts));
         self::assertSame($update->toString(), $restored->conflicts['payment.conflict'][1]->point->toString());
         self::assertSame(['http_route:App\Controller::health' => 'probe'], $restored->ignored);
@@ -142,6 +145,7 @@ final class CatalogDumpTest extends TestCase
             'expected_failure_is_good' => true,
             'count_attempts' => false,
             'strategy' => 'dedicated',
+            'deadline_ms' => null,
         ]);
     }
 }

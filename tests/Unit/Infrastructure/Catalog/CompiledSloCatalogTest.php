@@ -128,9 +128,9 @@ final class CompiledSloCatalogTest extends TestCase
         self::assertSame([], $catalog->handledMessageClassesLabelled('Unknown'));
 
         $stale = $dump;
-        $stale['format'] = 2;
+        $stale['format'] = 3;
         unset($stale['metric_labels'], $stale['message_classes_by_label']);
-        // Reason: a FORMAT 2 dump has no FORMAT 3 indexes and does not match the current CatalogShape on purpose.
+        // Reason: a FORMAT 3 dump has no deadline_ms and does not match the current CatalogShape on purpose.
         // @phpstan-ignore argument.type
         $staleCatalog = new CompiledSloCatalog($stale, new RecordingLogger());
         self::assertNull($staleCatalog->metricBuckets('logic_action_duration_histogram_seconds'));

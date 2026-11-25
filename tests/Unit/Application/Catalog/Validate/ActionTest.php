@@ -10,12 +10,14 @@ use Msstc4Symfony\SloBundle\Application\Attribute\Latency;
 use Msstc4Symfony\SloBundle\Application\Attribute\Slo;
 use Msstc4Symfony\SloBundle\Application\Binding\MetricBindingResolver;
 use Msstc4Symfony\SloBundle\Application\Catalog\Validate\Action;
+use Msstc4Symfony\SloBundle\Application\Catalog\Validate\Output;
 use Msstc4Symfony\SloBundle\Application\Discovery\CatalogExtras;
 use Msstc4Symfony\SloBundle\Application\Discovery\HandlerInfo;
 use Msstc4Symfony\SloBundle\Application\Port\RouteInfo;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
 use Msstc4Symfony\SloBundle\Domain\Enum\StrategyPreference;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
+use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\MetricsBundleSeriesCatalog;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\CatalogFixture;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\InMemoryRouteCatalog;
@@ -206,6 +208,59 @@ final class ActionTest extends TestCase
 
         self::assertTrue($output->isValid());
         self::assertSame(['SLO payment.create: latency threshold 200ms is not a bucket of request_duration_histogram_seconds, uses dedicated counters'], $output->notices);
+    }
+
+    public function testDeadlineBelowScrapeIntervalIsAnError(): void
+    {
+        $catalog = CatalogFixture::build(function ($assembler): void {
+            $assembler->declare($this->task('App\\Cleanup::__invoke'), new Slo('cleanup.run', [new Latency('30s', 99)]));
+        });
+
+        $output = $this->validate($catalog, 60);
+
+        self::assertSame(['SLO cleanup.run: deadline 30s of scheduled_task points is below the scrape interval 60s (generation.prometheus.scrape_interval_seconds); runs still in progress would count as unfinished'], $output->errors);
+    }
+
+    public function testDeadlineAtOrAboveScrapeIntervalIsValid(): void
+    {
+        $catalog = CatalogFixture::build(function ($assembler): void {
+            $assembler->declare($this->task('App\\Cleanup::__invoke'), new Slo('cleanup.run', [new Latency('30s', 99)], deadline: '2m'));
+            $assembler->declare($this->task('App\\Report::__invoke'), new Slo('report.run', [new Availability(99)], deadline: '60s'));
+        });
+
+        self::assertSame([], $this->validate($catalog, 60)->errors);
+    }
+
+    public function testConflictOverDeadlineListsBothValues(): void
+    {
+        $catalog = CatalogFixture::build(function ($assembler): void {
+            $assembler->declare($this->task('App\\A::__invoke'), new Slo('cleanup.run', [new Availability(99)], deadline: '2m'));
+            $assembler->declare($this->task('App\\B::__invoke'), new Slo('cleanup.run', [new Availability(99)], deadline: '5m'));
+        });
+
+        $output = $this->validate($catalog, 60);
+
+        self::assertCount(1, $output->errors);
+        self::assertStringContainsString('deadline 2m vs 5m', $output->errors[0]);
+    }
+
+    private function validate(CompiledSloCatalog $catalog, int $scrapeIntervalSeconds): Output
+    {
+        return (new Action(
+            $catalog,
+            $catalog,
+            new InMemoryRouteCatalog(),
+            new MetricBindingResolver(new InMemoryRouteCatalog(), $catalog, new MetricsBundleSeriesCatalog()),
+            scrapeIntervalSeconds: $scrapeIntervalSeconds,
+        ))();
+    }
+
+    /**
+     * @param non-empty-string $id
+     */
+    private function task(string $id): PointId
+    {
+        return PointId::of(PointType::ScheduledTask, $id);
     }
 
     /**

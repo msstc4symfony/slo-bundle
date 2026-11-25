@@ -16,6 +16,7 @@ use Msstc4Symfony\SloBundle\Domain\Enum\ObjectiveKind;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
 use Msstc4Symfony\SloBundle\Domain\Enum\StrategyPreference;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Classification;
+use Msstc4Symfony\SloBundle\Domain\ValueObject\Deadline;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\LatencyThreshold;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Objective;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
@@ -41,6 +42,7 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\Window;
  *     expected_failure_is_good: bool,
  *     count_attempts: bool,
  *     strategy: value-of<StrategyPreference>,
+ *     deadline_ms: positive-int|null,
  * }
  * @phpstan-type HandlerShape array{handler_class: class-string, message_class: non-empty-string, async: bool, from_transport: non-empty-string|null, method: non-empty-string}
  * @phpstan-type TaggedPointShape array{point: non-empty-string, metric_label: non-empty-string|null}
@@ -73,7 +75,7 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\Window;
 final class CatalogDump
 {
     /** Bumped whenever CatalogShape changes, so a dump left in a stale cache is detected instead of misread. */
-    public const FORMAT = 3;
+    public const FORMAT = 4;
 
     /**
      * @param SeriesCatalogInterface $series names the `message` label value of each handled message class
@@ -209,6 +211,7 @@ final class CatalogDump
                 $shape['count_attempts'],
             ),
             StrategyPreference::from($shape['strategy']),
+            $shape['deadline_ms'] === null ? null : Deadline::fromMilliseconds($shape['deadline_ms']),
         );
     }
 
@@ -235,6 +238,7 @@ final class CatalogDump
             'expected_failure_is_good' => $classification->expectedFailureIsGood,
             'count_attempts' => $classification->countAttempts,
             'strategy' => $definition->strategyPreference()->value,
+            'deadline_ms' => $definition->deadline()?->milliseconds,
         ];
     }
 

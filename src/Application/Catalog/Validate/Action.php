@@ -14,6 +14,7 @@ use Msstc4Symfony\SloBundle\Domain\Enum\ObjectiveKind;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
 use Msstc4Symfony\SloBundle\Domain\Enum\StrategyPreference;
 use Msstc4Symfony\SloBundle\Domain\Repository\SloCatalogInterface;
+use Msstc4Symfony\SloBundle\Domain\ValueObject\Deadline;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 
 /**
@@ -29,6 +30,7 @@ final readonly class Action
         private BurnRatePolicy $burnRates = new BurnRatePolicy(),
         private bool $prometheusRules = true,
         private bool $prometheusAlerts = true,
+        private int $scrapeIntervalSeconds = 60,
     ) {
     }
 
@@ -95,11 +97,36 @@ final readonly class Action
             }
         }
 
+        array_push($errors, ...$this->deadlineErrors());
+
         return new Output(
             $this->sorted($errors),
             $this->sorted($warnings),
             $this->sorted($notices),
         );
+    }
+
+    /**
+     * A run still in progress is indistinguishable from an unfinished one when the deadline is shorter than a scrape.
+     *
+     * @return list<non-empty-string>
+     */
+    private function deadlineErrors(): array
+    {
+        $errors = [];
+        foreach ($this->catalog->all() as $definition) {
+            $deadline = $definition->runDeadline();
+            if ($deadline instanceof Deadline && $deadline->seconds() < $this->scrapeIntervalSeconds) {
+                $errors[] = \sprintf(
+                    'SLO %s: deadline %s of scheduled_task points is below the scrape interval %ds (generation.prometheus.scrape_interval_seconds); runs still in progress would count as unfinished',
+                    $definition->name()->value,
+                    $deadline->toString(),
+                    $this->scrapeIntervalSeconds,
+                );
+            }
+        }
+
+        return $errors;
     }
 
     /**

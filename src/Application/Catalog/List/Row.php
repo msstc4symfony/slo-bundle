@@ -21,6 +21,7 @@ final readonly class Row
      * @param non-empty-list<ObjectiveRow> $objectives sorted by kind
      * @param non-empty-list<PointRow> $points sorted by point
      * @param list<non-empty-string> $sharedPoints all points of an SLO merged from identical declarations, otherwise empty
+     * @param non-empty-string|null $deadline the run deadline of scheduled-task SLOs
      */
     public function __construct(
         public string $name,
@@ -30,6 +31,7 @@ final readonly class Row
         public array $objectives,
         public array $points,
         public array $sharedPoints,
+        public ?string $deadline = null,
     ) {
     }
 }

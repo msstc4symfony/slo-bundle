@@ -34,6 +34,7 @@ final class DeclarationDiff
             $add('window', $left->window()->toString(), $right->window()->toString());
         }
         $add('strategy', $left->strategyPreference()->value, $right->strategyPreference()->value);
+        $add('deadline', $left->deadline()?->toString() ?? '-', $right->deadline()?->toString() ?? '-');
 
         $qualify = \count($left->objectives()) > 1 || \count($right->objectives()) > 1;
         foreach (ObjectiveKind::cases() as $kind) {
