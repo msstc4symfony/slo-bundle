@@ -7,14 +7,13 @@ namespace Msstc4Symfony\SloBundle\Test\Integration\Kernel;
 use Msstc4Symfony\MetricsBundle\MetricsBundle;
 use Msstc4Symfony\SloBundle\SloBundle;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Scheduler\CleanupTask;
-use Msstc4Symfony\SloBundle\Test\Fixtures\Scheduler\ReportTasks;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Scheduler\SyncPartnersCommand;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Scheduler\UnmonitoredTask;
 use Override;
 use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
 use Symfony\Bundle\MonologBundle\MonologBundle;
-use Symfony\Component\Clock\NativeClock;
+use Symfony\Component\Clock\Clock;
 use Symfony\Component\Console\Messenger\RunCommandMessage;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\HttpKernel\Kernel;
@@ -22,6 +21,7 @@ use Symfony\Component\Scheduler\Messenger\ServiceCallMessage;
 
 /**
  * Scheduler task messages consumed by a worker from in-memory transports: one retry without delay, then the failure transport.
+ * Only periodic tasks: the cron trigger needs dragonmantank/cron-expression, absent here, to build scheduler_default.
  */
 final class SchedulerSloTestKernel extends Kernel
 {
@@ -81,10 +81,10 @@ final class SchedulerSloTestKernel extends Kernel
 
         $services = $container->services()->defaults()->autowire()->autoconfigure();
         $services->set(CleanupTask::class);
-        $services->set(ReportTasks::class);
         $services->set(SyncPartnersCommand::class);
         $services->set(UnmonitoredTask::class);
         // FrameworkBundle drops "clock" when symfony/clock is only a dev dependency of the root package, as it is here.
-        $services->set('clock', NativeClock::class);
+        // The global clock lets a test drive the scheduler and the worker (which uses it too) with a MockClock.
+        $services->set('clock', Clock::class)->autowire(false);
     }
 }

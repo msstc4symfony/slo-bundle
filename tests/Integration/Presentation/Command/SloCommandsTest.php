@@ -12,11 +12,14 @@ use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\InvokableController;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\PaymentController;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Controller\SharedSloController;
 use Msstc4Symfony\SloBundle\Test\Integration\Kernel\RoutedTestKernel;
+use Msstc4Symfony\SloBundle\Test\Integration\Kernel\SchedulerTestKernel;
 use Override;
+use PHPUnit\Framework\Attributes\RequiresMethod;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\Filesystem\Filesystem;
+use Symfony\Component\Scheduler\Schedule;
 
 /**
  * @phpstan-import-type RouteSpec from RoutedTestKernel
@@ -27,6 +30,7 @@ final class SloCommandsTest extends TestCase
     protected function tearDown(): void
     {
         (new Filesystem())->remove(RoutedTestKernel::cacheRoot());
+        (new Filesystem())->remove(SchedulerTestKernel::cacheRoot());
     }
 
     public function testConflictingDeclarationsFailValidationAndShowTwoDuplicateRows(): void
@@ -146,6 +150,31 @@ final class SloCommandsTest extends TestCase
         });
     }
 
+    #[RequiresMethod(Schedule::class, 'add')]
+    public function testScheduledTaskSlosShowTheirRunDeadline(): void
+    {
+        $this->withKernel(new SchedulerTestKernel(), function (ValidateCommand $validate, ListCommand $list): void {
+            $text = new CommandTester($list);
+            $text->execute([]);
+
+            $json = new CommandTester($list);
+            $json->execute(['--format' => 'json']);
+
+            self::assertMatchesRegularExpression('/^\| cleanup\.run +\| OK +\| availability +\| 99%.*\| 30d deadline 2m +\|/m', $text->getDisplay());
+            self::assertMatchesRegularExpression('/^\| partners\.sync +\| OK .*\| 30d deadline 10m +\|/m', $text->getDisplay());
+            $rows = json_decode($json->getDisplay(), true, flags: JSON_THROW_ON_ERROR);
+            self::assertSame(['cleanup.run', 'partners.sync', 'report.daily'], $this->pluck($rows, 'name'));
+            self::assertSame(['2m', '10m', '10m'], $this->pluck($rows, 'deadline'));
+        });
+        $this->withKernel($this->paymentsKernel(), function (ValidateCommand $validate, ListCommand $list): void {
+            $json = new CommandTester($list);
+            $json->execute(['--format' => 'json']);
+
+            self::assertSame([null, null, null], $this->pluck(json_decode($json->getDisplay(), true, flags: JSON_THROW_ON_ERROR), 'deadline'));
+            self::assertStringNotContainsString('deadline', $this->listed($list));
+        });
+    }
+
     public function testTableCellsAreNotInterpretedAsConsoleMarkup(): void
     {
         $kernel = new RoutedTestKernel(
@@ -227,10 +256,15 @@ final class SloCommandsTest extends TestCase
         );
     }
 
-    /**
-     * @param Closure(ValidateCommand, ListCommand): void $test
-     */
-    private function withKernel(RoutedTestKernel $kernel, Closure $test): void
+    private function listed(ListCommand $list): string
+    {
+        $tester = new CommandTester($list);
+        $tester->execute([]);
+
+        return $tester->getDisplay();
+    }
+
+    private function withKernel(RoutedTestKernel|SchedulerTestKernel $kernel, Closure $test): void
     {
         $kernel->boot();
 

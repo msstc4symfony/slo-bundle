@@ -13,6 +13,7 @@ use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\SloName;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Scheduler\CleanupTask;
+use Msstc4Symfony\SloBundle\Test\Fixtures\Scheduler\HousekeepingTasks;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Scheduler\Invalid\NamelessSloCommand;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Scheduler\NamelessCommand;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Scheduler\ReportTasks;
@@ -69,6 +70,23 @@ final class ScheduledTaskDiscoveryTest extends TestCase
         self::assertSame([], $catalog->conflicts());
         self::assertSame(['report.daily'], array_map(static fn (SloDefinition $d): string => $d->name()->value, $catalog->all()));
         self::assertSame(['scheduled_task:app.reports::daily'], $this->points($this->definition($catalog, 'report.daily')));
+    }
+
+    public function testClassLevelSloOverTwoTaskMethodsIsOneSloOnTwoPoints(): void
+    {
+        $catalog = $this->catalog(static function (ContainerBuilder $container): void {
+            $container->register('app.housekeeping', HousekeepingTasks::class)
+                ->addTag('scheduler.task', ['frequency' => 600, 'method' => 'purgeSessions', 'trigger' => 'every'])
+                ->addTag('scheduler.task', ['frequency' => 3600, 'method' => 'rotateLogs', 'trigger' => 'every'])
+            ;
+        });
+
+        self::assertSame([], $catalog->conflicts());
+        self::assertSame(['housekeeping.run'], array_map(static fn (SloDefinition $d): string => $d->name()->value, $catalog->all()));
+        self::assertSame(
+            ['scheduled_task:app.housekeeping::purgeSessions', 'scheduled_task:app.housekeeping::rotateLogs'],
+            $this->points($this->definition($catalog, 'housekeeping.run')),
+        );
     }
 
     public function testCommandTaskPointUsesTheCommandName(): void

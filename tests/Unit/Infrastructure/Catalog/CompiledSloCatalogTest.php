@@ -129,8 +129,13 @@ final class CompiledSloCatalogTest extends TestCase
 
         $stale = $dump;
         $stale['format'] = 3;
-        unset($stale['metric_labels'], $stale['message_classes_by_label']);
-        // Reason: a FORMAT 3 dump has no deadline_ms and does not match the current CatalogShape on purpose.
+        $stale['definitions'] = array_map(static function (array $definition): array {
+            unset($definition['deadline_ms']);
+
+            return $definition;
+        }, $stale['definitions']);
+        unset($stale['extras']['scheduled_tasks']);
+        // Reason: a format 3 dump lacks the format 4 deadline_ms and scheduled_tasks, it does not match CatalogShape on purpose.
         // @phpstan-ignore argument.type
         $staleCatalog = new CompiledSloCatalog($stale, new RecordingLogger());
         self::assertNull($staleCatalog->metricBuckets('logic_action_duration_histogram_seconds'));
