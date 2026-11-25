@@ -34,10 +34,13 @@
   started in `[t-d-r, t-d]` minus runs finished in `[t-d-r, t]` (`d` the run deadline, `r` the range), clamped at 0,
   are added to the bad and the total events of every objective, so a hung or killed run is bad and a task that always
   dies reads 100 % bad instead of NoData. A run still within its deadline is not counted; a frequent task with a long
-  deadline can hide a hung run behind later runs that finished. The runs are counted per series from instant counter
-  values, so they are exact and never invented: a series missing at one of the instants (outage, failed scrape, fresh
-  Prometheus, replica churn) or whose counters reset (Redis flush) drops out for up to deadline + range, and the first
-  run of a new series is not counted.
+  deadline can hide a hung run behind later runs that finished. A new record `slo:unfinished_runs:step` counts, every
+  minute and per series from instant counter values, the runs that passed their deadline without finishing; every
+  window sums it, so pod replacements do not blind long windows. Unfinished runs are never invented: a step in which a
+  series is missing (outage, failed scrape, pod replacement), its counters reset (Redis flush) or the rule evaluation
+  is missed loses that step's runs, and the first run of a new series is not counted. Sloth specs cannot rely on the
+  bundle's records and compute the same per-series form over their window, which needs series that live for the deadline
+  plus the window.
   Sloth specs of task SLOs use `increase` queries. The window coverage and the no-events alert of a task SLO count
   started runs as data, so the ticket alert of a task that always dies can fire.
 

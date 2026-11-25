@@ -73,7 +73,8 @@ final class ActionTest extends TestCase
         foreach (['error_query', 'total_query'] as $query) {
             self::assertIsString($events[$query]);
             self::assertStringContainsString('last_over_time((symfony_slo_scheduled_task_started_total{application="shop",task="command:app:sync-partners"} offset 10m)[1m:1m] offset {{.window}})', $events[$query]);
-            self::assertStringContainsString('resets(symfony_slo_scheduled_task_finished_total{application="shop",task="command:app:sync-partners"}[10m] offset {{.window}}) > 0', $events[$query]);
+            self::assertStringContainsString('resets(symfony_slo_scheduled_task_finished_total{application="shop",task="command:app:sync-partners"}[11m] offset {{.window}}) > 0', $events[$query]);
+            self::assertStringNotContainsString('slo:unfinished_runs:step', $events[$query]);
             self::assertStringNotContainsString('rate(', $events[$query]);
         }
         self::assertStringContainsString('result="bad"}[{{.window}}]', $events['error_query']);

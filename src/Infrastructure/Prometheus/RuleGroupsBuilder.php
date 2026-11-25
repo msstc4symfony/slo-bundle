@@ -56,6 +56,11 @@ final readonly class RuleGroupsBuilder implements RuleFileBuilderInterface
             $labels = $this->recordingLabels($objective, $selector->application);
             $record = $this->record(...);
             $fast = [];
+            // First in the 1m group: every window of this objective sums it, including the ones recorded just below.
+            $unfinished = $this->promQl->stepUnfinishedRuns($selector, $objective, self::GROUPS[self::FAST][1]);
+            if ($unfinished !== null) {
+                $fast[] = $record($labels, PromQlBuilder::UNFINISHED_RUNS_RECORD, $unfinished);
+            }
             foreach (self::FAST_RATE_WINDOWS as $window) {
                 $fast[] = $record($labels, 'slo:events:rate' . $window, $this->promQl->eventsRate($selector, $objective, $window));
                 $fast[] = $record($labels, 'slo:error_ratio:rate' . $window, $this->promQl->errorRatio($selector, $objective, $window));

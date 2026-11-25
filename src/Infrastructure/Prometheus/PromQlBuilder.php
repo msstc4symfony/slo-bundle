@@ -28,6 +28,9 @@ final readonly class PromQlBuilder
     /** Two runs of the 5m group: one missed evaluation still finds a sample. */
     public const SLOW_RECORD_LOOKBACK = '10m';
 
+    /** Per-step unfinished runs of a scheduled-task objective, recorded by the 1m group and summed by every window. */
+    public const UNFINISHED_RUNS_RECORD = 'slo:unfinished_runs:step';
+
     private const SLOW_RECORDS = ['slo:events:rate3d', 'slo:error_ratio:rate3d', 'slo:sli:ratio', 'slo:error_budget:remaining', 'slo:window:coverage_ratio'];
 
     private const NAMESPACE = 'symfony_';
@@ -35,6 +38,8 @@ final readonly class PromQlBuilder
     private const EVENTS_METRIC = 'symfony_slo_events_total';
 
     private const HOUR = 3600;
+
+    private const SUBQUERY_STEP_MILLISECONDS = 60_000;
 
     /** A range Sloth fills in, such as `{{.window}}`. */
     private const TEMPLATE = '/^\{\{\.[a-z]+\}\}$/Di';
@@ -110,12 +115,8 @@ final readonly class PromQlBuilder
     }
 
     /**
-     * Runs started in [t-d-r, t-d] minus runs finished in [t-d-r, t], d the run deadline (ruling R1), from instant
-     * counter values (increase() extrapolates each window by its own factor). Computed per series and summed after:
-     * a series missing at one of the instants (outage, fresh Prometheus, replica churn) or reset within [t-d-r, t]
-     * drops out, so detection is lost for that window but never invented. A task that never finished has no finished
-     * series: where the started series exists, finished counts as 0. A Sloth `{{.window}}` cannot be added to d, so
-     * the window start is the last 1m subquery step at or before t-r, the same edge for started and finished.
+     * Unfinished runs over the range. Prometheus rules sum the step record (stepUnfinishedRuns), so a long window needs
+     * only d + step of series lifetime; a Sloth `{{.window}}` cannot read the bundle's records and gets the direct form.
      *
      * @param non-empty-string $range
      *
@@ -123,42 +124,27 @@ final readonly class PromQlBuilder
      */
     public function unfinishedRuns(Selector $selector, BoundObjective $objective, string $range): ?string
     {
-        $deadline = $objective->definition->runDeadline();
-        $runs = $this->runSeries($selector, $objective);
-        if (!$deadline instanceof Deadline || $runs === null) {
+        if (!$this->isScheduledTask($objective)) {
             return null;
         }
-
-        ['started' => $started, 'finished' => $finished] = $runs;
-        $d = PromQlRenderer::milliseconds($deadline->milliseconds);
-        $finishedAt = static fn (string $offset): string => \sprintf('(sum without (outcome) (%2$s%3$s) or (%1$s%3$s * 0))', $started, $finished, $offset);
-
         if (preg_match(self::TEMPLATE, $range) === 1) {
-            $startedAtStart = \sprintf('last_over_time((%s offset %s)[1m:1m] offset %s)', $started, $d, $range);
-            $finishedAtStart = \sprintf('last_over_time(%s[1m:1m] offset %s)', $finishedAt(' offset ' . $d), $range);
-            $reset = \sprintf(
-                'resets(%1$s[%3$s]) > 0 or resets(%1$s[%4$s] offset %3$s) > 0 or resets(%2$s[%3$s]) > 0 or resets(%2$s[%4$s] offset %3$s) > 0',
-                $started,
-                $finished,
-                $range,
-                $d,
-            );
-        } else {
-            $dr = PromQlRenderer::milliseconds(PromQlRenderer::seconds($range) * 1000 + $deadline->milliseconds);
-            $startedAtStart = \sprintf('%s offset %s', $started, $dr);
-            $finishedAtStart = $finishedAt(' offset ' . $dr);
-            $reset = \sprintf('resets(%1$s[%3$s]) > 0 or resets(%2$s[%3$s]) > 0', $started, $finished, $dr);
+            return $this->directUnfinishedRuns($selector, $objective, $range);
         }
 
-        return \sprintf(
-            '(sum(clamp_min((%s offset %s - %s) - (%s - %s), 0) unless ignoring (outcome) (%s)) or vector(0))',
-            $started,
-            $d,
-            $startedAtStart,
-            $finishedAt(''),
-            $finishedAtStart,
-            $reset,
-        );
+        return \sprintf('(sum(sum_over_time(%s[%s])) or vector(0))', $this->recorded(self::UNFINISHED_RUNS_RECORD, $objective, $selector->application), $range);
+    }
+
+    /**
+     * Runs that ended their deadline in the last step without finishing: recorded once per rule evaluation, so a killed
+     * run is one increment of 1 at about its start + d.
+     *
+     * @param non-empty-string $step the evaluation interval of the group recording it
+     *
+     * @return non-empty-string|null null off scheduled tasks
+     */
+    public function stepUnfinishedRuns(Selector $selector, BoundObjective $objective, string $step): ?string
+    {
+        return $this->directUnfinishedRuns($selector, $objective, $step);
     }
 
     /**
@@ -258,6 +244,59 @@ final readonly class PromQlBuilder
             Matcher::equals('slo', $objective->definition->name()->value),
             Matcher::equals('objective', $objective->objective->kind->value),
         ]);
+    }
+
+    /**
+     * Runs started in [t-d-r, t-d] minus runs finished in [t-d-r, t], d the run deadline (ruling R1), from instant
+     * counter values (increase() extrapolates each window by its own factor). Computed per series and summed after:
+     * a series missing at one of the instants (outage, fresh Prometheus, replica churn) or reset within [t-d-r, t]
+     * drops out, so detection is lost for that range but never invented. A task that never finished has no finished
+     * series: where the started series exists, finished counts as 0. A `{{.window}}` cannot be added to d, so the
+     * window start is the last 1m subquery step τ at or before t-r, the same edge for started and finished; the reset
+     * check reaches 1m further back to cover τ-d.
+     *
+     * @param non-empty-string $range
+     *
+     * @return non-empty-string|null
+     */
+    private function directUnfinishedRuns(Selector $selector, BoundObjective $objective, string $range): ?string
+    {
+        $deadline = $objective->definition->runDeadline();
+        $runs = $this->runSeries($selector, $objective);
+        if (!$deadline instanceof Deadline || $runs === null) {
+            return null;
+        }
+
+        ['started' => $started, 'finished' => $finished] = $runs;
+        $d = PromQlRenderer::milliseconds($deadline->milliseconds);
+        $finishedAt = static fn (string $offset): string => \sprintf('(sum without (outcome) (%2$s%3$s) or (%1$s%3$s * 0))', $started, $finished, $offset);
+
+        if (preg_match(self::TEMPLATE, $range) === 1) {
+            $startedAtStart = \sprintf('last_over_time((%s offset %s)[1m:1m] offset %s)', $started, $d, $range);
+            $finishedAtStart = \sprintf('last_over_time(%s[1m:1m] offset %s)', $finishedAt(' offset ' . $d), $range);
+            $reset = \sprintf(
+                'resets(%1$s[%3$s]) > 0 or resets(%1$s[%4$s] offset %3$s) > 0 or resets(%2$s[%3$s]) > 0 or resets(%2$s[%4$s] offset %3$s) > 0',
+                $started,
+                $finished,
+                $range,
+                PromQlRenderer::milliseconds($deadline->milliseconds + self::SUBQUERY_STEP_MILLISECONDS),
+            );
+        } else {
+            $dr = PromQlRenderer::milliseconds(PromQlRenderer::seconds($range) * 1000 + $deadline->milliseconds);
+            $startedAtStart = \sprintf('%s offset %s', $started, $dr);
+            $finishedAtStart = $finishedAt(' offset ' . $dr);
+            $reset = \sprintf('resets(%1$s[%3$s]) > 0 or resets(%2$s[%3$s]) > 0', $started, $finished, $dr);
+        }
+
+        return \sprintf(
+            '(sum(clamp_min((%s offset %s - %s) - (%s - %s), 0) unless ignoring (outcome) (%s)) or vector(0))',
+            $started,
+            $d,
+            $startedAtStart,
+            $finishedAt(''),
+            $finishedAtStart,
+            $reset,
+        );
     }
 
     /**

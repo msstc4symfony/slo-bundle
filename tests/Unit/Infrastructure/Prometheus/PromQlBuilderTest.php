@@ -143,16 +143,24 @@ final class PromQlBuilderTest extends TestCase
         );
     }
 
-    public function testUnfinishedRunsAreComputedPerSeriesFromInstantCounterValues(): void
+    public function testWindowsSumTheRecordedStepOfUnfinishedRuns(): void
+    {
+        self::assertSame(
+            '(sum(sum_over_time(slo:unfinished_runs:step{application="shop",slo="cleanup.run",objective="latency"}[30d])) or vector(0))',
+            (new PromQlBuilder())->unfinishedRuns(GenerationFixture::input()->selector, $this->objective('cleanup.run', 'latency'), '30d'),
+        );
+    }
+
+    public function testTheStepOfUnfinishedRunsIsComputedPerSeriesFromInstantCounterValues(): void
     {
         $started = 'symfony_slo_scheduled_task_started_total{application="shop",component=~"web|worker",task="App\\\\Task\\\\CleanupTask::__invoke"}';
         $finished = 'symfony_slo_scheduled_task_finished_total{application="shop",component=~"web|worker",task="App\\\\Task\\\\CleanupTask::__invoke"}';
         $finishedAt = static fn (string $offset): string => '(sum without (outcome) (' . $finished . $offset . ') or (' . $started . $offset . ' * 0))';
 
         self::assertSame(
-            '(sum(clamp_min((' . $started . ' offset 2m - ' . $started . ' offset 7m) - (' . $finishedAt('') . ' - ' . $finishedAt(' offset 7m') . '), 0)'
-            . ' unless ignoring (outcome) (resets(' . $started . '[7m]) > 0 or resets(' . $finished . '[7m]) > 0)) or vector(0))',
-            (new PromQlBuilder())->unfinishedRuns(GenerationFixture::input()->selector, $this->objective('cleanup.run', 'latency'), '5m'),
+            '(sum(clamp_min((' . $started . ' offset 2m - ' . $started . ' offset 3m) - (' . $finishedAt('') . ' - ' . $finishedAt(' offset 3m') . '), 0)'
+            . ' unless ignoring (outcome) (resets(' . $started . '[3m]) > 0 or resets(' . $finished . '[3m]) > 0)) or vector(0))',
+            (new PromQlBuilder())->stepUnfinishedRuns(GenerationFixture::input()->selector, $this->objective('cleanup.run', 'latency'), '1m'),
         );
     }
 
@@ -165,8 +173,8 @@ final class PromQlBuilderTest extends TestCase
         self::assertSame(
             '(sum(clamp_min((' . $started . ' offset 10m - last_over_time((' . $started . ' offset 10m)[1m:1m] offset {{.window}}))'
             . ' - (' . $finishedAt('') . ' - last_over_time(' . $finishedAt(' offset 10m') . '[1m:1m] offset {{.window}})), 0)'
-            . ' unless ignoring (outcome) (resets(' . $started . '[{{.window}}]) > 0 or resets(' . $started . '[10m] offset {{.window}}) > 0'
-            . ' or resets(' . $finished . '[{{.window}}]) > 0 or resets(' . $finished . '[10m] offset {{.window}}) > 0)) or vector(0))',
+            . ' unless ignoring (outcome) (resets(' . $started . '[{{.window}}]) > 0 or resets(' . $started . '[11m] offset {{.window}}) > 0'
+            . ' or resets(' . $finished . '[{{.window}}]) > 0 or resets(' . $finished . '[11m] offset {{.window}}) > 0)) or vector(0))',
             (new PromQlBuilder())->unfinishedRuns(new Selector('shop', []), $this->objective('partners.sync', 'availability'), '{{.window}}'),
         );
     }
@@ -197,7 +205,7 @@ final class PromQlBuilderTest extends TestCase
         $objective = $this->objective('partners.sync', 'availability');
 
         foreach (['1h' => '70m', '30d' => '43210m'] as $range => $windowStart) {
-            $unfinished = $builder->unfinishedRuns(new Selector('shop', []), $objective, $range);
+            $unfinished = $builder->stepUnfinishedRuns(new Selector('shop', []), $objective, $range);
             self::assertNotNull($unfinished);
             self::assertSame(3, substr_count($unfinished, '} offset ' . $windowStart));
             self::assertSame(2, substr_count($unfinished, '}[' . $windowStart . ']'));
@@ -230,7 +238,7 @@ final class PromQlBuilderTest extends TestCase
         })->all()[0];
         $objective = new BoundObjective($definition, $definition->objectives()[0], Binding::dedicated(), Revision::fromHex('0123abcd'));
 
-        $unfinished = (new PromQlBuilder())->unfinishedRuns(new Selector('shop', []), $objective, '5m');
+        $unfinished = (new PromQlBuilder())->stepUnfinishedRuns(new Selector('shop', []), $objective, '1m');
 
         self::assertNotNull($unfinished);
         self::assertStringContainsString(
@@ -245,6 +253,7 @@ final class PromQlBuilderTest extends TestCase
         $objective = $this->objective('report.export', 'availability');
 
         self::assertNull($builder->unfinishedRuns(GenerationFixture::input()->selector, $objective, '5m'));
+        self::assertNull($builder->stepUnfinishedRuns(GenerationFixture::input()->selector, $objective, '1m'));
         $total = \sprintf('symfony_slo_events_total{application="shop",component=~"web|worker",slo="report.export",objective="availability",revision="%s"}', $objective->revision->value);
         self::assertSame('sum(increase(' . $total . '[{{.window}}]))', $builder->eventsIncrease(GenerationFixture::input()->selector, $objective, '{{.window}}'));
         self::assertSame('(sum(increase(' . substr($total, 0, -1) . ',result="bad"}[{{.window}}])) or vector(0))', $builder->badIncrease(GenerationFixture::input()->selector, $objective, '{{.window}}'));

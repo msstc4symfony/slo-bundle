@@ -318,8 +318,9 @@ Commit the directory, run `slo:generate --check` in CI ("rules are stale" fails 
 `prometheus/` into `rule_files` and `grafana/dashboards` plus the provisioning file into Grafana.
 
 - Recording rules per SLO and objective: `slo:events:rate<5m|30m|1h|6h|3d>`, `slo:error_ratio:rate<w>`,
-  `slo:objective:target`, `slo:sli:ratio`, `slo:error_budget:remaining`, `slo:window:coverage_ratio`. Every series is
-  scoped by `application` (and by `component` when configured).
+  `slo:objective:target`, `slo:sli:ratio`, `slo:error_budget:remaining`, `slo:window:coverage_ratio`, and for
+  scheduled tasks `slo:unfinished_runs:step` (runs that passed their deadline without finishing in the last 1m
+  evaluation, summed by every window). Every series is scoped by `application` (and by `component` when configured).
 - Alerts are multi-window multi-burn-rate (Google SRE workbook) named `SloErrorBudgetBurn`: page - 2 % of the budget
   in 1h (long) / 5m (short) and 5 % in 6h / 30m; ticket - 10 % in 3d / 6h. The factors scale with the window
   (`share * window / long window`: 14.4, 6 and 1 for 30d). A pair whose long window exceeds the SLO window is

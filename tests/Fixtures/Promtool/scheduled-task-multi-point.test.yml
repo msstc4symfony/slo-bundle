@@ -82,3 +82,45 @@ tests:
               window: 3d
             exp_annotations:
               summary: 'SLO nightly.jobs availability burns its error budget (target 99%, window 3d)'
+
+  # The pod serving the counters is replaced at 2000m: neither series lives for the 3d window, the step record does.
+  - name: task that always dies across a pod replacement burns the 3d budget
+    interval: 1m
+    input_series:
+      - series: 'symfony_slo_scheduled_task_started_total{application="shop",component="worker",task="App\\Task\\NightlyTask::__invoke",instance="a"}'
+        values: '0+1x2000 stale'
+      - series: 'symfony_slo_scheduled_task_started_total{application="shop",component="worker",task="App\\Task\\NightlyTask::__invoke",instance="b"}'
+        values: '_x2000 2001+1x2400'
+    promql_expr_test:
+      - expr: slo:error_ratio:rate3d{slo="nightly.jobs"}
+        eval_time: 3d1h
+        exp_samples:
+          - labels: 'slo:error_ratio:rate3d{application="shop",objective="availability",revision="e16395ab",slo="nightly.jobs",window="3d"}'
+            value: 1
+      - expr: slo:sli:ratio{slo="nightly.jobs"}
+        eval_time: 3d1h
+        exp_samples:
+          - labels: 'slo:sli:ratio{application="shop",objective="availability",revision="e16395ab",slo="nightly.jobs",window="3d"}'
+            value: 0
+    alert_rule_test:
+      - eval_time: 3d1h
+        alertname: SloErrorBudgetBurn
+        exp_alerts:
+          - exp_labels:
+              application: shop
+              objective: availability
+              revision: e16395ab
+              severity: page
+              slo: nightly.jobs
+              window: 3d
+            exp_annotations:
+              summary: 'SLO nightly.jobs availability burns its error budget fast (target 99%, window 3d)'
+          - exp_labels:
+              application: shop
+              objective: availability
+              revision: e16395ab
+              severity: ticket
+              slo: nightly.jobs
+              window: 3d
+            exp_annotations:
+              summary: 'SLO nightly.jobs availability burns its error budget (target 99%, window 3d)'

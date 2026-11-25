@@ -121,7 +121,7 @@ final class ActionTest extends TestCase
         self::assertSame([...$slow('availability', 'A'), ...$slow('latency', 'A')], $groups['slo-payment.process-window']);
         self::assertSame($fast('availability', 'B'), $groups['slo-report.export']);
         self::assertSame($slow('availability', 'B'), $groups['slo-report.export-window']);
-        self::assertSame([...$fast('availability', 'B'), ...$fast('latency', 'B')], $groups['slo-cleanup.run']);
+        self::assertSame(['slo:unfinished_runs:step availability B', ...$fast('availability', 'B'), 'slo:unfinished_runs:step latency B', ...$fast('latency', 'B')], $groups['slo-cleanup.run']);
         self::assertSame($slow('availability', 'B'), $groups['slo-partners.sync-window']);
         foreach ($groups as $name => $rules) {
             foreach ($rules as $rule) {
@@ -146,8 +146,10 @@ final class ActionTest extends TestCase
                 self::assertIsString($rule['record']);
                 self::assertIsString($rule['labels']['slo']);
                 $task = \in_array($rule['labels']['slo'], ['cleanup.run', 'partners.sync'], true);
-                $reads = str_starts_with($rule['record'], 'slo:events:rate') || str_starts_with($rule['record'], 'slo:error_ratio:rate') || \in_array($rule['record'], ['slo:sli:ratio', 'slo:window:coverage_ratio'], true);
+                $sums = str_starts_with($rule['record'], 'slo:events:rate') || str_starts_with($rule['record'], 'slo:error_ratio:rate') || $rule['record'] === 'slo:sli:ratio';
+                $reads = \in_array($rule['record'], [PromQlBuilder::UNFINISHED_RUNS_RECORD, 'slo:window:coverage_ratio'], true);
                 self::assertSame($task && $reads, str_contains($rule['expr'], 'symfony_slo_scheduled_task_started_total'), $rule['record'] . ' of ' . $rule['labels']['slo']);
+                self::assertSame($task && $sums, str_contains($rule['expr'], 'sum_over_time(slo:unfinished_runs:step{'), $rule['record'] . ' of ' . $rule['labels']['slo']);
             }
         }
     }
