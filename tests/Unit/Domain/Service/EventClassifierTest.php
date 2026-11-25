@@ -122,9 +122,41 @@ final class EventClassifierTest extends TestCase
         self::assertSame($expected, $result);
     }
 
-    private function slo(PointType $type, Classification $classification, bool $includeErrors): SloDefinition
+    public function testScheduledTaskOnFailureTransportIsIneligible(): void
     {
-        $threshold = LatencyThreshold::fromString('200ms');
+        $slo = $this->slo(PointType::ScheduledTask, Classification::defaults(), false, '2s');
+        $onTransport = Observation::outcome(PointType::ScheduledTask, Outcome::Error, 0.1, true);
+
+        foreach ([ObjectiveKind::Availability, ObjectiveKind::Latency, ObjectiveKind::Combined] as $kind) {
+            self::assertNull($this->classify($slo, $kind, $onTransport));
+        }
+    }
+
+    public function testScheduledTaskOutcomes(): void
+    {
+        $slo = $this->slo(PointType::ScheduledTask, Classification::defaults(), false, '2s');
+        $notGood = $this->slo(PointType::ScheduledTask, new Classification(StatusSet::fromList(['5xx']), StatusSet::fromList([]), false, false), false, '2s');
+        $error = Observation::outcome(PointType::ScheduledTask, Outcome::Error, 0.1);
+
+        self::assertSame(EventResult::Bad, $this->classify($slo, ObjectiveKind::Availability, $error));
+        self::assertNull($this->classify($slo, ObjectiveKind::Latency, $error));
+        self::assertSame(EventResult::Bad, $this->classify($slo, ObjectiveKind::Latency, Observation::outcome(PointType::ScheduledTask, Outcome::Success, 3.0)));
+        $expected = Observation::outcome(PointType::ScheduledTask, Outcome::ExpectedFailure, 0.5);
+        self::assertSame(EventResult::Bad, $this->classify($notGood, ObjectiveKind::Availability, $expected));
+        self::assertSame(EventResult::Good, $this->classify($notGood, ObjectiveKind::Latency, $expected));
+    }
+
+    private function classify(SloDefinition $slo, ObjectiveKind $kind, Observation $observation): ?EventResult
+    {
+        $objective = $slo->objective($kind);
+        self::assertNotNull($objective);
+
+        return (new EventClassifier())->classify($slo, $objective, $observation);
+    }
+
+    private function slo(PointType $type, Classification $classification, bool $includeErrors, string $latency = '200ms'): SloDefinition
+    {
+        $threshold = LatencyThreshold::fromString($latency);
         $target = Target::fromPercent(99.0);
 
         return new SloDefinition(

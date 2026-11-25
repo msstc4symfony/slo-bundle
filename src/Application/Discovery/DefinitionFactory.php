@@ -125,7 +125,7 @@ final readonly class DefinitionFactory
         ];
         foreach ($declared as $field => $value) {
             if ($value !== null && !Classification::appliesTo($field, $type)) {
-                $option(\sprintf('%s applies to %s points only.', $field, implode(' and ', array_map(static fn (PointType $t): string => $t->value, Classification::pointTypesOf($field)))));
+                $option(\sprintf('%s applies to %s points only.', $field, $this->joinTypes(Classification::pointTypesOf($field))));
             }
         }
 
@@ -156,5 +156,16 @@ final readonly class DefinitionFactory
 
             return null;
         }
+    }
+
+    /**
+     * @param non-empty-list<PointType> $types
+     */
+    private function joinTypes(array $types): string
+    {
+        $names = array_map(static fn (PointType $t): string => $t->value, $types);
+        $last = array_pop($names);
+
+        return $names === [] ? $last : implode(', ', $names) . ' and ' . $last;
     }
 }

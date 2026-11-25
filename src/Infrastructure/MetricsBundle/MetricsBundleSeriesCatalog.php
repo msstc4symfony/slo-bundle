@@ -53,7 +53,7 @@ final readonly class MetricsBundleSeriesCatalog implements SeriesCatalogInterfac
             PointType::HttpRoute => self::HTTP_HISTOGRAM,
             PointType::MessengerMessage => self::MESSENGER_HISTOGRAM,
             PointType::LogicAction => self::LOGIC_HISTOGRAM,
-            PointType::Operation => null,
+            PointType::Operation, PointType::ScheduledTask => null,
         };
     }
 

@@ -74,8 +74,9 @@ final class ClassificationTest extends TestCase
             'messenger_message' => ['countAttempts'],
             'logic_action' => ['expectedFailureIsGood'],
             'operation' => ['expectedFailureIsGood'],
+            'scheduled_task' => ['expectedFailureIsGood'],
         ], $matrix);
-        self::assertSame([PointType::LogicAction, PointType::Operation], Classification::pointTypesOf('expectedFailureIsGood'));
+        self::assertSame([PointType::LogicAction, PointType::Operation, PointType::ScheduledTask], Classification::pointTypesOf('expectedFailureIsGood'));
         self::assertSame(['http_route'], array_map(static fn (PointType $t): string => $t->value, array_values(array_filter(PointType::cases(), static fn (PointType $t): bool => $t->acceptsIncludeErrors()))));
     }
 

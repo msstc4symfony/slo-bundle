@@ -83,7 +83,7 @@ final readonly class EventClassifier
                 && ($classification->countAttempts || $observation->deliveryStatus !== DeliveryStatus::Retried);
         }
 
-        return true;
+        return !$observation->onFailureTransport;
     }
 
     private function isBad(Classification $classification, Observation $observation): bool

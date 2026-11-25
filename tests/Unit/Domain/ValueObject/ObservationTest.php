@@ -47,6 +47,22 @@ final class ObservationTest extends TestCase
         self::assertSame(PointType::Operation, Observation::outcome(PointType::Operation, Outcome::Success, 0.1)->pointType);
     }
 
+    public function testOutcomeAcceptsScheduledTaskWithFailureTransportFlag(): void
+    {
+        $observation = Observation::outcome(PointType::ScheduledTask, Outcome::Error, 1.5, true);
+
+        self::assertTrue($observation->onFailureTransport);
+        self::assertSame(PointType::ScheduledTask, $observation->pointType);
+        self::assertFalse(Observation::outcome(PointType::ScheduledTask, Outcome::Success, 1.5)->onFailureTransport);
+    }
+
+    public function testFailureTransportFlagIsRejectedOutsideScheduledTasks(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('scheduled_task');
+        Observation::outcome(PointType::Operation, Outcome::Success, 0.1, true);
+    }
+
     /**
      * @return iterable<string, array{PointType}>
      */
@@ -62,6 +78,12 @@ final class ObservationTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('"' . $type->value . '"');
         Observation::outcome($type, Outcome::Success, 0.1);
+    }
+
+    public function testNonOutcomeMessageNamesAllOutcomeTypes(): void
+    {
+        $this->expectExceptionMessage('logic_action, operation or scheduled_task');
+        Observation::outcome(PointType::HttpRoute, Outcome::Success, 0.1);
     }
 
     /**

@@ -91,7 +91,7 @@ final readonly class MetricBindingResolver
             PointType::HttpRoute => $this->http($definition, $objective),
             PointType::MessengerMessage => $this->messenger($definition, $objective),
             PointType::LogicAction => $this->logic($definition, $objective),
-            PointType::Operation => null,
+            PointType::Operation, PointType::ScheduledTask => null,
         };
     }
 

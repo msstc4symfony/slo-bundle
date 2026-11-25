@@ -38,7 +38,7 @@ final readonly class RevisionCalculator
             'threshold_ms' => $objective->threshold?->milliseconds,
         ];
         // Outcome-point latency covers every non-error run regardless of expectedFailureIsGood (spec 4.4).
-        if ($kind === ObjectiveKind::Latency && \in_array($slo->pointType(), [PointType::LogicAction, PointType::Operation], true)) {
+        if ($kind === ObjectiveKind::Latency && \in_array($slo->pointType(), [PointType::LogicAction, PointType::Operation, PointType::ScheduledTask], true)) {
             unset($input['expected_failure_is_good']);
         }
         if ($slo->pointType() === PointType::MessengerMessage) {

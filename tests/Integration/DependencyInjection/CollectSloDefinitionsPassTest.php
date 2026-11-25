@@ -432,7 +432,7 @@ final class CollectSloDefinitionsPassTest extends TestCase
         yield 'overlapping statuses' => [[InvalidValuesController::class], null, [], $http(InvalidValuesController::class, 'statuses') . ': Bad statuses "5xx" overlap ineligible statuses "503"'];
         yield 'invalid strategy' => [[InvalidValuesController::class], null, [], $http(InvalidValuesController::class, 'strategy') . ': invalid attribute: ' . Slo::class . '::__construct(): Argument #8 ($strategy) must be of type ' . StrategyPreference::class];
         yield 'count attempts on http' => [[WrongOptionsController::class], null, [], $http(WrongOptionsController::class, 'attempts') . ': SLO "payment.attempts": countAttempts applies to messenger_message points only'];
-        yield 'expected failure on http' => [[WrongOptionsController::class], null, [], $http(WrongOptionsController::class, 'expected') . ': SLO "payment.expected": expectedFailureIsGood applies to logic_action and operation points only'];
+        yield 'expected failure on http' => [[WrongOptionsController::class], null, [], $http(WrongOptionsController::class, 'expected') . ': SLO "payment.expected": expectedFailureIsGood applies to logic_action, operation and scheduled_task points only'];
         yield 'include errors on messenger' => [[], static function (ContainerBuilder $container): void {
             $container->register(IncludeErrorsReceiptHandler::class, IncludeErrorsReceiptHandler::class)->addTag('messenger.message_handler');
         }, [], 'messenger_message:' . SendReceipt::class . ': SLO "receipt.send": includeErrors applies to http_route points only'];
@@ -457,7 +457,7 @@ final class CollectSloDefinitionsPassTest extends TestCase
         }, [], 'messenger_message:' . AbstractPaymentMessage::class . ': #[Slo] on ' . AbstractMessageHandler::class . '::handle handles an abstract class'];
         yield 'percent in a tagged point id' => [[], static function (ContainerBuilder $container): void {
             $container->register(RefundAction::class, RefundAction::class)->addTag(PointTag::TAG, [PointTag::TYPE => 'logic_action', PointTag::ID => 'refund%done%']);
-        }, [], 'service "' . RefundAction::class . '": tag "msstc4symfony_slo.point" needs attribute "type" (one of http_route|messenger_message|logic_action|operation) and a non-empty "id" without "%".'];
+        }, [], 'service "' . RefundAction::class . '": tag "msstc4symfony_slo.point" needs attribute "type" (one of http_route|messenger_message|logic_action|operation|scheduled_task) and a non-empty "id" without "%".'];
         yield 'empty tagged point id' => [[], static function (ContainerBuilder $container): void {
             $container->register(RefundAction::class, RefundAction::class)->addTag(PointTag::TAG, [PointTag::TYPE => 'logic_action', PointTag::ID => '']);
         }, [], 'service "' . RefundAction::class . '": tag "msstc4symfony_slo.point" needs attribute "type"'];

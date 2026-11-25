@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Added
+
+- `PointType::ScheduledTask` (`scheduled_task`), a new enum case: an exhaustive `match` over `PointType` in user code
+  needs an arm for it.
+- `Observation::outcome()` accepts `scheduled_task` and a fourth `$onFailureTransport` argument; such observations are
+  not eligible for any objective.
+
 ## [1.1.0] - 2026-11-23
 
 ### Added

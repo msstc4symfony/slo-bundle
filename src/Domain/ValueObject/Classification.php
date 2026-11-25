@@ -20,7 +20,7 @@ final readonly class Classification
     private const APPLIES_TO = [
         'badStatuses' => [PointType::HttpRoute],
         'ineligibleStatuses' => [PointType::HttpRoute],
-        'expectedFailureIsGood' => [PointType::LogicAction, PointType::Operation],
+        'expectedFailureIsGood' => [PointType::LogicAction, PointType::Operation, PointType::ScheduledTask],
         'countAttempts' => [PointType::MessengerMessage],
     ];
 

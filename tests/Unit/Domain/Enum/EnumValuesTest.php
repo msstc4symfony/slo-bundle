@@ -23,7 +23,7 @@ final class EnumValuesTest extends TestCase
     public static function provideEnums(): iterable
     {
         yield 'kind' => [ObjectiveKind::class, ['availability', 'latency', 'combined']];
-        yield 'point type' => [PointType::class, ['http_route', 'messenger_message', 'logic_action', 'operation']];
+        yield 'point type' => [PointType::class, ['http_route', 'messenger_message', 'logic_action', 'operation', 'scheduled_task']];
         yield 'outcome' => [Outcome::class, ['success', 'expected_failure', 'error']];
         yield 'delivery' => [DeliveryStatus::class, ['handled', 'failed', 'retried']];
         yield 'result' => [EventResult::class, ['good', 'bad']];

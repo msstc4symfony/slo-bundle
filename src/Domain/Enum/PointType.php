@@ -10,6 +10,7 @@ enum PointType: string
     case MessengerMessage = 'messenger_message';
     case LogicAction = 'logic_action';
     case Operation = 'operation';
+    case ScheduledTask = 'scheduled_task';
 
     /**
      * Only HTTP latency can count error responses: the other point types have no error-but-measured event.

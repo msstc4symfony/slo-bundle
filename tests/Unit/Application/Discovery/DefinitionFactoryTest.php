@@ -159,6 +159,7 @@ final class DefinitionFactoryTest extends TestCase
             PointType::MessengerMessage => 'App\Message\ProcessPayment',
             PointType::LogicAction => 'refund',
             PointType::Operation => 'payment.validation',
+            PointType::ScheduledTask => 'App\Task\Report::__invoke',
         };
         $definition = $this->factory()->fromAttribute($slo, PointId::of($type, $id), $this->errors);
 
