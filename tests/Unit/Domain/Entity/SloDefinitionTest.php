@@ -144,6 +144,25 @@ final class SloDefinitionTest extends TestCase
         self::assertFalse($five->sameSemanticsAs($this->task([$this->availability()], Deadline::fromString('10m'))));
     }
 
+    public function testSemanticEqualityComparesTheEffectiveRunDeadline(): void
+    {
+        $latency = Objective::latency(LatencyThreshold::fromString('120s'), Target::fromPercent(95.0));
+        $implicit = $this->task([$latency]);
+
+        self::assertTrue($implicit->sameSemanticsAs($this->task([$latency], Deadline::fromString('2m'))));
+        self::assertTrue($this->task([$latency], Deadline::fromString('2m'))->sameSemanticsAs($implicit));
+        self::assertFalse($implicit->sameSemanticsAs($this->task([$latency], Deadline::fromString('3m'))));
+    }
+
+    public function testRunPastItsDeadlineIsOnlyAStrictlyLongerDuration(): void
+    {
+        $task = $this->task([$this->availability()], Deadline::fromString('2s'));
+
+        self::assertFalse($task->isPastRunDeadline(2.0));
+        self::assertTrue($task->isPastRunDeadline(2.001));
+        self::assertFalse($this->definition()->isPastRunDeadline(1000.0));
+    }
+
     public function testWithPointAndWithWindowKeepTheDeadline(): void
     {
         $task = $this->task([$this->availability()], Deadline::fromString('5m'));

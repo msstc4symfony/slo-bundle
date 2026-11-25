@@ -9,6 +9,7 @@ use Msstc4Symfony\SloBundle\Domain\Enum\DeliveryStatus;
 use Msstc4Symfony\SloBundle\Domain\Enum\EventResult;
 use Msstc4Symfony\SloBundle\Domain\Enum\ObjectiveKind;
 use Msstc4Symfony\SloBundle\Domain\Enum\Outcome;
+use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Classification;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\LatencyThreshold;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Objective;
@@ -25,7 +26,7 @@ final readonly class EventClassifier
     public function classify(SloDefinition $slo, Objective $objective, Observation $observation): ?EventResult
     {
         $classification = $slo->classification();
-        if (!$this->isEligible($classification, $observation)) {
+        if (!$this->isEligible($classification, $observation) || $this->isUnfinished($slo, $observation)) {
             return null;
         }
 
@@ -84,6 +85,13 @@ final readonly class EventClassifier
         }
 
         return !$observation->onFailureTransport;
+    }
+
+    private function isUnfinished(SloDefinition $slo, Observation $observation): bool
+    {
+        return $observation->pointType === PointType::ScheduledTask
+            && $observation->durationSeconds !== null
+            && $slo->isPastRunDeadline($observation->durationSeconds);
     }
 
     private function isBad(Classification $classification, Observation $observation): bool

@@ -31,7 +31,8 @@ use WeakMap;
 
 /**
  * Times scheduled-task runs consumed by a worker with its own clock (the metrics-bundle series does not identify the
- * task), writes run metrics for every attempt and one SLO event for the final outcome. Fail-open: nothing leaves it.
+ * task), writes run metrics for every attempt and one SLO event for the final outcome of a run within its deadline.
+ * Fail-open: nothing leaves it.
  *
  * @internal
  */
@@ -86,7 +87,10 @@ final class ScheduledTaskRunListener implements ResetInterface
     public function onHandled(WorkerMessageHandledEvent $event): void
     {
         try {
-            $this->finish($event, ScheduledTaskRunOutcome::Success);
+            $run = $this->takeRun($event);
+            if ($run !== null) {
+                $this->finish($event, $run, ScheduledTaskRunOutcome::Success);
+            }
         } catch (Throwable $e) {
             $this->warn(null, $e);
         }
@@ -96,7 +100,10 @@ final class ScheduledTaskRunListener implements ResetInterface
     public function onFailed(WorkerMessageFailedEvent $event): void
     {
         try {
-            $this->finish($event, $event->willRetry() ? ScheduledTaskRunOutcome::Retried : null);
+            $run = $this->takeRun($event);
+            if ($run !== null) {
+                $this->finish($event, $run, $event->willRetry() ? ScheduledTaskRunOutcome::Retried : $this->classify($run[0], $event->getThrowable()));
+            }
         } catch (Throwable $e) {
             $this->warn(null, $e);
         }
@@ -114,25 +121,33 @@ final class ScheduledTaskRunListener implements ResetInterface
     }
 
     /**
-     * @param ScheduledTaskRunOutcome|null $outcome null: a final failure, classified here
+     * @return array{PointId, float}|null the task and the run duration in seconds, null without a recorded start
      */
-    private function finish(AbstractWorkerMessageEvent $event, ?ScheduledTaskRunOutcome $outcome): void
+    private function takeRun(AbstractWorkerMessageEvent $event): ?array
     {
         $message = $event->getEnvelope()->getMessage();
         $start = $this->pending[$message] ?? null;
         if ($start === null) {
-            return;
+            return null;
         }
         unset($this->pending[$message]);
-        [$point, $startedAt] = $start;
-        $duration = ($this->clock->now() - $startedAt) / 1e9;
-        $outcome ??= $event instanceof WorkerMessageFailedEvent ? $this->classify($point, $event->getThrowable()) : ScheduledTaskRunOutcome::Success;
 
+        return [$start[0], ($this->clock->now() - $start[1]) / 1e9];
+    }
+
+    /**
+     * @param array{PointId, float} $run
+     */
+    private function finish(AbstractWorkerMessageEvent $event, array $run, ScheduledTaskRunOutcome $outcome): void
+    {
+        [$point, $duration] = $run;
         $sloOutcome = $this->sloOutcome($outcome);
         if ($sloOutcome instanceof Outcome) {
             try {
-                $onFailureTransport = \in_array($event->getReceiverName(), $this->diagnostics->failureTransports(), true);
-                $this->recorder->record(new Input($point, Observation::outcome(PointType::ScheduledTask, $sloOutcome, $duration, $onFailureTransport)));
+                if (!$this->isPastEveryDeadline($point, $duration)) {
+                    $onFailureTransport = \in_array($event->getReceiverName(), $this->diagnostics->failureTransports(), true);
+                    $this->recorder->record(new Input($point, Observation::outcome(PointType::ScheduledTask, $sloOutcome, $duration, $onFailureTransport)));
+                }
             } catch (Throwable $e) {
                 $this->warn($point, $e);
             }
@@ -142,6 +157,21 @@ final class ScheduledTaskRunListener implements ResetInterface
         } catch (Throwable $e) {
             $this->warn($point, $e);
         }
+    }
+
+    /**
+     * The rules already counted such a run as unfinished at start + deadline; EventClassifier skips it per SLO too.
+     */
+    private function isPastEveryDeadline(PointId $point, float $duration): bool
+    {
+        $definitions = $this->catalog->forPoint($point);
+        foreach ($definitions as $definition) {
+            if (!$definition->isPastRunDeadline($duration)) {
+                return false;
+            }
+        }
+
+        return $definitions !== [];
     }
 
     /**

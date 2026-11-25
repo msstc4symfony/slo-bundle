@@ -67,6 +67,10 @@ final class ScheduledTaskRunListenerTest extends TestCase
         $this->catalog = CatalogFixture::build(static function (CatalogAssembler $assembler): void {
             $assembler->declare(ScheduledTaskPoint::forService('app.cleanup', '__invoke'), new Slo('cleanup.run', [new Availability(99), new Latency('120s', 95)]));
             $assembler->declare(ScheduledTaskPoint::forCommand('app:sync-partners'), new Slo('partners.sync', [new Availability(99.5)], deadline: '10m'));
+            $assembler->declare(ScheduledTaskPoint::forService('app.report', '__invoke'), new Slo('reports.run', [new Availability(99)], deadline: '1m'));
+            $assembler->declare(ScheduledTaskPoint::forService('app.export', '__invoke'), new Slo('reports.run', [new Availability(99)], deadline: '2m'));
+            $assembler->declare(ScheduledTaskPoint::forService('app.mixed', '__invoke'), new Slo('mixed.short', [new Availability(99)], deadline: '1m'));
+            $assembler->declare(ScheduledTaskPoint::forService('app.mixed', '__invoke'), new Slo('mixed.long', [new Availability(99)], deadline: '10m'));
         }, new CatalogExtras(failureTransports: ['failed']));
         $this->recorder = new RecordingEventRecorder();
         $this->runs = new RecordingRunWriter();
@@ -188,6 +192,65 @@ final class ScheduledTaskRunListenerTest extends TestCase
 
         self::assertSame([['started', self::TASK], ['finished', self::TASK, ScheduledTaskRunOutcome::Success, 0.0]], $this->runs->calls);
         $this->assertRecorded(Outcome::Success, 0.0, true);
+    }
+
+    public function testRunFinishingAfterItsDeadlineWritesRunMetricsButNoSloEvent(): void
+    {
+        $listener = $this->listener();
+        $late = new Envelope(new ServiceCallMessage('app.cleanup'));
+        $lateError = new Envelope(new RunCommandMessage('app:sync-partners'));
+
+        $listener->onReceived(new WorkerMessageReceivedEvent($late, 'async'));
+        $listener->onReceived(new WorkerMessageReceivedEvent($lateError, 'async'));
+        $this->clock->nanoseconds += 601 * self::SECOND;
+        $listener->onHandled(new WorkerMessageHandledEvent($late, 'async'));
+        $listener->onFailed(new WorkerMessageFailedEvent($lateError, 'async', new RuntimeException('boom')));
+
+        self::assertSame([
+            ['started', self::TASK],
+            ['started', self::COMMAND],
+            ['finished', self::TASK, ScheduledTaskRunOutcome::Success, 601.0],
+            ['finished', self::COMMAND, ScheduledTaskRunOutcome::Error, 601.0],
+        ], $this->runs->calls);
+        self::assertSame([], $this->recorder->inputs);
+    }
+
+    public function testRunFinishingExactlyAtItsDeadlineIsRecorded(): void
+    {
+        $listener = $this->listener();
+        $envelope = new Envelope(new ServiceCallMessage('app.cleanup'));
+
+        $listener->onReceived(new WorkerMessageReceivedEvent($envelope, 'async'));
+        $this->clock->nanoseconds += 120 * self::SECOND;
+        $listener->onHandled(new WorkerMessageHandledEvent($envelope, 'async'));
+
+        $this->assertRecorded(Outcome::Success, 120.0, false);
+    }
+
+    public function testRunPastOnlySomeDeadlinesOfItsPointIsLeftToTheRecorderPerSlo(): void
+    {
+        $listener = $this->listener();
+        $envelope = new Envelope(new ServiceCallMessage('app.mixed'));
+
+        $listener->onReceived(new WorkerMessageReceivedEvent($envelope, 'async'));
+        $this->clock->nanoseconds += 300 * self::SECOND;
+        $listener->onHandled(new WorkerMessageHandledEvent($envelope, 'async'));
+
+        self::assertCount(2, $this->runs->calls);
+        self::assertCount(1, $this->recorder->inputs);
+    }
+
+    public function testTaskWithOnlyAConflictedSloNameIsMonitored(): void
+    {
+        $listener = $this->listener();
+        $envelope = new Envelope(new ServiceCallMessage('app.report'));
+
+        $listener->onReceived(new WorkerMessageReceivedEvent($envelope, 'async'));
+        $this->clock->nanoseconds += 300 * self::SECOND;
+        $listener->onHandled(new WorkerMessageHandledEvent($envelope, 'async'));
+
+        self::assertSame([['started', 'app.report::__invoke'], ['finished', 'app.report::__invoke', ScheduledTaskRunOutcome::Success, 300.0]], $this->runs->calls);
+        self::assertCount(1, $this->recorder->inputs);
     }
 
     public function testUnmonitoredTaskAndOtherMessagesWriteNothing(): void

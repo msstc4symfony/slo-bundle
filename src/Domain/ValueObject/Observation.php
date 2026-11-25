@@ -49,7 +49,7 @@ final readonly class Observation
      */
     public static function outcome(PointType $type, Outcome $outcome, float $durationSeconds, bool $onFailureTransport = false): self
     {
-        if (!in_array($type, [PointType::LogicAction, PointType::Operation, PointType::ScheduledTask], true)) {
+        if (!\in_array($type, [PointType::LogicAction, PointType::Operation, PointType::ScheduledTask], true)) {
             throw new InvalidArgumentException(\sprintf('Point type "%s" has no outcome observations: expected logic_action, operation or scheduled_task.', $type->value));
         }
         if ($onFailureTransport && $type !== PointType::ScheduledTask) {

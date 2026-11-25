@@ -173,13 +173,23 @@ final readonly class SloDefinition
         );
     }
 
+    /**
+     * The generated rules count such a run as unfinished (a bad event), so its own outcome is no event.
+     */
+    public function isPastRunDeadline(float $durationSeconds): bool
+    {
+        $deadline = $this->runDeadline();
+
+        return $deadline instanceof Deadline && $durationSeconds > $deadline->seconds();
+    }
+
     public function sameSemanticsAs(self $other): bool
     {
         return $this->name->value === $other->name->value
             && $this->pointType === $other->pointType
             && $this->window->seconds() === $other->window->seconds()
             && $this->strategy === $other->strategy
-            && $this->deadline?->milliseconds === $other->deadline?->milliseconds
+            && $this->runDeadline()?->milliseconds === $other->runDeadline()?->milliseconds
             && $this->classification->equals($other->classification)
             && $this->sameObjectivesAs($other);
     }

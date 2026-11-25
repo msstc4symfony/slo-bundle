@@ -14,6 +14,7 @@ use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
 use Msstc4Symfony\SloBundle\Domain\Enum\StrategyPreference;
 use Msstc4Symfony\SloBundle\Domain\Service\EventClassifier;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Classification;
+use Msstc4Symfony\SloBundle\Domain\ValueObject\Deadline;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\LatencyThreshold;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Objective;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\Observation;
@@ -140,10 +141,26 @@ final class EventClassifierTest extends TestCase
 
         self::assertSame(EventResult::Bad, $this->classify($slo, ObjectiveKind::Availability, $error));
         self::assertNull($this->classify($slo, ObjectiveKind::Latency, $error));
-        self::assertSame(EventResult::Bad, $this->classify($slo, ObjectiveKind::Latency, Observation::outcome(PointType::ScheduledTask, Outcome::Success, 3.0)));
+        self::assertSame(EventResult::Bad, $this->classify($this->slo(PointType::ScheduledTask, Classification::defaults(), false, '2s', Deadline::fromString('10s')), ObjectiveKind::Latency, Observation::outcome(PointType::ScheduledTask, Outcome::Success, 3.0)));
         $expected = Observation::outcome(PointType::ScheduledTask, Outcome::ExpectedFailure, 0.5);
         self::assertSame(EventResult::Bad, $this->classify($notGood, ObjectiveKind::Availability, $expected));
         self::assertSame(EventResult::Good, $this->classify($notGood, ObjectiveKind::Latency, $expected));
+    }
+
+    public function testScheduledTaskRunPastItsDeadlineIsNoEventBecauseTheRulesCountItAsUnfinished(): void
+    {
+        $implicit = $this->slo(PointType::ScheduledTask, Classification::defaults(), false, '2s');
+        $explicit = $this->slo(PointType::ScheduledTask, Classification::defaults(), false, '2s', Deadline::fromString('10s'));
+
+        foreach ([ObjectiveKind::Availability, ObjectiveKind::Latency, ObjectiveKind::Combined] as $kind) {
+            foreach ([Outcome::Success, Outcome::Error, Outcome::ExpectedFailure] as $outcome) {
+                self::assertNull($this->classify($implicit, $kind, Observation::outcome(PointType::ScheduledTask, $outcome, 2.5)));
+                self::assertNull($this->classify($explicit, $kind, Observation::outcome(PointType::ScheduledTask, $outcome, 10.5)));
+            }
+        }
+        self::assertSame(EventResult::Good, $this->classify($implicit, ObjectiveKind::Latency, Observation::outcome(PointType::ScheduledTask, Outcome::Success, 2.0)));
+        self::assertSame(EventResult::Bad, $this->classify($explicit, ObjectiveKind::Availability, Observation::outcome(PointType::ScheduledTask, Outcome::Error, 9.0)));
+        self::assertSame(EventResult::Bad, $this->classify($this->slo(PointType::LogicAction, Classification::defaults(), false, '2s'), ObjectiveKind::Latency, Observation::outcome(PointType::LogicAction, Outcome::Success, 2.5)));
     }
 
     private function classify(SloDefinition $slo, ObjectiveKind $kind, Observation $observation): ?EventResult
@@ -154,7 +171,7 @@ final class EventClassifierTest extends TestCase
         return (new EventClassifier())->classify($slo, $objective, $observation);
     }
 
-    private function slo(PointType $type, Classification $classification, bool $includeErrors, string $latency = '200ms'): SloDefinition
+    private function slo(PointType $type, Classification $classification, bool $includeErrors, string $latency = '200ms', ?Deadline $deadline = null): SloDefinition
     {
         $threshold = LatencyThreshold::fromString($latency);
         $target = Target::fromPercent(99.0);
@@ -171,6 +188,7 @@ final class EventClassifierTest extends TestCase
             Window::fromString('30d'),
             $classification,
             StrategyPreference::Auto,
+            $deadline,
         );
     }
 }
