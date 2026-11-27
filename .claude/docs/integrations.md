@@ -106,11 +106,10 @@
 
 ## Запуски задач Scheduler в воркере (1.2, Task 4)
 
-- `Infrastructure\Scheduler\ScheduledTaskRunListener` слушает события воркера Messenger через `#[AsEventListener]` (Rector
-  переписывает `EventSubscriberInterface` в атрибуты, как в metrics-bundle): received -1000 (после чужих `shouldHandle()`),
-  handled 0, failed 0 (после `SendFailedMessageForRetryListener` на 100, который ставит `willRetry()`). Регистрируется в
-  `services.php` только при `class_exists(ServiceCallMessage)` и `class_exists(WorkerMessageReceivedEvent)`; подписка — через
-  автоконфигурацию FrameworkBundle (в голом `TestContainer` слушатель есть, но тегов слушателя нет).
+- С 1.4: старт — `ScheduledTaskRunMiddleware` (в каждой шине перед `handle_message`, `RegisterScheduledTaskMiddlewarePass`), исход
+  запусков воркера — `ScheduledTaskRunListener` через `#[AsEventListener]` handled 0, failed 0 (после `SendFailedMessageForRetryListener`
+  на 100, который ставит `willRetry()`), inline-запусков — `ScheduledTaskOutcomeMiddleware` (первый в шине). Регистрация в `services.php` только при
+  `class_exists(ServiceCallMessage)` и `class_exists(WorkerMessageReceivedEvent)`; подписка — автоконфигурацией FrameworkBundle.
 - Точка сообщения — `ScheduledTaskMessage::pointOf()`: `ServiceCallMessage` → `<serviceId>::<method>`, `RunCommandMessage` →
   `StringInput($input)->getFirstArgument()` (снимает кавычки `'app:foo'` от `ArrayInput`); `RedispatchMessage` и прочее → null.
   `StringInput` не падает на незакрытой кавычке (`'x` → токен `'x`), исключение парсера практически недостижимо.

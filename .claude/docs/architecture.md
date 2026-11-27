@@ -169,11 +169,13 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
 
 - Слои: `Application/Discovery/ScheduledTaskPoint` (билдер `PointId`, общий для DI и рантайма), `DependencyInjection/CompilerPass/Discovery/{ScheduledTaskReader,CommandName}`
   (теги `scheduler.task` и `console.command` → `CatalogExtras::$scheduledTasks`), порт `Application/Port/ScheduledTaskRunWriterInterface` (+ `ScheduledTaskRunOutcome`) с
-  адаптером `Infrastructure/MetricsBundle/MetricsScheduledTaskRunWriter`, воркер-слушатель `Infrastructure/Scheduler/ScheduledTaskRunListener`
-  (+ `ScheduledTaskMessage::pointOf()`), метрики — три case `SloMetric::SCHEDULED_TASK_*`. Правил deptrac не добавлялось.
-- Слушатель: `#[AsEventListener]`, received -1000 (после чужих `shouldHandle()`), handled 0, failed 0 (после retry-слушателя на 100);
-  `ResetInterface` (`kernel.reset`). Регистрируется в `services.php` только при существовании классов scheduler
-  (`ServiceCallMessage`) и messenger (`WorkerMessageReceivedEvent`) — без `symfony/scheduler` сервиса нет.
+  адаптером `Infrastructure/MetricsBundle/MetricsScheduledTaskRunWriter`; рантайм (с 1.4) — `Infrastructure/Scheduler/ScheduledTaskRuns`
+  (реестр запусков: старт, классификация, запись; `kernel.reset`), `ScheduledTaskRunMiddleware` (старт, перед `handle_message`),
+  `ScheduledTaskOutcomeMiddleware` (исход inline-запусков, первым в шине) и
+  `ScheduledTaskRunListener` (исход запусков воркера) + `ScheduledTaskMessage::pointOf()`; метрики — три case `SloMetric::SCHEDULED_TASK_*`.
+- Оба middleware ставит `DependencyInjection/CompilerPass/RegisterScheduledTaskMiddlewarePass` (priority 10, до `MessengerPass` на 0)
+  в параметр `<bus>.middleware` каждой шины: outcome — первым, run — прямо перед `handle_message`. Слушатель: `#[AsEventListener]` handled 0, failed 0 (после
+  retry-слушателя на 100). Все три сервиса — только при классах scheduler (`ServiceCallMessage`) и messenger (`WorkerMessageReceivedEvent`).
 - Стратегия задач всегда B (`Auto` → dedicated), стратегия A для `PointType::ScheduledTask` не существует (`MetricBindingResolver`).
 - Правила Prometheus, Sloth и дашборд `slo-scheduled-tasks.json` — в разделах генерации ниже.
 

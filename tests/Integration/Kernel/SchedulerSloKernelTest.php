@@ -6,11 +6,15 @@ namespace Msstc4Symfony\SloBundle\Test\Integration\Kernel;
 
 use Msstc4Symfony\MetricsBundle\Application\Port\MetricStorageInterface;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Scheduler\CleanupTask;
+use Msstc4Symfony\SloBundle\Test\Fixtures\Scheduler\FailAfterHandlingMiddleware;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Scheduler\RedispatchedTask;
+use Msstc4Symfony\SloBundle\Test\Fixtures\Scheduler\RefusingWorkerListener;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Scheduler\SyncPartnersCommand;
+use Msstc4Symfony\SloBundle\Test\Fixtures\Scheduler\SyncTask;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Scheduler\UnmonitoredTask;
 use Override;
 use PHPUnit\Framework\Attributes\RequiresMethod;
+use RuntimeException;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Clock\Clock;
@@ -20,7 +24,10 @@ use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Messenger\RunCommandMessage;
 use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\Filesystem\Filesystem;
+use Symfony\Component\Messenger\Exception\HandlerFailedException;
 use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Messenger\Stamp\StampInterface;
+use Symfony\Component\Messenger\Stamp\TransportNamesStamp;
 use Symfony\Component\Messenger\Transport\InMemory\InMemoryTransport;
 use Symfony\Component\Scheduler\Messenger\ServiceCallMessage;
 
@@ -47,6 +54,9 @@ final class SchedulerSloKernelTest extends KernelTestCase
         Clock::set(new NativeClock());
         CleanupTask::$failing = false;
         SyncPartnersCommand::$failing = false;
+
+        RefusingWorkerListener::$refusing = false;
+        FailAfterHandlingMiddleware::$failing = false;
         parent::tearDown();
         (new Filesystem())->remove(SchedulerSloTestKernel::cacheRoot());
     }
@@ -123,7 +133,7 @@ final class SchedulerSloKernelTest extends KernelTestCase
         ], $this->runs());
     }
 
-    public function testReplayFromTheFailureTransportWritesRunMetricsButNoSloEvent(): void
+    public function testReplayFromTheFailureTransportIsNoRunAndWritesNoMetrics(): void
     {
         CleanupTask::$failing = true;
         $this->dispatch(new ServiceCallMessage(CleanupTask::class));
@@ -136,8 +146,78 @@ final class SchedulerSloKernelTest extends KernelTestCase
 
         $retry->assertCommandIsSuccessful();
         self::assertSame($before, $this->counts());
-        self::assertSame(3, $this->runs()['started_total|' . self::CLEANUP] ?? 0);
-        self::assertSame(1, $this->runs()['finished_total|' . self::CLEANUP . '|success'] ?? 0);
+        self::assertSame(2, $this->runs()['started_total|' . self::CLEANUP] ?? 0, 'a replay is no run: one that hung would count as unfinished');
+        self::assertArrayNotHasKey('finished_total|' . self::CLEANUP . '|success', $this->runs());
+    }
+
+    /**
+     * "transports: 'sync'" runs the task inside the RedispatchMessage handler, where no worker event names it.
+     */
+    public function testTaskWithASyncTransportIsMeasuredInsideTheRedispatch(): void
+    {
+        Clock::set(new MockClock('2026-11-25 10:00:00 UTC'));
+        $task = SyncTask::class . '::__invoke';
+
+        $this->consume('scheduler_synced', 1, 120);
+
+        self::assertSame(['synced.run|availability|good' => 1], $this->counts());
+        self::assertSame([
+            'duration_seconds_count|' . $task . '|success' => 1,
+            'finished_total|' . $task . '|success' => 1,
+            'started_total|' . $task => 1,
+        ], $this->runs());
+    }
+
+    public function testATaskFailingInlineIsABadEventAndTheFailureReachesTheCaller(): void
+    {
+        CleanupTask::$failing = true;
+
+        try {
+            $this->dispatch(new ServiceCallMessage(CleanupTask::class), [new TransportNamesStamp([SchedulerSloTestKernel::SYNC])]);
+            self::fail('The failure must reach the caller.');
+        } catch (HandlerFailedException $failure) {
+            self::assertSame('Cleanup failed.', $failure->getPrevious()?->getMessage());
+        }
+
+        self::assertSame(['cleanup.run|availability|bad' => 1], $this->counts());
+        self::assertSame([
+            'duration_seconds_count|' . self::CLEANUP . '|error' => 1,
+            'finished_total|' . self::CLEANUP . '|error' => 1,
+            'started_total|' . self::CLEANUP => 1,
+        ], $this->runs());
+    }
+
+    /**
+     * The whole dispatch decides an inline outcome, as it decides a worker run: a commit failing after a successful
+     * handler is an error.
+     */
+    public function testAnInlineRunWhoseDispatchFailsAfterTheHandlerIsABadEvent(): void
+    {
+        FailAfterHandlingMiddleware::$failing = true;
+
+        try {
+            $this->dispatch(new ServiceCallMessage(CleanupTask::class), [new TransportNamesStamp([SchedulerSloTestKernel::SYNC])]);
+            self::fail('The failure must reach the caller.');
+        } catch (RuntimeException $failure) {
+            self::assertSame('Commit failed.', $failure->getMessage());
+        }
+
+        self::assertSame(['cleanup.run|availability|bad' => 1], $this->counts());
+        self::assertSame(1, $this->runs()['finished_total|' . self::CLEANUP . '|error'] ?? 0);
+    }
+
+    /**
+     * A listener below the bundle's own can refuse the message: the run starts only when the bus handles it.
+     */
+    public function testAMessageAWorkerListenerRefusedIsNoRun(): void
+    {
+        RefusingWorkerListener::$refusing = true;
+
+        $this->dispatch(new ServiceCallMessage(CleanupTask::class));
+        $this->consume(SchedulerSloTestKernel::ASYNC, 1);
+
+        self::assertSame([], $this->runs());
+        self::assertSame([], $this->counts());
     }
 
     public function testFailingCommandTaskIsAnErrorRunAndABadEvent(): void
@@ -169,11 +249,14 @@ final class SchedulerSloKernelTest extends KernelTestCase
         return SchedulerSloTestKernel::class;
     }
 
-    private function dispatch(object $message): void
+    /**
+     * @param list<StampInterface> $stamps
+     */
+    private function dispatch(object $message, array $stamps = []): void
     {
         $bus = self::getContainer()->get(MessageBusInterface::class);
         self::assertInstanceOf(MessageBusInterface::class, $bus);
-        $bus->dispatch($message);
+        $bus->dispatch($message, $stamps);
     }
 
     /**

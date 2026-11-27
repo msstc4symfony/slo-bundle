@@ -55,7 +55,10 @@ use Msstc4Symfony\SloBundle\Infrastructure\RouteIndex\RouteIndexBuilder;
 use Msstc4Symfony\SloBundle\Infrastructure\RouteIndex\RouteIndexFile;
 use Msstc4Symfony\SloBundle\Infrastructure\RouteIndex\RouteIndexStoreInterface;
 use Msstc4Symfony\SloBundle\Infrastructure\RouteIndex\WarmedRevisions;
+use Msstc4Symfony\SloBundle\Infrastructure\Scheduler\ScheduledTaskOutcomeMiddleware;
 use Msstc4Symfony\SloBundle\Infrastructure\Scheduler\ScheduledTaskRunListener;
+use Msstc4Symfony\SloBundle\Infrastructure\Scheduler\ScheduledTaskRunMiddleware;
+use Msstc4Symfony\SloBundle\Infrastructure\Scheduler\ScheduledTaskRuns;
 use Msstc4Symfony\SloBundle\Infrastructure\Sloth\SlothSpecBuilder;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RoutePointIndex;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RouterRouteCatalog;
@@ -134,11 +137,15 @@ return static function (ContainerConfigurator $container): void {
     $services->set(MetricsScheduledTaskRunWriter::class);
     $services->alias(ScheduledTaskRunWriterInterface::class, MetricsScheduledTaskRunWriter::class);
     if (class_exists(ServiceCallMessage::class) && class_exists(WorkerMessageReceivedEvent::class)) {
-        // Listens through #[AsEventListener], picked up by autoconfiguration.
-        $services->set(ScheduledTaskRunListener::class)
+        $services->set(ScheduledTaskRuns::class)
             ->arg('$logger', service(FailSafeLogger::class))
             ->tag('kernel.reset', ['method' => 'reset'])
         ;
+        // RegisterScheduledTaskMiddlewarePass puts both into every bus.
+        $services->set(ScheduledTaskRunMiddleware::class);
+        $services->set(ScheduledTaskOutcomeMiddleware::class);
+        // Listens through #[AsEventListener], picked up by autoconfiguration.
+        $services->set(ScheduledTaskRunListener::class);
     }
 
     $services->set(OperationMonitor::class)

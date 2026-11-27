@@ -7,8 +7,11 @@ namespace Msstc4Symfony\SloBundle\Test\Integration\Kernel;
 use Msstc4Symfony\MetricsBundle\MetricsBundle;
 use Msstc4Symfony\SloBundle\SloBundle;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Scheduler\CleanupTask;
+use Msstc4Symfony\SloBundle\Test\Fixtures\Scheduler\FailAfterHandlingMiddleware;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Scheduler\RedispatchedTask;
+use Msstc4Symfony\SloBundle\Test\Fixtures\Scheduler\RefusingWorkerListener;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Scheduler\SyncPartnersCommand;
+use Msstc4Symfony\SloBundle\Test\Fixtures\Scheduler\SyncTask;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Scheduler\UnmonitoredTask;
 use Override;
 use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
@@ -31,6 +34,8 @@ final class SchedulerSloTestKernel extends Kernel
     public const ASYNC = 'async';
 
     public const FAILED = 'failed';
+
+    public const SYNC = 'sync';
 
     public static function cacheRoot(): string
     {
@@ -68,8 +73,11 @@ final class SchedulerSloTestKernel extends Kernel
                 'transports' => [
                     self::ASYNC => ['dsn' => 'in-memory://', 'retry_strategy' => ['max_retries' => 1, 'delay' => 0]],
                     self::FAILED => 'in-memory://',
+                    self::SYNC => 'sync://',
                 ],
                 'routing' => [ServiceCallMessage::class => self::ASYNC, RunCommandMessage::class => self::ASYNC],
+                'default_bus' => 'messenger.bus.default',
+                'buses' => ['messenger.bus.default' => ['middleware' => [FailAfterHandlingMiddleware::class]]],
             ],
             'scheduler' => true,
         ]);
@@ -83,6 +91,9 @@ final class SchedulerSloTestKernel extends Kernel
         $services = $container->services()->defaults()->autowire()->autoconfigure();
         $services->set(CleanupTask::class);
         $services->set(RedispatchedTask::class);
+        $services->set(SyncTask::class);
+        $services->set(FailAfterHandlingMiddleware::class);
+        $services->set(RefusingWorkerListener::class);
         $services->set(SyncPartnersCommand::class);
         $services->set(UnmonitoredTask::class);
         // FrameworkBundle drops "clock" when symfony/clock is only a dev dependency of the root package, as it is here.

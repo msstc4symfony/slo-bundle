@@ -8,7 +8,7 @@ use Msstc4Symfony\SloBundle\Application\Evaluation\RecordEvent\Action as RecordE
 use Msstc4Symfony\SloBundle\Application\Operation\OperationMonitor;
 use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\MetricsBundle\DeliveryStatusMapper;
-use Msstc4Symfony\SloBundle\Infrastructure\Scheduler\ScheduledTaskRunListener;
+use Msstc4Symfony\SloBundle\Infrastructure\Scheduler\ScheduledTaskRuns;
 use Msstc4Symfony\SloBundle\Infrastructure\Symfony\RoutePointIndex;
 use Msstc4Symfony\SloBundle\Test\Integration\TestContainer;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -32,7 +32,7 @@ final class KernelResetWiringTest extends TestCase
         }
         // Registered only with symfony/scheduler and symfony/messenger installed.
         if (class_exists(ServiceCallMessage::class) && class_exists(WorkerMessageReceivedEvent::class)) {
-            yield ScheduledTaskRunListener::class => [ScheduledTaskRunListener::class];
+            yield ScheduledTaskRuns::class => [ScheduledTaskRuns::class];
         }
     }
 

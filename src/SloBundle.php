@@ -9,6 +9,7 @@ use Msstc4Symfony\SloBundle\Application\Generation\Generate\Exception\InvalidGen
 use Msstc4Symfony\SloBundle\Application\Generation\Generate\GenerationConfig;
 use Msstc4Symfony\SloBundle\Application\Port\ExpectedFailureClassifierInterface;
 use Msstc4Symfony\SloBundle\DependencyInjection\CompilerPass\CollectSloDefinitionsPass;
+use Msstc4Symfony\SloBundle\DependencyInjection\CompilerPass\RegisterScheduledTaskMiddlewarePass;
 use Msstc4Symfony\SloBundle\DependencyInjection\CompilerPass\RegisterSloMetricPass;
 use Msstc4Symfony\SloBundle\DependencyInjection\ExpectedFailureClassifierSelector;
 use Override;
@@ -69,6 +70,8 @@ final class SloBundle extends AbstractBundle
         // Priority -10: sees metric enums that bundles registered after this one append at priority 0.
         $container->addCompilerPass(new CollectSloDefinitionsPass(), PassConfig::TYPE_BEFORE_OPTIMIZATION, -10);
         $container->addCompilerPass(new RegisterSloMetricPass(), PassConfig::TYPE_BEFORE_OPTIMIZATION, 0);
+        // Before MessengerPass (priority 0), which turns the per-bus middleware parameters into the bus arguments.
+        $container->addCompilerPass(new RegisterScheduledTaskMiddlewarePass(), PassConfig::TYPE_BEFORE_OPTIMIZATION, 10);
     }
 
     #[Override]

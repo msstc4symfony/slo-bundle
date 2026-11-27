@@ -154,21 +154,25 @@ Events come from the metrics-bundle measurement observers, with the duration met
 - Operations: one event per finished handle, see [Operations API](#operations-api).
 - Scheduled tasks: Scheduler tasks declared with `#[AsCronTask]` / `#[AsPeriodicTask]` (the `scheduler.task` tag), as
   the point `<service id>::<method>` (method from the attribute, default `__invoke`) or `command:<command name>` for
-  console commands. One event per final run on a worker (`symfony/scheduler` and `symfony/messenger` installed): a
-  retried attempt is not an event, anything consumed from a failure transport is not eligible, and the consuming
-  transport is not filtered. A `ServiceCallMessage` / `RunCommandMessage` the application dispatches itself counts
-  under the same point. A failing command task is always an error (`RunCommandMessageHandler` wraps whatever the
-  command threw); for a service task the handler's exception is classified like an operation's. The duration comes
-  from the bundle's own `hrtime` timer around the run, so it can differ from the Messenger histogram by the listener
-  overhead. Runs that never finish are counted through the run metrics, see
-  [Generation](#generation-and-gitops-provisioning). A run longer than its deadline plus one minute is no event of
-  its own (per SLO, when the SLOs of a point have different deadlines): the rules already counted it, as unfinished.
-  Aliases and abbreviations of a command name are not matched: use the name the task is dispatched with. Limits:
-  - the task's transport must be consumed by a worker: a task with `transports: 'sync'` (or another `sync://`
-    transport) runs inside the `RedispatchMessage` handler without worker events and is not measured, although
-    `slo:coverage` reports it as monitored;
-  - a listener below priority -1000 that vetoes the message with `WorkerMessageReceivedEvent::shouldHandle(false)`
-    runs after the start was recorded, so the rules count a false unfinished run.
+  console commands (`symfony/scheduler` and `symfony/messenger` installed). A run starts when a bus hands the task
+  message to its handlers: the bundle puts its middleware right before `handle_message` of every bus, so a message
+  that a worker listener refuses (`WorkerMessageReceivedEvent::shouldHandle(false)`) or another middleware skips is
+  no run. One event per final run, wherever it runs: on a worker (a retried attempt is not an event), and inline —
+  a `sync://` transport, a task with `transports: 'sync'` (it runs inside the `RedispatchMessage` handler), a
+  dispatch the application does not route; an inline failure still reaches the caller. A replay from a failure
+  transport (`messenger:failed:retry`) is no run at all: no event and no run metrics. The consuming transport is not
+  filtered: a `ServiceCallMessage` / `RunCommandMessage` the application dispatches itself counts under the same
+  point. A failing command task is always an error (`RunCommandMessageHandler` wraps whatever the command threw); for
+  a service task the handler's exception is classified like an operation's. The duration comes from the bundle's own
+  `hrtime` timer around the run, so it can differ from the Messenger histogram by the middleware overhead. Runs that
+  never finish are counted through the run metrics, see [Generation](#generation-and-gitops-provisioning). A run
+  longer than its deadline plus one minute is no event of its own (per SLO, when the SLOs of a point have different
+  deadlines): the rules already counted it, as unfinished. Aliases and abbreviations of a command name are not
+  matched: use the name the task is dispatched with. Limits:
+  - a bus whose default middleware is disabled has no `handle_message` in its list: its tasks are not measured, also
+    on a worker (the container compilation log names the bus);
+  - a Scheduler transport replaced by one with a retry strategy or a failure transport: retries of a
+    `RedispatchMessage` to a sync transport each count as a final run, and its replay as a run.
 - Logic actions: through the [`slo-bridge-logic`](https://github.com/msstc4symfony/slo-bridge-logic) package, see [Bridges](#bridges-and-measurement-points).
 
 ## Classification of events
@@ -352,7 +356,8 @@ Commit the directory, run `slo:generate --check` in CI ("rules are stale" fails 
   (runs that passed their deadline without finishing in the last 1m evaluation) and
   `slo:unfinished_runs:increase<w>` (the step record summed over each rate window and over the SLO window). Every
   series is scoped by `application` (and by `component` when configured).
-- Scheduled tasks write per-task run metrics for every attempt of a task that has an SLO (retries included):
+- Scheduled tasks write per-task run metrics for every attempt of a task that has an SLO (retries included, on a
+  worker or inline; not for replays from a failure transport):
 
   | Metric | Labels |
   |--------|--------|
@@ -393,9 +398,8 @@ Commit the directory, run `slo:generate --check` in CI ("rules are stale" fails 
   rules only; prefer them for scheduled-task SLOs.
 - A retried attempt that runs past its deadline is counted unfinished (the run metrics cover every attempt), and the
   final attempt then records its own event: two events for one logical run.
-- Run metrics are also written for runs consumed from a failure transport (`messenger:failed:retry`), so `started` and
-  `finished` stay paired: a retry from the failure transport that hangs or whose worker is killed counts as an
-  unfinished run, one bad event, although failure-transport runs are otherwise not eligible.
+- A replay from a failure transport writes no run metrics, so a replay that hangs is not counted unfinished; the
+  Scheduled Tasks dashboard does not show replays (the metrics-bundle Messenger series of the failure transport do).
 - Long deadlines and pod replacement: the record needs each series alive for `d + 1m`, Sloth's per-series form for
   `d +` its window; a series that disappears earlier (a pod replaced, a new `instance` label) loses the detection of
   its runs. With storage shared by several pods (Redis), scrape a single target for the task series or drop
@@ -488,6 +492,10 @@ few public methods of the types below that carry `@internal` (helpers of discove
 - 1.3 records the unfinished runs of a task SLO once per SLO: `slo:unfinished_runs:step` has no `objective` and
   `revision` labels any more, and `slo:unfinished_runs:increase<w>` is new. Queries of your own on the step record by
   `objective` need changing; regenerate the rules. Hung runs from before the upgrade are not counted in the windows.
+- 1.4 measures scheduled tasks handled inline (`transports: 'sync'`, `sync://`, unrouted dispatches): their SLOs get
+  events where they had none, and their run metrics appear. Replays from a failure transport no longer write run
+  metrics. The bundle adds two middlewares to every bus (first, and right before `handle_message`); a bus without
+  `handle_message` (default middleware disabled) no longer measures scheduled tasks, also on a worker.
 - metrics-bundle 2.3.0 is the minimum; with an older metrics-bundle the container does not compile.
 - A change of event semantics (threshold, classification, point type) changes the `revision`; the SLI of the new
   revision warms up for one window while the generated rules ignore the old one. Regenerate and commit the rules

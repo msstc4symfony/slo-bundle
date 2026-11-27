@@ -2,6 +2,26 @@
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-11-27
+
+### Changed
+
+- Scheduled-task runs start in a middleware the bundle puts right before `handle_message` of every bus, when the bus
+  hands the message to its handlers, instead of on `WorkerMessageReceivedEvent`. A worker still reports the outcome
+  (it knows about retries); for anything handled inline a second middleware, first in every bus, reports the outcome of
+  the whole dispatch (a transaction commit failing after the handler is an error, as on a worker).
+- A bus whose middleware list has no `handle_message` (default middleware disabled) no longer measures scheduled tasks,
+  also on a worker; 1.3 started runs from the worker event whatever the bus. The container compilation log names such
+  buses.
+- Scheduled tasks handled inline are measured: a task with `transports: 'sync'` (it runs inside the
+  `RedispatchMessage` handler, which fires no worker event for it), a `sync://` transport, an unrouted dispatch. Their
+  SLOs get events, an inline failure is an error event and still reaches the caller.
+- A message a worker listener refuses (`shouldHandle(false)`, at any priority) or a middleware skips is no run: no
+  false unfinished run any more.
+- A replay from a failure transport (`messenger:failed:retry`; told by `SentToFailureTransportStamp` or a receipt from a
+  failure transport) writes no run
+  metrics: a replay that hung no longer counts as an unfinished run, one bad event. Such replays were never SLO events.
+
 ## [1.3.0] - 2026-11-27
 
 ### Changed
@@ -273,7 +293,8 @@
 - README: cleaning the series of retired revisions from the Redis storage; Messenger latency uses dedicated counters
   when the message short name is shared.
 
-[Unreleased]: https://github.com/msstc4symfony/slo-bundle/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/msstc4symfony/slo-bundle/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/msstc4symfony/slo-bundle/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/msstc4symfony/slo-bundle/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/msstc4symfony/slo-bundle/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/msstc4symfony/slo-bundle/compare/v1.0.1...v1.1.0

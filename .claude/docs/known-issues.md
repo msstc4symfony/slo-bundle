@@ -430,7 +430,7 @@
 - **Формула U (R1, раунды 3 Task 5)** — не `increase`-формула плана и не буквальная спеки, см. «Незавершённые запуски в правилах»: рекорд
   `slo:unfinished_runs:step` в 1m-группе перед читателями; цена — потеря шага при пропущенной оценке, отсутствующем моменте или сбросе, финиш
   другого запуска в `d+1m` может скрыть убитый старт, первый запуск новой серии не считается.
-- **Порядок `-1000` / `0` / `0`** проверяется рефлексией атрибутов, а не kernel-тестом.
+- **Порядок слушателя `0` / `0`** (с 1.4 received-слушателя нет) проверяется рефлексией атрибутов, а не kernel-тестом.
 
 ## Финальный раунд фиксов 1.2 (2026-11-25 UTC)
 
@@ -457,11 +457,9 @@
   `clock` = глобальный `Clock`), и `Worker` (он создаёт `new Clock()` сам и спит через него) — первый запуск 60-секундной
   `CleanupTask` наступает через «минуту» сна воркера мгновенно; `tearDown` возвращает `NativeClock`. `ReportTasks` убран из
   `SchedulerSloTestKernel`: cron-триггер без `dragonmantank/cron-expression` (его нет в CI) роняет построение `scheduler_default`.
-- **Документированные ограничения (без изменения кода)**: вето `shouldHandle(false)` слушателем ниже -1000 оставляет фантомный старт →
-  ложный незавершённый запуск (CR-002); задача с `transports: 'sync'` выполняется внутри `RedispatchMessage` без worker-событий и не
-  измеряется, хотя coverage считает её monitored (CR-003, unwrap дал бы двойной счёт async-redispatch); зависший повтор из failure
-  transport — незавершённый запуск = bad по R6 (CR-004); долгие deadline + замена пода: step-record нужна жизнь серии d+1m, Sloth —
-  d+окно; совет — один target или relabel `instance` для общего Redis (CR-015).
+- **Документированные ограничения 1.2** CR-002 (вето `shouldHandle(false)` → фантомный старт), CR-003 (`transports: 'sync'` не
+  измерялись) и CR-004 (зависший повтор из failure transport = bad) **исправлены в 1.4**, см. раздел ниже. Остаётся: долгие deadline +
+  замена пода: step-record нужна жизнь серии d+1m, Sloth — d+окно; совет — один target или relabel `instance` для общего Redis (CR-015).
 - Дашборд «Runs started minus finished over the time range»: `increase(...[$__range])` по задаче вместо сырых счётчиков (CR-008).
   С 1.3 (S-002) панели нет: разность `increase` на `$__range` дробная, бывает отрицательной и умножается при общем Redis.
   Вместо неё stat «Runs counted unfinished over the time range» = `sum by (slo) (sum_over_time(slo:unfinished_runs:step{…,objective=""}[$__range]))`
@@ -482,3 +480,33 @@
   `GenerationFixture::action(GenerationFixture::catalog())(GenerationFixture::input())` (тест сравнивает побайтно).
 - Окно SLO, совпадающее с быстрым окном (1h, 6h) или с 3d, пишется один раз — в группе того окна; SLI 5m-группы тогда
   читает запись 1m-группы (отставание ≤ шаг).
+
+## Старт запуска в middleware (1.4, 2026-11-27 UTC)
+
+- Запуск начинается в `ScheduledTaskRunMiddleware` перед `handle_message` любой шины, а не на `WorkerMessageReceivedEvent`: отказ
+  `shouldHandle(false)` (любой приоритет) и пропуск другим middleware (`deduplicate`, отправка в async) — не запуск. Envelope с
+  `ConsumedByWorkerStamp` — исход ставит слушатель (`willRetry()`), иначе (sync://, `transports: 'sync'` внутри `RedispatchMessage`,
+  немаршрутизированный dispatch) — `ScheduledTaskOutcomeMiddleware`, **первый** в шине (ревью CR-001: исход по всему dispatch, иначе
+  упавший после хендлера commit `doctrine_transaction` / `DelayedMessageHandlingException` давал good); исключение пробрасывается.
+- **`DispatchAfterCurrentBusStamp` (повторное ревью R2-001)**: такое сообщение шина обрабатывает позже, продолжая стек после
+  `dispatch_after_current_bus`, и первый в шине outcome-middleware его уже не оборачивает. Поэтому outcome-middleware помечает
+  сообщение (`ScheduledTaskRuns::observe()/release()`, счётчик в `WeakMap`) на время своего dispatch, а `ScheduledTaskRunMiddleware`
+  для непомеченного inline-сообщения сам ставит итог по хендлерам (упавший после хендлера commit для него не виден). Тест —
+  настоящая цепочка `MessageBus` с `DispatchAfterCurrentBusMiddleware` и `HandleMessageMiddleware`.
+- `ScheduledTaskRuns::start()` пишет `pending` до записи `started`: сбой хранилища на старте не теряет inline-итог (CR-002).
+- Pass ищет оба id: `handle_message` и `messenger.middleware.handle_message` (оба принимает `MessengerPass`); шина без них
+  пишется в `container->log()` и не измеряется — регрессия против 1.3 на воркере, описана в CHANGELOG/README (CR-003).
+- Остаточные края (CR-006, CR-008): Scheduler-транспорт, заменённый на транспорт с retry/failure transport, делает каждый retry
+  `RedispatchMessage` в sync финальным запуском и replay — запуском (у внутреннего envelope нет штампов); middleware, подменяющий
+  объект сообщения до нашего, или повторный dispatch того же объекта изнутри его хендлера ломают ключ `WeakMap` (фантомный старт или
+  перезапись) — не встречается в штатных middleware Symfony.
+- Тест-ловушка: `new StackMiddleware([...])->next()` пропускает первый элемент (`MessageBus` вызывает его сам через `current()`),
+  поэтому цепочки middleware в юнит-тестах собираются через `new MessageBus([...])`.
+- **Повтор из failure transport** узнаётся по `SentToFailureTransportStamp` (или любому `ReceivedStamp` failure-транспорта):
+  `FailedMessageProcessingMiddleware` переименовывает последний `ReceivedStamp` в исходный транспорт (`async`), поэтому `last(ReceivedStamp)`
+  при `messenger:failed:retry` не видит `failed` — так было найдено kernel-тестом. Повтор не пишет ни событий, ни run-метрик.
+- `Observation::$onFailureTransport` (публичный API 1.2) остаётся ради BC, но рантайм бандла его больше не ставит (CR-007):
+  ветка `EventClassifier::isEligible` для него жива только для внешних вызывающих `Observation::outcome(..., true)`; убрать в 2.0.
+- Шина с выключенным default middleware (нет `handle_message` в `<bus>.middleware`) задачи не измеряет — задокументировано в README.
+- Фикстура `RefusingWorkerListener` (priority -100000, статический флаг) проверяет отказ ниже любого приоритета бандла; `SyncTask` —
+  своё расписание `synced` с `transports: 'sync'`, транспорт `sync` = `sync://` в `SchedulerSloTestKernel`.

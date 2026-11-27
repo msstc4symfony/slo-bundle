@@ -19,6 +19,14 @@ use Symfony\Component\Scheduler\Messenger\ServiceCallMessage;
  */
 final class ScheduledTaskMessage
 {
+    /**
+     * Cheap and never throwing: for the middleware that sees every message of every bus.
+     */
+    public static function isTaskMessage(object $message): bool
+    {
+        return $message instanceof ServiceCallMessage || $message instanceof RunCommandMessage;
+    }
+
     public static function pointOf(object $message): ?PointId
     {
         if ($message instanceof ServiceCallMessage) {
