@@ -42,7 +42,7 @@ final readonly class PromQlBuilder
 
     private const SLOW_RECORDS = ['slo:sli:ratio', 'slo:error_budget:remaining', 'slo:window:coverage_ratio'];
 
-    private const NAMESPACE = 'symfony_';
+    private const METRIC_PREFIX = 'symfony_';
 
     private const EVENTS_METRIC = 'symfony_slo_events_total';
 
@@ -372,7 +372,7 @@ final readonly class PromQlBuilder
             ];
         }
 
-        $metric = self::NAMESPACE . $series->metric;
+        $metric = self::METRIC_PREFIX . $series->metric;
         $counted = $series->kind === SeriesKind::Histogram ? $metric . '_count' : $metric;
         $total = $counted . $this->matchers([...$base, ...array_values($series->matchers)]);
 
@@ -426,8 +426,8 @@ final readonly class PromQlBuilder
         ]);
 
         return [
-            'started' => self::NAMESPACE . SloMetric::SCHEDULED_TASK_STARTED->value . $matchers,
-            'finished' => self::NAMESPACE . SloMetric::SCHEDULED_TASK_FINISHED->value . $matchers,
+            'started' => self::METRIC_PREFIX . SloMetric::SCHEDULED_TASK_STARTED->value . $matchers,
+            'finished' => self::METRIC_PREFIX . SloMetric::SCHEDULED_TASK_FINISHED->value . $matchers,
         ];
     }
 

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-11-27
+
+### Fixed
+
+- PHP 8.6: no class constant named `NAMESPACE` (deprecated there) in `PromQlBuilder`.
+
 ## [1.4.0] - 2026-11-27
 
 ### Changed
@@ -293,7 +299,8 @@
 - README: cleaning the series of retired revisions from the Redis storage; Messenger latency uses dedicated counters
   when the message short name is shared.
 
-[Unreleased]: https://github.com/msstc4symfony/slo-bundle/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/msstc4symfony/slo-bundle/compare/v1.4.1...HEAD
+[1.4.1]: https://github.com/msstc4symfony/slo-bundle/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/msstc4symfony/slo-bundle/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/msstc4symfony/slo-bundle/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/msstc4symfony/slo-bundle/compare/v1.1.0...v1.2.0

@@ -510,3 +510,8 @@
 - Шина с выключенным default middleware (нет `handle_message` в `<bus>.middleware`) задачи не измеряет — задокументировано в README.
 - Фикстура `RefusingWorkerListener` (priority -100000, статический флаг) проверяет отказ ниже любого приоритета бандла; `SyncTask` —
   своё расписание `synced` с `transports: 'sync'`, транспорт `sync` = `sync://` в `SchedulerSloTestKernel`.
+
+## PHP 8.6 (2026-11-27 UTC)
+
+- PHP 8.6 deprecates `spl_object_hash()` (use `spl_object_id()`) and class constants named `NAMESPACE` (any case); the
+  matrix of bundle-standard 4.3.0 runs 8.6, where a deprecation fails PHPUnit.
