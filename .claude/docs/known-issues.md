@@ -362,6 +362,12 @@
 - CI-lock собирается с `symfony/scheduler` 8.1.10 при framework-bundle/console 7.4.23 — смешанная пара; `getDefaultName()`
   читает только наш `CommandName` (pass 8.1 его не вызывает), расхождение возможно лишь у команды без `#[AsCommand]` с
   переопределённым `getDefaultName()` на console 7.4.
+- **Scheduler 7.4 в CI проверяется (CR-013 закрыт 2026-11-27 UTC без изменений):** смешанная пара выше — только локальный
+  `composer-ci.lock` и job'ы, что ставят его. Матрица bundle-standard (шаг «Pin Symfony version») закрепляет каждый
+  `symfony/*` из `composer-ci.json`, включая `symfony/scheduler`: в ячейках Symfony 7.4 стоит scheduler 7.4.24
+  (`Downgrading symfony/scheduler (v8.1.10 => v7.4.24)`), и `SchedulerSloKernelTest` гоняет настоящий 7.4
+  `AddScheduleMessengerPass` с командной задачей. Тесты `getDefaultName()` (`#[RequiresMethod]`) там идут, в ячейках 8.x —
+  2 skipped. Отдельный job не нужен.
 
 ## Worker-слушатель Scheduler (1.2, Task 4)
 
