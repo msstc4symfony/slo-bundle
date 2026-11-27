@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Unfinished runs of a scheduled-task SLO are recorded once per SLO, not once per objective:
+  `slo:unfinished_runs:step` loses the `objective` and `revision` labels, and the new records
+  `slo:unfinished_runs:increase<5m|30m|1h|6h|3d|window>` sum it once per window for every objective of the SLO. The
+  rates, error ratios and SLI read them instead of summing the step record three times each. Readers select
+  `objective=""`, so the per-objective step records of 1.2.0 still inside a window after the upgrade are not counted
+  (unfinished runs of the last window before the upgrade are not counted either). Regenerate the rules.
+
 ## [1.2.0] - 2026-11-25
 
 ### Added

@@ -143,12 +143,33 @@ final class PromQlBuilderTest extends TestCase
         );
     }
 
-    public function testWindowsSumTheRecordedStepOfUnfinishedRuns(): void
+    public function testEveryObjectiveReadsTheIncreaseRecordOfItsSlo(): void
+    {
+        $builder = new PromQlBuilder();
+        $selector = GenerationFixture::input()->selector;
+        $expected = '(sum(slo:unfinished_runs:increase30d{application="shop",slo="cleanup.run",objective=""}) or vector(0))';
+
+        self::assertSame($expected, $builder->unfinishedRuns($selector, $this->objective('cleanup.run', 'latency'), '30d'));
+        self::assertSame($expected, $builder->unfinishedRuns($selector, $this->objective('cleanup.run', 'availability'), '30d'));
+    }
+
+    /**
+     * objective="" leaves out the per-objective step records 1.2.0 wrote, which a window spanning the upgrade still holds.
+     */
+    public function testTheIncreaseRecordSumsTheStepRecordOfTheSloOnly(): void
     {
         self::assertSame(
-            '(sum(sum_over_time(slo:unfinished_runs:step{application="shop",slo="cleanup.run",objective="latency"}[30d])) or vector(0))',
-            (new PromQlBuilder())->unfinishedRuns(GenerationFixture::input()->selector, $this->objective('cleanup.run', 'latency'), '30d'),
+            '(sum(sum_over_time(slo:unfinished_runs:step{application="shop",slo="cleanup.run",objective=""}[30d])) or vector(0))',
+            (new PromQlBuilder())->unfinishedRunsIncrease($this->objective('cleanup.run', 'latency'), 'shop', '30d'),
         );
+    }
+
+    public function testOnlyTheIncreaseRecordsOfLongWindowsAreSlowRecords(): void
+    {
+        self::assertFalse(PromQlBuilder::isSlowRecord('slo:unfinished_runs:step'));
+        self::assertFalse(PromQlBuilder::isSlowRecord('slo:unfinished_runs:increase6h'));
+        self::assertTrue(PromQlBuilder::isSlowRecord('slo:unfinished_runs:increase3d'));
+        self::assertTrue(PromQlBuilder::isSlowRecord('slo:unfinished_runs:increase30d'));
     }
 
     public function testTheStepOfUnfinishedRunsIsComputedPerSeriesFromInstantCounterValues(): void

@@ -272,9 +272,13 @@ good/bad, правила Prometheus, дашборды Grafana) поверх `met
   `last_over_time(...[10m])`, чтобы запоздавшая оценка не давала дыр;
   пороги — готовые числа `factor × (1 - target)`; `SloNoEvents` (severity ticket) = `(sum(increase(<total>[Nh])) or vector(0)) == 0`.
   Аннотация только `summary` (имя, objective, target, окно), без runbook.
-- Scheduled task (всегда B): первая запись 1m-группы цели — `slo:unfinished_runs:step` (`PromQlBuilder::stepUnfinishedRuns`,
-  per-series U за шаг группы из мгновенных значений, `d` = `runDeadline()`, селектор `<base>,task=` / `task=~`); окна читают
-  `sum(sum_over_time(step[r])) or vector(0)` (`unfinishedRuns`). Bad = `(bad or 0) + U`, total = `(total + U) or (U > 0)`; rate =
+- Scheduled task (всегда B): U пишется **один раз на SLO** (с 1.3; метки `application`, `slo`, `window`, без `objective`/
+  `revision`; `RuleGroupsBuilder::unfinishedRunRecords` у первой цели SLO, первыми в каждой группе):
+  `slo:unfinished_runs:step` (`PromQlBuilder::stepUnfinishedRuns`, per-series U за шаг группы из мгновенных значений,
+  `d` = `runDeadline()`, селектор `<base>,task=` / `task=~`), затем `slo:unfinished_runs:increase<r>` =
+  `sum(sum_over_time(step{…,objective=""}[r])) or vector(0)` для `PromQlBuilder::FAST_RATE_WINDOWS` (1m-группа) и для
+  `SLOW_RATE_WINDOWS` ∪ окно SLO минус быстрые (5m-группа). Формулы целей читают `(sum(increase<r>{…,objective=""}) or
+  vector(0))` (`unfinishedRuns`) — каждый читаемый диапазон обязан быть записан (тест `testEveryIncreaseRecordReadIsRecordedForItsSlo`). Bad = `(bad or 0) + U`, total = `(total + U) or (U > 0)`; rate =
   increase / `PromQlRenderer::seconds(r)`. Sloth — `badIncrease`/`eventsIncrease` с прямой per-series формой над `{{.window}}`.
   Coverage/no-events задачи учитывают started-серию.
 

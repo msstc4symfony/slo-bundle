@@ -27,13 +27,6 @@ use Override;
  */
 final readonly class RuleGroupsBuilder implements RuleFileBuilderInterface
 {
-    private const FAST_RATE_WINDOWS = ['5m', '30m', '1h', '6h'];
-
-    /**
-     * Long-range records are expensive; they run in the 5m window group.
-     */
-    private const SLOW_RATE_WINDOWS = ['3d'];
-
     private const FAST = 'fast';
 
     private const SLOW = 'slow';
@@ -55,23 +48,26 @@ final readonly class RuleGroupsBuilder implements RuleFileBuilderInterface
     #[Override]
     public function recordingRules(Selector $selector, array $objectives): string
     {
-        return $this->document($objectives, function (BoundObjective $objective) use ($selector): array {
+        $perSlo = [];
+
+        return $this->document($objectives, function (BoundObjective $objective) use ($selector, &$perSlo): array {
             $labels = $this->recordingLabels($objective, $selector->application);
             $record = $this->record(...);
             $fast = [];
-            // First in the 1m group: every window of this objective sums it, including the ones recorded just below.
-            $unfinished = $this->promQl->stepUnfinishedRuns($selector, $objective, $this->fastInterval());
-            if ($unfinished !== null) {
-                $fast[] = $record($labels, PromQlBuilder::UNFINISHED_RUNS_RECORD, $unfinished);
+            $slow = [];
+            // The SLO's first objective records its unfinished runs, first in each group: every objective reads them.
+            $name = $objective->definition->name()->value;
+            if (!isset($perSlo[$name])) {
+                $perSlo[$name] = true;
+                ['fast' => $fast, 'slow' => $slow] = $this->unfinishedRunRecords($selector, $objective);
             }
-            foreach (self::FAST_RATE_WINDOWS as $window) {
+            foreach (PromQlBuilder::FAST_RATE_WINDOWS as $window) {
                 $fast[] = $record($labels, 'slo:events:rate' . $window, $this->promQl->eventsRate($selector, $objective, $window));
                 $fast[] = $record($labels, 'slo:error_ratio:rate' . $window, $this->promQl->errorRatio($selector, $objective, $window));
             }
             $fast[] = $record($labels, 'slo:objective:target', \sprintf('vector(%s)', PromQlRenderer::number($objective->objective->target->percent / 100)));
 
-            $slow = [];
-            foreach (self::SLOW_RATE_WINDOWS as $window) {
+            foreach (PromQlBuilder::SLOW_RATE_WINDOWS as $window) {
                 $slow[] = $record($labels, 'slo:events:rate' . $window, $this->promQl->eventsRate($selector, $objective, $window));
                 $slow[] = $record($labels, 'slo:error_ratio:rate' . $window, $this->promQl->errorRatio($selector, $objective, $window));
             }
@@ -139,6 +135,29 @@ final readonly class RuleGroupsBuilder implements RuleFileBuilderInterface
     }
 
     /**
+     * Per SLO: the step record and its increase over every range the objectives read (rate windows and the SLO window).
+     *
+     * @return array{fast: list<RuleShape>, slow: list<RuleShape>}
+     */
+    private function unfinishedRunRecords(Selector $selector, BoundObjective $objective): array
+    {
+        $step = $this->promQl->stepUnfinishedRuns($selector, $objective, $this->fastInterval());
+        if ($step === null) {
+            return ['fast' => [], 'slow' => []];
+        }
+        $labels = $this->sloLabels($objective, $selector->application);
+        $slowRanges = array_diff(array_unique([...PromQlBuilder::SLOW_RATE_WINDOWS, PromQlRenderer::window($objective->definition->window())]), PromQlBuilder::FAST_RATE_WINDOWS);
+        $records = ['fast' => [$this->record($labels, PromQlBuilder::UNFINISHED_RUNS_RECORD, $step)], 'slow' => []];
+        foreach (['fast' => PromQlBuilder::FAST_RATE_WINDOWS, 'slow' => $slowRanges] as $group => $ranges) {
+            foreach ($ranges as $range) {
+                $records[$group][] = $this->record($labels, PromQlBuilder::UNFINISHED_RUNS_INCREASE_RECORD . $range, $this->promQl->unfinishedRunsIncrease($objective, $selector->application, $range));
+            }
+        }
+
+        return $records;
+    }
+
+    /**
      * The unfinished-runs record is evaluated once per step, so the group interval is the step the runtime cut-off uses.
      *
      * @return non-empty-string
@@ -166,17 +185,28 @@ final readonly class RuleGroupsBuilder implements RuleFileBuilderInterface
      */
     private function recordingLabels(BoundObjective $objective, string $application): array
     {
-        $labels = [
-            'application' => $application,
-            'slo' => $objective->definition->name()->value,
-            'objective' => $objective->objective->kind->value,
-            'window' => $objective->definition->window()->toString(),
-        ];
+        $labels = [...$this->sloLabels($objective, $application), 'objective' => $objective->objective->kind->value];
         if ($objective->binding->strategy === Strategy::Dedicated) {
             $labels['revision'] = $objective->revision->value;
         }
 
         return $labels;
+    }
+
+    /**
+     * Labels of the records kept once per SLO.
+     *
+     * @param non-empty-string $application
+     *
+     * @return array<non-empty-string, string>
+     */
+    private function sloLabels(BoundObjective $objective, string $application): array
+    {
+        return [
+            'application' => $application,
+            'slo' => $objective->definition->name()->value,
+            'window' => $objective->definition->window()->toString(),
+        ];
     }
 
     /**

@@ -392,8 +392,8 @@
 
 - Буквальная формула спеки `started[w] offset d - finished[w] offset d` считает незавершённым любой здоровый запуск,
   пересекающий `t-d`. Используется R1: старты в `[t-d-r, t-d]` минус финиши в `[t-d-r, t]`.
-- **U — событийная серия** (fix rounds 1–3). Правило `slo:unfinished_runs:step` (первое в 1m-группе каждой task-цели, метки
-  как у остальных записей цели) пишет U за один шаг: старты в `[t-d-1m, t-d]` минус финиши в `[t-d-1m, t]`. Убитый запуск
+- **U — событийная серия** (fix rounds 1–3). Правило `slo:unfinished_runs:step` (до 1.3 — первое в 1m-группе каждой
+  task-цели с метками цели; с 1.3 — одно на SLO, см. ниже) пишет U за один шаг: старты в `[t-d-1m, t-d]` минус финиши в `[t-d-1m, t]`. Убитый запуск
   появляется ровно один раз, ≈ start + d, как 1. Все окна (5m…30d, ratio, SLI, events, coverage-гейт) читают
   `(sum(sum_over_time(slo:unfinished_runs:step{...}[r])) or vector(0))`. Причина: per-series U прямо за окно r требует
   жизни серии ≥ d+r, а `instance`/`pod` меняется при каждой замене пода (metrics-bundle над общим Redis отдаёт счётчики с
@@ -466,3 +466,16 @@
 - `isMonitored()` с одним лишь конфликтным именем на точке покрыт тестом (R8); `CompiledSloCatalogTest` строит устаревший дамп
   формата 3 как текущий минус `deadline_ms`/`scheduled_tasks` (CR-016).
 - PhpStorm MCP `get_inspections` в этом раунде недоступен (инструмента нет в сессии).
+
+## U один раз на SLO (CR-011/CR-012, 2026-11-27 UTC)
+
+- `slo:unfinished_runs:step` и `slo:unfinished_runs:increase<r>` пишутся у первой цели SLO (U зависит только от
+  `runDeadline()` и точек SLO). Читатели выбирают `objective=""`: step-серии 1.2.0 с меткой `objective` ещё лежат в
+  длинных окнах после upgrade, и сумма без фильтра посчитала бы каждый запуск по разу на цель (promtool-группа
+  «per-objective step records of 1.2.0 are not counted»; без фильтра она даёт 2 вместо 0). Цена: незавершённые запуски
+  окна до upgrade не считаются.
+- Promtool читает **закоммиченный** golden `tests/Fixtures/Generated/prometheus/slo-recording.rules.yml`, а не генерирует
+  правила: мутация в `src` promtool-тест не роняет, мутировать надо golden. Перегенерировать golden — из
+  `GenerationFixture::action(GenerationFixture::catalog())(GenerationFixture::input())` (тест сравнивает побайтно).
+- Окно SLO, совпадающее с быстрым окном (1h, 6h) или с 3d, пишется один раз — в группе того окна; SLI 5m-группы тогда
+  читает запись 1m-группы (отставание ≤ шаг).

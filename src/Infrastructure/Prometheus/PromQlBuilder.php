@@ -28,10 +28,19 @@ final readonly class PromQlBuilder
     /** Two runs of the 5m group: one missed evaluation still finds a sample. */
     public const SLOW_RECORD_LOOKBACK = '10m';
 
-    /** Per-step unfinished runs of a scheduled-task objective, recorded by the 1m group and summed by every window. */
+    /** Per-step unfinished runs of a scheduled-task SLO, recorded once per SLO by the 1m group. */
     public const UNFINISHED_RUNS_RECORD = 'slo:unfinished_runs:step';
 
-    private const SLOW_RECORDS = ['slo:events:rate3d', 'slo:error_ratio:rate3d', 'slo:sli:ratio', 'slo:error_budget:remaining', 'slo:window:coverage_ratio'];
+    /** The step record summed over a window, `slo:unfinished_runs:increase<window>`, once per SLO; every objective reads it. */
+    public const UNFINISHED_RUNS_INCREASE_RECORD = 'slo:unfinished_runs:increase';
+
+    /** Rate windows of the 1m group. */
+    public const FAST_RATE_WINDOWS = ['5m', '30m', '1h', '6h'];
+
+    /** Rate windows of the 5m "-window" group: long ranges are expensive. */
+    public const SLOW_RATE_WINDOWS = ['3d'];
+
+    private const SLOW_RECORDS = ['slo:sli:ratio', 'slo:error_budget:remaining', 'slo:window:coverage_ratio'];
 
     private const NAMESPACE = 'symfony_';
 
@@ -116,8 +125,9 @@ final readonly class PromQlBuilder
     }
 
     /**
-     * Unfinished runs over the range. Prometheus rules sum the step record (stepUnfinishedRuns), so a long window needs
-     * only d + step of series lifetime; a Sloth `{{.window}}` cannot read the bundle's records and gets the direct form.
+     * Unfinished runs over the range: Prometheus rules read the SLO's increase record of that range
+     * (unfinishedRunsIncrease), so the generated rules must record every range they use; a Sloth `{{.window}}` cannot
+     * read the bundle's records and gets the direct form.
      *
      * @param non-empty-string $range
      *
@@ -132,7 +142,20 @@ final readonly class PromQlBuilder
             return $this->directUnfinishedRuns($selector, $objective, $range);
         }
 
-        return \sprintf('(sum(sum_over_time(%s[%s])) or vector(0))', $this->recorded(self::UNFINISHED_RUNS_RECORD, $objective, $selector->application), $range);
+        return \sprintf('(sum(%s) or vector(0))', $this->recordedPerSlo(self::UNFINISHED_RUNS_INCREASE_RECORD . $range, $objective, $selector->application));
+    }
+
+    /**
+     * The step record of a task SLO summed over the range, so a long window needs only d + step of series lifetime.
+     *
+     * @param non-empty-string $application
+     * @param non-empty-string $range
+     *
+     * @return non-empty-string
+     */
+    public function unfinishedRunsIncrease(BoundObjective $objective, string $application, string $range): string
+    {
+        return \sprintf('(sum(sum_over_time(%s[%s])) or vector(0))', $this->recordedPerSlo(self::UNFINISHED_RUNS_RECORD, $objective, $application), $range);
     }
 
     /**
@@ -229,6 +252,13 @@ final readonly class PromQlBuilder
      */
     public static function isSlowRecord(string $record): bool
     {
+        if (str_starts_with($record, self::UNFINISHED_RUNS_INCREASE_RECORD)) {
+            return !\in_array(substr($record, \strlen(self::UNFINISHED_RUNS_INCREASE_RECORD)), self::FAST_RATE_WINDOWS, true);
+        }
+        if (preg_match('/^slo:(?:events|error_ratio):rate(\w+)$/D', $record, $match) === 1) {
+            return \in_array($match[1], self::SLOW_RATE_WINDOWS, true);
+        }
+
         return \in_array($record, self::SLOW_RECORDS, true);
     }
 
@@ -299,6 +329,24 @@ final readonly class PromQlBuilder
             $finishedAtStart,
             $reset,
         );
+    }
+
+    /**
+     * A record kept once per SLO. `objective=""` skips the per-objective step records of 1.2.0, still inside long
+     * windows after an upgrade, which would count every run once per objective.
+     *
+     * @param non-empty-string $record
+     * @param non-empty-string $application
+     *
+     * @return non-empty-string
+     */
+    private function recordedPerSlo(string $record, BoundObjective $objective, string $application): string
+    {
+        return $record . $this->matchers([
+            Matcher::equals('application', $application),
+            Matcher::equals('slo', $objective->definition->name()->value),
+            Matcher::equals('objective', ''),
+        ]);
     }
 
     /**

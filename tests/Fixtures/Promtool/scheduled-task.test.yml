@@ -158,12 +158,16 @@ tests:
         values: '100x12 101x60'
     promql_expr_test:
       # increase() extrapolates the events counter, so the two halves are read exactly.
-      - expr: sum by (objective) (sum_over_time(slo:unfinished_runs:step{slo="cleanup.run"}[30m]))
+      # One step record per SLO, read by both objectives through the increase record of the window.
+      - expr: sum_over_time(slo:unfinished_runs:step{slo="cleanup.run"}[30m])
         eval_time: 30m
         exp_samples:
-          - labels: '{objective="availability"}'
+          - labels: '{application="shop",slo="cleanup.run",window="30d"}'
             value: 1
-          - labels: '{objective="latency"}'
+      - expr: slo:unfinished_runs:increase30m{slo="cleanup.run"}
+        eval_time: 30m
+        exp_samples:
+          - labels: 'slo:unfinished_runs:increase30m{application="shop",slo="cleanup.run",window="30d"}'
             value: 1
       - expr: sum by (objective, result) (symfony_slo_events_total{slo="cleanup.run"} - symfony_slo_events_total{slo="cleanup.run"} offset 25m)
         eval_time: 30m
@@ -177,6 +181,25 @@ tests:
         exp_samples:
           - labels: 'slo:error_ratio:rate30m{application="shop",objective="latency",revision="2a2eb2b1",slo="cleanup.run",window="30d"}'
             value: 1
+
+  # Step records of 1.2.0 carry the objective; a window spanning the upgrade must not add them to the SLO's own.
+  - name: per-objective step records of 1.2.0 are not counted
+    interval: 1m
+    input_series:
+      - series: 'slo:unfinished_runs:step{application="shop",objective="availability",revision="e16395ab",slo="cleanup.run",window="30d"}'
+        values: '0x5 1 0x20'
+      - series: 'slo:unfinished_runs:step{application="shop",objective="latency",revision="2a2eb2b1",slo="cleanup.run",window="30d"}'
+        values: '0x5 1 0x20'
+      - series: 'symfony_slo_scheduled_task_started_total{application="shop",component="worker",task="App\\Task\\CleanupTask::__invoke"}'
+        values: '5x30'
+      - series: 'symfony_slo_scheduled_task_finished_total{application="shop",component="worker",task="App\\Task\\CleanupTask::__invoke",outcome="success"}'
+        values: '5x30'
+    promql_expr_test:
+      - expr: slo:unfinished_runs:increase30m{slo="cleanup.run"}
+        eval_time: 20m
+        exp_samples:
+          - labels: 'slo:unfinished_runs:increase30m{application="shop",slo="cleanup.run",window="30d"}'
+            value: 0
 
   - name: task that always dies reads 100 % bad and covers its window
     interval: 1m

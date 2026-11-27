@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace Msstc4Symfony\SloBundle\Test\Unit\Application\Generation\GenerateRules;
 
 use Msstc4Symfony\SloBundle\Application\Attribute\Availability;
+use Msstc4Symfony\SloBundle\Application\Attribute\Latency;
 use Msstc4Symfony\SloBundle\Application\Attribute\Slo;
+use Msstc4Symfony\SloBundle\Application\Discovery\CatalogAssembler;
+use Msstc4Symfony\SloBundle\Application\Discovery\CatalogExtras;
 use Msstc4Symfony\SloBundle\Application\Generation\GeneratedFile;
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateRules\Action;
 use Msstc4Symfony\SloBundle\Application\Generation\GenerateRules\Input;
@@ -16,9 +19,11 @@ use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
 use Msstc4Symfony\SloBundle\Domain\Service\RevisionCalculator;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\PointId;
 use Msstc4Symfony\SloBundle\Domain\ValueObject\SloName;
+use Msstc4Symfony\SloBundle\Infrastructure\Catalog\CompiledSloCatalog;
 use Msstc4Symfony\SloBundle\Infrastructure\Prometheus\PromQlBuilder;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Catalog\CatalogFixture;
 use Msstc4Symfony\SloBundle\Test\Unit\Application\Generation\GenerationFixture;
+use PHPUnit\Framework\Attributes\TestWith;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Yaml\Yaml;
 
@@ -97,9 +102,10 @@ final class ActionTest extends TestCase
                 self::assertIsArray($rule);
                 self::assertIsArray($rule['labels']);
                 self::assertIsString($rule['record']);
-                self::assertIsString($rule['labels']['objective']);
+                $objective = $rule['labels']['objective'] ?? 'slo';
+                self::assertIsString($objective);
 
-                return $rule['record'] . ' ' . $rule['labels']['objective'] . (isset($rule['labels']['revision']) ? ' B' : ' A');
+                return $rule['record'] . ' ' . $objective . (isset($rule['labels']['revision']) ? ' B' : ' A');
             }, $group['rules']);
         }
 
@@ -121,8 +127,10 @@ final class ActionTest extends TestCase
         self::assertSame([...$slow('availability', 'A'), ...$slow('latency', 'A')], $groups['slo-payment.process-window']);
         self::assertSame($fast('availability', 'B'), $groups['slo-report.export']);
         self::assertSame($slow('availability', 'B'), $groups['slo-report.export-window']);
-        self::assertSame(['slo:unfinished_runs:step availability B', ...$fast('availability', 'B'), 'slo:unfinished_runs:step latency B', ...$fast('latency', 'B')], $groups['slo-cleanup.run']);
-        self::assertSame($slow('availability', 'B'), $groups['slo-partners.sync-window']);
+        $unfinished = static fn (string ...$records): array => array_map(static fn (string $record): string => 'slo:unfinished_runs:' . $record . ' slo A', $records);
+        self::assertSame([...$unfinished('step', 'increase5m', 'increase30m', 'increase1h', 'increase6h'), ...$fast('availability', 'B'), ...$fast('latency', 'B')], $groups['slo-cleanup.run']);
+        self::assertSame([...$unfinished('increase3d', 'increase30d'), ...$slow('availability', 'B'), ...$slow('latency', 'B')], $groups['slo-cleanup.run-window']);
+        self::assertSame([...$unfinished('increase3d', 'increase30d'), ...$slow('availability', 'B')], $groups['slo-partners.sync-window']);
         foreach ($groups as $name => $rules) {
             foreach ($rules as $rule) {
                 self::assertSame(str_ends_with($name, '-window'), PromQlBuilder::isSlowRecord(explode(' ', $rule)[0]), $name . ': ' . $rule);
@@ -149,9 +157,59 @@ final class ActionTest extends TestCase
                 $sums = str_starts_with($rule['record'], 'slo:events:rate') || str_starts_with($rule['record'], 'slo:error_ratio:rate') || $rule['record'] === 'slo:sli:ratio';
                 $reads = \in_array($rule['record'], [PromQlBuilder::UNFINISHED_RUNS_RECORD, 'slo:window:coverage_ratio'], true);
                 self::assertSame($task && $reads, str_contains($rule['expr'], 'symfony_slo_scheduled_task_started_total'), $rule['record'] . ' of ' . $rule['labels']['slo']);
-                self::assertSame($task && $sums, str_contains($rule['expr'], 'sum_over_time(slo:unfinished_runs:step{'), $rule['record'] . ' of ' . $rule['labels']['slo']);
+                $increase = str_starts_with($rule['record'], PromQlBuilder::UNFINISHED_RUNS_INCREASE_RECORD);
+                self::assertSame($task && $sums, str_contains($rule['expr'], PromQlBuilder::UNFINISHED_RUNS_INCREASE_RECORD), $rule['record'] . ' of ' . $rule['labels']['slo']);
+                self::assertSame($task && $increase, str_contains($rule['expr'], 'sum_over_time(slo:unfinished_runs:step{'), $rule['record'] . ' of ' . $rule['labels']['slo']);
             }
         }
+    }
+
+    /**
+     * A read of an increase record nobody writes would silently be 0: a task that always dies would look healthy.
+     */
+    public function testEveryIncreaseRecordReadIsRecordedForItsSlo(): void
+    {
+        $recorded = [];
+        $read = [];
+        foreach ($this->rules(GenerationFixture::catalog()) as $rule) {
+            $recorded[$rule['slo']][] = $rule['record'];
+            preg_match_all('/(' . preg_quote(PromQlBuilder::UNFINISHED_RUNS_INCREASE_RECORD, '/') . '\w+)\{application="shop",slo="([^"]+)"/', $rule['expr'], $matches, PREG_SET_ORDER);
+            foreach ($matches as $match) {
+                self::assertSame($rule['slo'], $match[2]);
+                $read[$match[2]][] = $match[1];
+            }
+        }
+
+        self::assertSame(['cleanup.run', 'partners.sync'], array_keys($read));
+        foreach ($read as $slo => $records) {
+            self::assertSame([], array_values(array_diff($records, $recorded[$slo])), $slo);
+        }
+    }
+
+    /**
+     * An SLO window equal to a rate window is recorded once, in the group of that rate window.
+     */
+    #[TestWith(['1h'])]
+    #[TestWith(['6h'])]
+    #[TestWith(['3d'])]
+    public function testAnSloWindowEqualToARateWindowIsRecordedOnce(string $window): void
+    {
+        $catalog = CatalogFixture::build(
+            static function (CatalogAssembler $assembler) use ($window): void {
+                $assembler->declare(PointId::of(PointType::ScheduledTask, GenerationFixture::CLEANUP_TASK), new Slo('cleanup.run', [new Availability(99), new Latency('120s', 95)], window: $window));
+            },
+            new CatalogExtras(scheduledTasks: [GenerationFixture::CLEANUP_TASK]),
+        );
+        $increases = array_values(array_filter(
+            $this->rules($catalog),
+            static fn (array $rule): bool => str_starts_with($rule['record'], PromQlBuilder::UNFINISHED_RUNS_INCREASE_RECORD),
+        ));
+
+        self::assertSame(
+            ['5m' => 'slo-cleanup.run', '30m' => 'slo-cleanup.run', '1h' => 'slo-cleanup.run', '6h' => 'slo-cleanup.run', '3d' => 'slo-cleanup.run-window'],
+            array_column(array_map(static fn (array $rule): array => [substr($rule['record'], \strlen(PromQlBuilder::UNFINISHED_RUNS_INCREASE_RECORD)), $rule['group']], $increases), 1, 0),
+        );
+        self::assertCount(5, $increases);
     }
 
     public function testNoEventsAlertIsOptIn(): void
@@ -218,6 +276,32 @@ final class ActionTest extends TestCase
         self::assertSame(['SLO a.b is declared differently on several points and gets no rules, see slo:validate'], $output->warnings);
         self::assertStringContainsString('groups: []', $this->recording($output));
         self::assertStringContainsString('groups: []', $this->alerts($output));
+    }
+
+    /**
+     * @return list<array{group: string, record: string, slo: string, expr: string}>
+     */
+    private function rules(CompiledSloCatalog $catalog): array
+    {
+        $recording = Yaml::parse($this->recording(GenerationFixture::action($catalog)(GenerationFixture::input())));
+        self::assertIsArray($recording);
+        self::assertIsArray($recording['groups']);
+        $rules = [];
+        foreach ($recording['groups'] as $group) {
+            self::assertIsArray($group);
+            self::assertIsString($group['name']);
+            self::assertIsArray($group['rules']);
+            foreach ($group['rules'] as $rule) {
+                self::assertIsArray($rule);
+                self::assertIsArray($rule['labels']);
+                self::assertIsString($rule['record']);
+                self::assertIsString($rule['expr']);
+                self::assertIsString($rule['labels']['slo']);
+                $rules[] = ['group' => $group['name'], 'record' => $rule['record'], 'slo' => $rule['labels']['slo'], 'expr' => $rule['expr']];
+            }
+        }
+
+        return $rules;
     }
 
     /**

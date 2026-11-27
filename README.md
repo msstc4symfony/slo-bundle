@@ -348,8 +348,10 @@ Commit the directory, run `slo:generate --check` in CI ("rules are stale" fails 
 
 - Recording rules per SLO and objective: `slo:events:rate<5m|30m|1h|6h|3d>`, `slo:error_ratio:rate<w>`,
   `slo:objective:target`, `slo:sli:ratio`, `slo:error_budget:remaining`, `slo:window:coverage_ratio`, and for
-  scheduled tasks `slo:unfinished_runs:step` (runs that passed their deadline without finishing in the last 1m
-  evaluation, summed by every window). Every series is scoped by `application` (and by `component` when configured).
+  scheduled tasks, once per SLO (labels `application`, `slo`, `window`, no `objective`), `slo:unfinished_runs:step`
+  (runs that passed their deadline without finishing in the last 1m evaluation) and
+  `slo:unfinished_runs:increase<w>` (the step record summed over each rate window and over the SLO window). Every
+  series is scoped by `application` (and by `component` when configured).
 - Scheduled tasks write per-task run metrics for every attempt of a task that has an SLO (retries included):
 
   | Metric | Labels |
@@ -362,7 +364,8 @@ Commit the directory, run `slo:generate --check` in CI ("rules are stale" fails 
   `finished`, so these series are the only way to see it. Unfinished runs of task SLOs are computed from them: the
   record `slo:unfinished_runs:step` counts, once per minute and per series, the runs started in
   `[t - d - 1m, t - d]` minus the runs finished in `[t - d - 1m, t]` (`d` is the run deadline; instant counter values,
-  clamped at 0, the label `outcome` ignored), and every window sums the record with `sum_over_time`. They are bad
+  clamped at 0, the label `outcome` ignored), and `slo:unfinished_runs:increase<w>` sums it with `sum_over_time` for
+  every objective of the SLO. They are bad
   events and part of the total, so a task that always dies reads 100 % bad, not NoData; the coverage gate and the
   `SloNoEvents` alert of a task SLO also treat the started series as data. A run that finishes more than one scrape
   interval before its deadline is never counted as unfinished. What the formula misses, never inventing a run
@@ -482,6 +485,9 @@ few public methods of the types below that carry `@internal` (helpers of discove
   `scheduled_task` row, so `slo:generate --check` reports drift until you regenerate. `slo:coverage --min` now applies
   to scheduled tasks too, so an application with unmonitored Scheduler tasks fails a `--min` gate until they get an
   SLO or `#[IgnoreMonitoring]`.
+- 1.3 records the unfinished runs of a task SLO once per SLO: `slo:unfinished_runs:step` has no `objective` and
+  `revision` labels any more, and `slo:unfinished_runs:increase<w>` is new. Queries of your own on the step record by
+  `objective` need changing; regenerate the rules. Hung runs from before the upgrade are not counted in the windows.
 - metrics-bundle 2.3.0 is the minimum; with an older metrics-bundle the container does not compile.
 - A change of event semantics (threshold, classification, point type) changes the `revision`; the SLI of the new
   revision warms up for one window while the generated rules ignore the old one. Regenerate and commit the rules
