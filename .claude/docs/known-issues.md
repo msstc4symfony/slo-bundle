@@ -463,6 +463,9 @@
   transport — незавершённый запуск = bad по R6 (CR-004); долгие deadline + замена пода: step-record нужна жизнь серии d+1m, Sloth —
   d+окно; совет — один target или relabel `instance` для общего Redis (CR-015).
 - Дашборд «Runs started minus finished over the time range»: `increase(...[$__range])` по задаче вместо сырых счётчиков (CR-008).
+  С 1.3 (S-002) панели нет: разность `increase` на `$__range` дробная, бывает отрицательной и умножается при общем Redis.
+  Вместо неё stat «Runs counted unfinished over the time range» = `sum by (slo) (sum_over_time(slo:unfinished_runs:step{…,objective=""}[$__range]))`
+  — целые запуски, те же, что считают SLO-правила; разрез по SLO, а не по задаче (step-запись — одна на SLO).
 - `isMonitored()` с одним лишь конфликтным именем на точке покрыт тестом (R8); `CompiledSloCatalogTest` строит устаревший дамп
   формата 3 как текущий минус `deadline_ms`/`scheduled_tasks` (CR-016).
 - PhpStorm MCP `get_inspections` в этом раунде недоступен (инструмента нет в сессии).

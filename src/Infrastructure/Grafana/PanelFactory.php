@@ -115,12 +115,17 @@ final readonly class PanelFactory
     {
         $targets = [];
         foreach (array_values($queries) as $index => $query) {
-            $targets[] = [
+            $target = [
                 'datasource' => self::DATASOURCE,
                 'expr' => $query->expr,
                 'legendFormat' => $query->legend,
                 'refId' => \chr(ord('A') + $index),
             ];
+            if ($query->instant) {
+                $target['instant'] = true;
+                $target['range'] = false;
+            }
+            $targets[] = $target;
         }
 
         return new Panel([

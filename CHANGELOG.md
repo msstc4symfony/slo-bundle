@@ -10,6 +10,9 @@
   rates, error ratios and SLI read them instead of summing the step record three times each. Readers select
   `objective=""`, so the per-objective step records of 1.2.0 still inside a window after the upgrade are not counted
   (unfinished runs of the last window before the upgrade are not counted either). Regenerate the rules.
+- Scheduled Tasks dashboard: the timeseries "Runs started minus finished over the time range" is replaced by the stat
+  "Runs counted unfinished over the time range", per SLO, from `slo:unfinished_runs:step` (the runs the SLO rules count
+  as unfinished). The counter difference was fractional over a range and multiplied when replicas export one storage.
 
 ## [1.2.0] - 2026-11-25
 

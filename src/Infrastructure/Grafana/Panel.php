@@ -26,7 +26,7 @@ use InvalidArgumentException;
  *     max?: float,
  * }
  * @phpstan-type PanelOptions array<non-empty-string, bool|string|array<array-key, mixed>>
- * @phpstan-type TargetJson array{datasource: array{type: 'prometheus', uid: non-empty-string}, expr: string, legendFormat: string, refId: non-empty-string}
+ * @phpstan-type TargetJson array{datasource: array{type: 'prometheus', uid: non-empty-string}, expr: string, legendFormat: string, refId: non-empty-string, instant?: true, range?: false}
  * @phpstan-type PanelJson array{
  *     type: 'timeseries'|'stat'|'gauge'|'text'|'row',
  *     title: string,

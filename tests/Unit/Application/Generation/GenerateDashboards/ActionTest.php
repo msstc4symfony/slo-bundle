@@ -89,6 +89,24 @@ final class ActionTest extends TestCase
         self::assertGreaterThan(50, $seen);
     }
 
+    /**
+     * Whole runs from the step record the SLO rules count, not started minus finished counters (fractional over a range).
+     */
+    public function testScheduledTasksCountUnfinishedRunsFromTheStepRecord(): void
+    {
+        $panels = $this->dashboards()['grafana/dashboards/slo-scheduled-tasks.json']->views('panels');
+        $unfinished = array_values(array_filter($panels, static fn (JsonView $panel): bool => $panel->get('title') === 'Runs counted unfinished over the time range'));
+
+        self::assertCount(1, $unfinished);
+        self::assertSame('stat', $unfinished[0]->get('type'));
+        self::assertSame(
+            ['sum by (slo) (sum_over_time(slo:unfinished_runs:step{application="$application",objective=""}[$__range]))'],
+            $unfinished[0]->column('targets', 'expr'),
+        );
+        self::assertSame([true], $unfinished[0]->column('targets', 'instant'));
+        self::assertSame([false], $unfinished[0]->column('targets', 'range'));
+    }
+
     public function testEveryQueryPanelDeclaresNoValue(): void
     {
         foreach ($this->dashboards() as $path => $dashboard) {
@@ -185,7 +203,7 @@ final class ActionTest extends TestCase
 
         self::assertSame('SLO: Scheduled Tasks (shop: web, worker)', $dashboard->get('title'));
         $titles = $dashboard->column('panels', 'title');
-        self::assertSame(['Runs started by task', 'Runs finished by task and outcome', 'p95 run duration by task', 'Runs started minus finished over the time range'], \array_slice($titles, 0, 4));
+        self::assertSame(['Runs started by task', 'Runs finished by task and outcome', 'p95 run duration by task', 'Runs counted unfinished over the time range'], \array_slice($titles, 0, 4));
         self::assertContains('cleanup.run / availability', $titles);
         self::assertContains('cleanup.run / latency', $titles);
         self::assertContains('partners.sync / availability', $titles);
