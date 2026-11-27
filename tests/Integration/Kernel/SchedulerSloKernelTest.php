@@ -6,6 +6,7 @@ namespace Msstc4Symfony\SloBundle\Test\Integration\Kernel;
 
 use Msstc4Symfony\MetricsBundle\Application\Port\MetricStorageInterface;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Scheduler\CleanupTask;
+use Msstc4Symfony\SloBundle\Test\Fixtures\Scheduler\RedispatchedTask;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Scheduler\SyncPartnersCommand;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Scheduler\UnmonitoredTask;
 use Override;
@@ -75,6 +76,30 @@ final class SchedulerSloKernelTest extends KernelTestCase
             'duration_seconds_count|' . self::CLEANUP . '|success' => 1,
             'finished_total|' . self::CLEANUP . '|success' => 1,
             'started_total|' . self::CLEANUP => 1,
+        ], $this->runs());
+    }
+
+    /**
+     * A task with "transports" reaches scheduler_<name> as a RedispatchMessage, which is not measured, and runs where
+     * that sends it: the run counts once, on the consuming transport.
+     */
+    public function testTaskWithTransportsIsMeasuredOnceWhereItIsRedispatched(): void
+    {
+        Clock::set(new MockClock('2026-11-25 10:00:00 UTC'));
+        $task = RedispatchedTask::class . '::__invoke';
+
+        $this->consume('scheduler_redispatch', 1, 120);
+
+        self::assertSame([], $this->runs());
+        self::assertCount(1, $this->transport(SchedulerSloTestKernel::ASYNC)->get());
+
+        $this->consume(SchedulerSloTestKernel::ASYNC, 1);
+
+        self::assertSame(['redispatched.run|availability|good' => 1], $this->counts());
+        self::assertSame([
+            'duration_seconds_count|' . $task . '|success' => 1,
+            'finished_total|' . $task . '|success' => 1,
+            'started_total|' . $task => 1,
         ], $this->runs());
     }
 

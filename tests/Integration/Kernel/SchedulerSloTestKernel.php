@@ -7,6 +7,7 @@ namespace Msstc4Symfony\SloBundle\Test\Integration\Kernel;
 use Msstc4Symfony\MetricsBundle\MetricsBundle;
 use Msstc4Symfony\SloBundle\SloBundle;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Scheduler\CleanupTask;
+use Msstc4Symfony\SloBundle\Test\Fixtures\Scheduler\RedispatchedTask;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Scheduler\SyncPartnersCommand;
 use Msstc4Symfony\SloBundle\Test\Fixtures\Scheduler\UnmonitoredTask;
 use Override;
@@ -81,6 +82,7 @@ final class SchedulerSloTestKernel extends Kernel
 
         $services = $container->services()->defaults()->autowire()->autoconfigure();
         $services->set(CleanupTask::class);
+        $services->set(RedispatchedTask::class);
         $services->set(SyncPartnersCommand::class);
         $services->set(UnmonitoredTask::class);
         // FrameworkBundle drops "clock" when symfony/clock is only a dev dependency of the root package, as it is here.

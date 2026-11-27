@@ -18,6 +18,7 @@ use Msstc4Symfony\SloBundle\Application\Port\PrecomputedRevisionsInterface;
 use Msstc4Symfony\SloBundle\Application\Port\RouteCatalogInterface;
 use Msstc4Symfony\SloBundle\Application\Port\RouteInfo;
 use Msstc4Symfony\SloBundle\Domain\Enum\ObjectiveKind;
+use Msstc4Symfony\SloBundle\Domain\Enum\Outcome;
 use Msstc4Symfony\SloBundle\Domain\Enum\PointType;
 use Msstc4Symfony\SloBundle\Domain\Enum\StrategyPreference;
 use Msstc4Symfony\SloBundle\Domain\Repository\SloCatalogInterface;
@@ -315,6 +316,37 @@ final class ActionTest extends TestCase
         self::assertCount(1, $writer->writes);
         self::assertCount(1, $logger->records);
         self::assertSame('http_route:' . self::CONTROLLER, $logger->contexts[0]['point']);
+    }
+
+    /**
+     * Each SLO of a task applies its own run deadline: a run late for one SLO (counted by the rules as unfinished)
+     * still writes its outcome for another whose deadline it met.
+     */
+    public function testScheduledTaskRunIsClassifiedAgainstTheDeadlineOfEachSlo(): void
+    {
+        $point = PointId::of(PointType::ScheduledTask, 'App\\ReportTask::__invoke');
+        $catalog = CatalogFixture::build(static function (CatalogAssembler $assembler) use ($point): void {
+            $assembler->declare($point, new Slo('report.fast', [new Availability(99)], deadline: '10s'));
+            $assembler->declare($point, new Slo('report.slow', [new Availability(99), new Latency('120s', 95)]));
+        });
+        $record = fn (Outcome $outcome, float $seconds): array => $this->writtenEvents($catalog, new Input($point, Observation::outcome(PointType::ScheduledTask, $outcome, $seconds)));
+
+        self::assertSame(['report.fast|availability|bad', 'report.slow|availability|bad'], $record(Outcome::Error, 5.0));
+        self::assertSame(['report.fast|availability|good', 'report.slow|availability|good', 'report.slow|latency|good'], $record(Outcome::Success, 70.0));
+        self::assertSame(['report.slow|availability|good', 'report.slow|latency|good'], $record(Outcome::Success, 70.001));
+        self::assertSame(['report.slow|availability|good', 'report.slow|latency|bad'], $record(Outcome::Success, 180.0));
+        self::assertSame([], $record(Outcome::Success, 180.001));
+    }
+
+    /**
+     * @return list<string> "<slo>|<objective>|<result>" per written event
+     */
+    private function writtenEvents(CompiledSloCatalog $catalog, Input $input): array
+    {
+        $writer = new InMemoryEventWriter();
+        $this->action($catalog, $writer, new RecordingLogger())->record($input);
+
+        return array_map(static fn (array $write): string => $write[0] . '|' . $write[1] . '|' . $write[3], $writer->writes);
     }
 
     /**

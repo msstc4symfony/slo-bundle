@@ -368,6 +368,10 @@
   (`Downgrading symfony/scheduler (v8.1.10 => v7.4.24)`), и `SchedulerSloKernelTest` гоняет настоящий 7.4
   `AddScheduleMessengerPass` с командной задачей. Тесты `getDefaultName()` (`#[RequiresMethod]`) там идут, в ячейках 8.x —
   2 skipped. Отдельный job не нужен.
+- **Опция `transports` задачи** проверена `SchedulerSloKernelTest::testTaskWithTransportsIsMeasuredOnceWhereItIsRedispatched`
+  (фикстура `RedispatchedTask`, своё расписание `redispatch`, чтобы не сдвигать первую задачу `scheduler_default`):
+  `RedispatchMessage` на `scheduler_<name>` не измеряется, запуск засчитывается один раз — там, куда его переотправили.
+  Точку с несколькими SLO и разными дедлайнами закрепляет `RecordEvent\ActionTest::testScheduledTaskRunIsClassifiedAgainstTheDeadlineOfEachSlo`.
 
 ## Worker-слушатель Scheduler (1.2, Task 4)
 
